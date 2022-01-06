@@ -1,0 +1,5 @@
+## run pip3 install -r [this_text_file.txt]
+pyTelegramBotAPI
+pandas
+numpy
+python-crontab
