@@ -4,6 +4,7 @@ from datetime import date#, timedelta
 
 ## bot modules
 import gymscraper as  gs ## for the wavegym command
+import srcscraper as sc ## for srcscraper command (NEW)
 import sheetscraper as ss ## for attendance stuffs
 import bashcmds as bc ## for interfacing with terminal in the pi
 import formfiller as ff ## for sending the log sheet
@@ -77,6 +78,60 @@ def handle_wavegym(message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
+
+## src command part 1
+@bot.message_handler(commands=['srcbookings'])
+def handle_srcbooking_1(message):
+    log.info("/srcbooking-1 handler triggered")
+    bot.send_message(message.chat.id, "SRC booking lookup! /exit to return")
+    bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
+    msg = bot.send_message(message.chat.id, "enter a facility number:")
+    bot.register_next_step_handler(msg, handle_srcbooking_2)
+
+def handle_srcbooking_2(message):
+    log.info("/srcbooking-2 handler triggered")
+    cond1, cond2 = False
+    text = message.text
+    ## exit command
+    if text == "/exit":
+        bot.send_message(message.chat.id, "exiting /srcbookings")
+        return
+
+
+
+# def handle_srcbooking_2(message):
+#     log.info("/srcbooking-2 handler triggered")
+#     text = message.text
+#     ## exit command
+#     if text == "/exit":
+#         bot.send_message(message.chat.id, "exiting /srcbookings")
+#         return
+
+#     ## input validation
+#     if text.isdigit():
+#         tablecol = int(text)
+#         if tablecol not in range(1, len(sc.config)+1): ## if number exceeds list length
+#             msg = bot.send_message(message.chat.id, "please enter a valid facility number:")
+#             bot.register_next_step_handler(msg, handle_srcbooking_2)
+#     else:
+#         log.debug(f"invalid input: {text} is not a number")
+#         msg = bot.send_message(message.chat.id, "please enter a facility number:")
+#         bot.register_next_step_handler(msg, handle_srcbooking_2)
+
+#     msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
+#     bot.register_next_step_handler(msg, handle_srcbooking_3, tablecol)
+
+# def handle_srcbooking_3(message, tablecol):
+#     log.info("/srcbooking-3 handler triggered")
+#     text = message.text
+#     ## exit command
+#     if text == "/exit":
+#         bot.send_message(message.chat.id, "exiting /srcbookings")
+#         return
+
+#     date_obj = sc.parse_date(text)
+#     bot.send_message(message.chat.id, \
+#         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])

@@ -1,0 +1,47 @@
+{
+    "canoebot": {
+        "apikey": "5034017049:AAFPv7V0MWp3fQDrE-rWoG14KdX3ZeYBxDw",
+        "known_chats" : {
+            "ntu-canoe" : -377840317,
+            "exco-20"   : -588325718,
+            "21-22"     : -1001559129798
+        },
+        "misc_handlers" : {
+            "MISC_OOGABOOGA"    : true,
+            "MISC_MARCOPOLO"    : true,
+            "MISC_PINGPONG"     : true,
+            "MISC_DIETBH"       : true,
+            "MISC_HELLNO"       : true,
+            "MISC_HELPNO"       : true,
+            "MISC_69NICE"       : true,
+            "MISC_NICENICE"     : true,
+            "MISC_OSAS"         : true,
+            "MISC_WHOBOT"       : true,
+            "MISC_LONGMSG"      : true,
+            "MISC_BASH"         : true
+        }
+    },
+
+    "sheetscraper": {
+        "sheet_id": "1Wogh2IxOfZWUOZ5cGZ6QNRmL9cq2HTr3E6AXFht91jI",
+        "use_deconflict": true,
+        "deconflict_ver": 2,
+        "deconflict_recursion_limit": 20
+    },
+
+    "formfiller": {
+        "form_id": "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA",
+        "particulars" : {
+            "Ho Chin Wei":"92380475",
+            "Ivan Koh":"96974461",
+            "Teo Xin Yan":"81219456",
+            "Iffah":"87685942",
+            "Yuki":"85353553",
+            "Ng Jia Rui":"98271522"
+        }
+    },
+
+    "logger": {
+        "debug_level": "DEBUG"
+    }
+}

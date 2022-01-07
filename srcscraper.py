@@ -14,7 +14,6 @@ log.debug("srcscraper loaded")
 
 _path = './srcscraper.config.json' ## path to srcscraper.config
 
-
 ## creating config variable in Dotionary form
 with open(_path) as jsonfile:
     json = jsn.load(jsonfile)
@@ -24,8 +23,16 @@ config = [Dot for i in range(len(json))]
 for i in range(len(config)):
     config[i] = Dot.to_dotionary(json[i])
 
-# for item in config:
-#     print(item)
+
+def parse_date(date_str:str) -> date:
+    '''Parse input string into a date object.\n
+    Invalid dates are interpreted as the current day'''
+    try:
+        date_obj = parse(date_str)
+    except:
+        date_obj = date.today()
+
+    return date_obj
 
 
 def show_facility_table() -> pd.DataFrame:
@@ -36,10 +43,10 @@ def show_facility_table() -> pd.DataFrame:
         returndf = returndf.append(pd.DataFrame({"no":[i+1], "facility":[config[i].name]}))
 
     returndf = returndf.convert_dtypes() ## set to ints
-    return returndf
+    return returndf.to_string(index=False)
 
 
-def get_booking_table(tablecol:int, date:date) -> pd.DataFrame:
+def get_booking_table(date:date, tablecol:int) -> pd.DataFrame:
     '''Returns the booking table for a particular day.\n
     Raw table output, taken direct from page'''
 
@@ -68,8 +75,11 @@ def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
         try:
             count = data_hr.value_counts()['Avail']
         except:
-            if (data_hr.value_counts()[0] == 20): ## if there ares 20 of the same entries
-                count = data_hr.iloc[0,0]         ## take the name of that entry, e.g. NTU DBM
+            if (data_hr.value_counts()[0] == courts):   ## if all entries are the same
+                if courts == 1: ## for privacy reasons
+                    count = 0
+                else:
+                    count = data_hr.iloc[0,0]           ## take the name of that entry, e.g. NTU DBM
             else:
                 count = 0
 
@@ -78,17 +88,38 @@ def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
     ## final formatting step
     avail_df = avail_df.convert_dtypes() ## convert to respective data types
     avail_df = avail_df.astype(str) ## then convert all to strings
-
+    avail_df.iloc[:,1] = avail_df.iloc[:,1].apply\
+        (lambda x: x + f"/{courts}" if x.isnumeric() else x)
 
     return avail_df
 
 
+def get_booking_result(date:date, tablecol:int) -> str:
+
+    ## fetch and format block
+    t_start = time.time()
+    table = get_booking_table(date, tablecol)
+    t_end = time.time()
+    table_f = format_booking_table(table, tablecol)
+
+    exec_time = "{:5.4f}".format(t_end - t_start) ##in seconds, to check on fetch speed
+
+    ## constructing string
+    returnstr = f"{date.strftime('%d %b %y, %A')}\n{config[tablecol].name}\n\n{table_f.to_string(index=False)}\n\nfetch time: {exec_time}s"
+
+    return returnstr
+
+
+
 # x = show_facility_table()
 # print(x)
-column = 9
+# column = 13
 
-y = get_booking_table(column, date.today())
-# print(y.info())
-print(y)
-z = format_booking_table(y, column)
-print(z)
+# y = get_booking_table(date.today(), column)
+# # print(y.info())
+# print(y)
+# z = format_booking_table(y, column)
+# print(z)
+
+# a = get_booking_result(date.today(), 14)
+# print(a)
