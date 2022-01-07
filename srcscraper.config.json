@@ -1,0 +1,77 @@
+[
+    {
+        "name": "Badminton Court",
+        "codename": "BB",
+        "courts": 6
+    },
+    {
+        "name": "Squash @ NTU Campus Clubhouse",
+        "codename": "QS",
+        "courts": 4
+    },
+    {
+        "name": "Table Tennis @ North Hill Function Hall",
+        "codename": "TA",
+        "courts": 6
+    },
+    {
+        "name": "Table Tennis @ Wave",
+        "codename": "TC",
+        "courts": 2
+    },
+    {
+        "name": "Tennis Court @ SRC",
+        "codename": "TS",
+        "courts": 6
+    },
+    {
+        "name": "Tennis Court @ Former Hall 7",
+        "codename": "TQ",
+        "courts": 2
+    },
+    {
+        "name": "North Hill Gym",
+        "codename": "NG",
+        "courts": 20
+    },
+    {
+        "name": "Swimming Pool",
+        "codename": "SP",
+        "courts": 25
+    },
+    {
+        "name": "Campus Clubhouse Gym",
+        "codename": "CG",
+        "courts": 5
+    },
+    {
+        "name": "Main Field @ SRC",
+        "codename": "MF",
+        "courts": 4
+    },
+    {
+        "name": "MPF 1 (archery range side)",
+        "codename": "F1",
+        "courts": 4
+    },
+    {
+        "name": "MPF 2 (spectator gallery side)",
+        "codename": "F2",
+        "courts": 4
+    },
+    {
+        "name": "Outdoor Basketball Court",
+        "codename": "BK",
+        "courts": 6
+    },
+    {
+        "name": "Street Soccer Court",
+        "codename": "SC",
+        "courts": 1
+    },
+    {
+        "name": "Weights Training Gym @ The Wave",
+        "codename": "WG",
+        "courts": 20
+    }
+]
