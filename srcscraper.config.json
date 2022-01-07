@@ -5,12 +5,12 @@
         "courts": 6
     },
     {
-        "name": "Squash @ NTU Campus Clubhouse",
+        "name": "Squash @ NTU Clubhouse",
         "codename": "QS",
         "courts": 4
     },
     {
-        "name": "Table Tennis @ North Hill Function Hall",
+        "name": "Table Tennis @ North Hill",
         "codename": "TA",
         "courts": 6
     },
@@ -70,7 +70,7 @@
         "courts": 1
     },
     {
-        "name": "Weights Training Gym @ The Wave",
+        "name": "Weights Training Gym @ Wave",
         "codename": "WG",
         "courts": 20
     }
