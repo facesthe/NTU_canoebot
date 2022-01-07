@@ -84,7 +84,7 @@ def handle_wavegym(message):
 @bot.message_handler(commands=['srcbookings'])
 def handle_srcbooking_1(message):
     log.info("/srcbooking-1 handler triggered")
-    bot.send_message(message.chat.id, "SRC booking lookup! /exit to return")
+    bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
     bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
     handle_srcbooking_2(message)
 
@@ -100,7 +100,7 @@ def handle_srcbooking_3(message):
     log.info("/srcbooking-3 handler triggered")
     text = message.text
     ## exit command
-    if text == "/exit":
+    if text == "/cancel":
         bot.send_message(message.chat.id, "exiting /srcbookings")
         return
 
@@ -129,7 +129,7 @@ def handle_srcbooking_4(message, tablecol):
     log.info("/srcbooking-4 handler triggered")
     text = message.text
     ## exit command
-    if text == "/exit":
+    if text == "/cancel":
         bot.send_message(message.chat.id, "exiting /srcbookings")
         return
 
