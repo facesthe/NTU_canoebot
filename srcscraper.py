@@ -1,7 +1,4 @@
-# new module that can view any bookable faclilty in SRC
 import json as jsn
-
-from pandas.io.formats.format import return_docstring
 import Dotionary as Dot
 import pandas as pd
 import time
@@ -33,6 +30,14 @@ def parse_date(date_str:str) -> date:
         date_obj = date.today()
 
     return date_obj
+
+
+def strtoint(data):
+    '''Attempts to convert a string data type into int'''
+    try:
+        return int(data)
+    except:
+        return data
 
 
 def show_facility_table() -> pd.DataFrame:
@@ -86,16 +91,19 @@ def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
         avail_df = avail_df.append({'time':hour,'slots':count},ignore_index=True)
 
     ## final formatting step
-    avail_df = avail_df.convert_dtypes() ## convert to respective data types
+    for col in avail_df.columns: ## convert to respective data types
+        avail_df.loc[:,col] = avail_df[col].apply(strtoint)
     avail_df = avail_df.astype(str) ## then convert all to strings
     avail_df.iloc[:,1] = avail_df.iloc[:,1].apply\
-        (lambda x: x + f"/{courts}" if x.isnumeric() else x)
+        (lambda x: x + f"/{courts}" if x.isnumeric() else x) ## additional, for ints
 
     return avail_df
 
 
 def get_booking_result(date:date, tablecol:int) -> str:
-
+    '''Main calling function.\n
+    Returns formatted string to be printed/sent.\n
+    Wraps the above 2 functions and formats the resulting string.'''
     ## fetch and format block
     t_start = time.time()
     table = get_booking_table(date, tablecol)
@@ -113,9 +121,9 @@ def get_booking_result(date:date, tablecol:int) -> str:
 
 # x = show_facility_table()
 # print(x)
-# column = 13
 
-# y = get_booking_table(date.today(), column)
+# column = 5
+# y = get_booking_table(date(2022,1,8), column)
 # # print(y.info())
 # print(y)
 # z = format_booking_table(y, column)

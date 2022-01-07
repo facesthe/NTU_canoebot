@@ -79,59 +79,63 @@ def handle_wavegym(message):
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
+
 ## src command part 1
 @bot.message_handler(commands=['srcbookings'])
 def handle_srcbooking_1(message):
     log.info("/srcbooking-1 handler triggered")
     bot.send_message(message.chat.id, "SRC booking lookup! /exit to return")
     bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
-    msg = bot.send_message(message.chat.id, "enter a facility number:")
-    bot.register_next_step_handler(msg, handle_srcbooking_2)
+    handle_srcbooking_2(message)
 
+## src command part 2
 def handle_srcbooking_2(message):
     log.info("/srcbooking-2 handler triggered")
-    cond1, cond2 = False
+
+    msg = bot.send_message(message.chat.id, "enter a facility number:")
+    bot.register_next_step_handler(msg, handle_srcbooking_3)
+
+## src command part 3
+def handle_srcbooking_3(message):
+    log.info("/srcbooking-3 handler triggered")
     text = message.text
     ## exit command
     if text == "/exit":
         bot.send_message(message.chat.id, "exiting /srcbookings")
         return
 
+    ## input validation
+    if text.isdigit():
+        tablecol = int(text)
+        if tablecol in range(1, len(sc.config)+1): ## in range, proceed
+            msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
+            bot.register_next_step_handler(msg, handle_srcbooking_4, tablecol)
+        else: ## number not in range
+            log.debug(f"Input number is out of range")
+            bot.send_message(message.chat.id, "number not valid")
+            # msg = bot.send_message(message.chat.id, "please enter a valid facility number:")
+            # bot.register_next_step_handler(message, handle_srcbooking_2)
+            handle_srcbooking_2(message)
 
+    else:
+        log.debug(f"invalid input: {text} is not a number")
+        bot.send_message(message.chat.id, "not a number")
+        # msg = bot.send_message(message.chat.id, "please enter a facility number:")
+        # bot.register_next_step_handler(message, handle_srcbooking_2)
+        handle_srcbooking_2(message)
 
-# def handle_srcbooking_2(message):
-#     log.info("/srcbooking-2 handler triggered")
-#     text = message.text
-#     ## exit command
-#     if text == "/exit":
-#         bot.send_message(message.chat.id, "exiting /srcbookings")
-#         return
+## src command part 4
+def handle_srcbooking_4(message, tablecol):
+    log.info("/srcbooking-4 handler triggered")
+    text = message.text
+    ## exit command
+    if text == "/exit":
+        bot.send_message(message.chat.id, "exiting /srcbookings")
+        return
 
-#     ## input validation
-#     if text.isdigit():
-#         tablecol = int(text)
-#         if tablecol not in range(1, len(sc.config)+1): ## if number exceeds list length
-#             msg = bot.send_message(message.chat.id, "please enter a valid facility number:")
-#             bot.register_next_step_handler(msg, handle_srcbooking_2)
-#     else:
-#         log.debug(f"invalid input: {text} is not a number")
-#         msg = bot.send_message(message.chat.id, "please enter a facility number:")
-#         bot.register_next_step_handler(msg, handle_srcbooking_2)
-
-#     msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
-#     bot.register_next_step_handler(msg, handle_srcbooking_3, tablecol)
-
-# def handle_srcbooking_3(message, tablecol):
-#     log.info("/srcbooking-3 handler triggered")
-#     text = message.text
-#     ## exit command
-#     if text == "/exit":
-#         bot.send_message(message.chat.id, "exiting /srcbookings")
-#         return
-
-#     date_obj = sc.parse_date(text)
-#     bot.send_message(message.chat.id, \
-#         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
+    date_obj = sc.parse_date(text)
+    bot.send_message(message.chat.id, \
+        ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
