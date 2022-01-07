@@ -134,8 +134,10 @@ def handle_srcbooking_4(message, tablecol):
         return
 
     date_obj = sc.parse_date(text)
+    bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(message.chat.id, \
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
+
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
