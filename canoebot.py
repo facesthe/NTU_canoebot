@@ -1,10 +1,9 @@
-from dateutil.parser import parse
 import telebot, time, random
 from datetime import date#, timedelta
 
 ## bot modules
 import gymscraper as  gs ## for the wavegym command
-import srcscraper as sc ## for srcscraper command (NEW)
+import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
 import sheetscraper as ss ## for attendance stuffs
 import bashcmds as bc ## for interfacing with terminal in the pi
 import formfiller as ff ## for sending the log sheet

@@ -3,11 +3,11 @@ from dateutil.parser import parse
 import sheetscraper as ss
 import pandas as pd
 
-testDate = parse("29 nov 2021").date()
-z = ss.namelist("29 nov 2021")
+# testDate = parse("29 nov 2021").date()
+# z = ss.namelist("29 nov 2021")
 #print(z)
 
-x = ss.getsheetname(testDate)
+# x = ss.getsheetname(testDate)
 # print(x)
 
 ## convert dataframe or series into string form
@@ -65,13 +65,13 @@ def string_df(df_in):
         return None
 
 
-# string_df(z)
-print(type(z) == pd.DataFrame)
-print(string_df(z))
+# # string_df(z)
+# print(type(z) == pd.DataFrame)
+# print(string_df(z))
 
-a = pd.DataFrame({
-    "col1": [1,2,3,4],
-    "col2": [5,6,7,8]
-})
-print(string_df(a))
-print(ss.df2str(ss.boatallo()))
+# a = pd.DataFrame({
+#     "col1": [1,2,3,4],
+#     "col2": [5,6,7,8]
+# })
+# print(string_df(a))
+# print(ss.df2str(ss.boatallo()))
