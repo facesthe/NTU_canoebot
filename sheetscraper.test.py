@@ -65,6 +65,9 @@ def string_df(df_in):
         return None
 
 
+x = ss.getnamesv2('friday', 0)
+print(x)
+
 # # string_df(z)
 # print(type(z) == pd.DataFrame)
 # print(string_df(z))

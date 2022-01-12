@@ -32,9 +32,8 @@ log.info('/data/attendance already created')
 ## Functions are defined from least dependent to most
 
 ## calculate the last sunday that is still within the month
-def getlastsun(date_in): ## date_in is a date object
+def getlastsun(date_in:date)->date: ## date_in is a date object
     '''Calculate last sunday that is still withihn the month.
-
     Input: date in in datetime.date format'''
     month_max = date(date_in.year,date_in.month,1) + relativedelta(months=+1) - timedelta(days=1)
 
@@ -44,6 +43,31 @@ def getlastsun(date_in): ## date_in is a date object
         last_sun = month_max
 
     return last_sun
+
+
+def getfirstmon(date_in:date)->date:
+    '''Calculate the first monday in a sheet month.\n
+    Note that this monday may be from the previous month.
+    If the first day of the month is not a monday, use the previous weeks monday'''
+
+    ## first day of month
+    monthstart = date(date_in.year, date_in.month, 1)
+    if monthstart.isoweekday != 1:
+        first_mon = monthstart + timedelta(days = -monthstart.isoweekday()+1)
+    else:
+        first_mon = monthstart
+
+    return first_mon
+
+
+def getsheetdate(date_in:date)->date:
+    '''Get the sheet header date for a given date'''
+    sheet_end = getlastsun(date_in)
+
+    if (date_in - sheet_end).days > 0: ## exceeded this month, use next month
+        return sheet_end + timedelta(days=1)
+    else:
+        return getfirstmon(date_in)
 
 
 ## get the sheet name for a particular date, in string form
@@ -117,7 +141,7 @@ def create_1star_dict():
 
 ## Returns a formatted dataframe containing names, the date and session
 ## Names that can be shortened will be shortened
-def getnames(str_in='',time=0):
+def getnames(str_in,time:int):
     global SHORT_NAME
     ## time passed as int, am=0,pm=1
     ## no time param passed, assume 0
@@ -167,6 +191,60 @@ def getnames(str_in='',time=0):
     ## return dataframe containing names
 
 
+def getnamesv2(str_in, time:int):
+    global SHORT_NAME
+
+    try:
+        date_in = parse(str_in).date()
+    except:
+        date_in = date.today() + timedelta(days=1)
+
+    if len(str_in) == 0: str_in = 'empty string'
+    log.debug(f"{str_in} interpreted as {date_in}")
+
+    ## new code part from here onwards
+    raw_sheet = getsheet(date_in)
+    sheet_start_date = getsheetdate(date_in)
+    log.debug(sheet_start_date)
+    # sheet_start_date = parse(raw_sheet.iloc[1,0]).date()
+
+    ## get the relative location of the col corresponding to date
+    delta = (date_in - sheet_start_date).days ## in days
+    wekindex = delta // 7
+    dayindex = delta % 7
+    offset = 17*wekindex + 2*dayindex + 4
+
+    if(not time):
+        timestr = 'AM'
+    else:
+        timestr = 'PM'
+        offset += 1
+
+    df_session = pd.Series([
+        date_in.strftime(f'%d %b %y'), \
+        date_in.strftime(f'%a {timestr}'), \
+        ''
+        ])
+    log.debug(f'looping in range of 3 to {findlowestname(raw_sheet)}')
+    log.debug(f'offset col: {offset}')
+    ## build df_session
+    names = [] ## temp list
+    log.debug(raw_sheet.iloc[:, offset])
+    for row in range(3, findlowestname(raw_sheet)):
+        if(str(raw_sheet.iloc[row, offset]).upper() == 'Y'):
+            names.append(raw_sheet.iloc[row, 0])
+
+    ## shorten and add names (if any)
+    if len(names) != 0:
+        for i in range(len(names)):
+            if names[i] in SHORT_NAME:
+                names[i] = SHORT_NAME[names[i]]
+
+        df_session = df_session.append(pd.Series(names))
+    log.debug(f'names: {names}')
+    return df_session.reset_index(drop=True)
+
+
 def namelist(date_time_str=''):
 
     date_time = date_time_str.split(',')
@@ -176,7 +254,7 @@ def namelist(date_time_str=''):
     try:
         date_time[1]
     except:
-        return getnames(date_time[0])
+        return getnames(date_time[0], 0)
 
     ## if 2 elements check if it says 'pm'
     if date_time[1].strip().lower() in ['pm','aft','afternoon']:
@@ -184,7 +262,7 @@ def namelist(date_time_str=''):
         return getnames(str_in=date_time[0],time=1)
     else:
         log.debug("using names for AM slot")
-        return getnames(date_time[0])
+        return getnames(date_time[0], 0)
 
 
 ## pair up the boats with names
