@@ -147,7 +147,7 @@ def handle_namelist(message):
         reply = ss.namelist(text)
         bot.send_message(message.chat.id, ss.df2str(reply),parse_mode='Markdown')
     except: ## to catch out-of-range input dates
-        bot.send_message(message.chat.id,'Date out of range!')
+        bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
 
 ## sync with contents of the configs sheet
 @bot.message_handler(commands=['reload'])

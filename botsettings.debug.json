@@ -24,6 +24,7 @@
 
     "sheetscraper": {
         "sheet_id": "1Wogh2IxOfZWUOZ5cGZ6QNRmL9cq2HTr3E6AXFht91jI",
+        "getnames_ver":2,
         "use_deconflict": true,
         "deconflict_ver": 2,
         "deconflict_recursion_limit": 20
