@@ -20,8 +20,20 @@ tree = html.fromstring(response.content)
 script = tree.xpath('//script[@type="text/javascript"]/text()') ## successful in obtaining script section of html
 for item in script:
     if 'var FB_PUBLIC_LOAD_DATA' in item:
-        print(item)
+        # print(item)
+        jsonstr = item
         break
+
+## format into a json string
+jsonstr = re.sub(r'^.*=\s', '', jsonstr)
+jsonstr = re.sub(r';', '', jsonstr)
+print(jsonstr)
+
+jsonobj = json.loads(jsonstr)
+print(jsonobj)
+
+with open('scraped-sheet-data.json-1', 'w') as f:
+    f.write(json.dumps(jsonobj))
 
 # values = re.findall(r'var.*?=\s*(.*?);', script[1], re.DOTALL | re.MULTILINE)
 # for value in values:
