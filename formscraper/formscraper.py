@@ -3,8 +3,10 @@ import re
 from lxml import html
 import json
 
+def get_raw_json(form_id):
+    '''Produces the raw script json from a specified form.\n
+    Does not perform any manipulation on the fetched data'''
 
-def get_raw_form_json(form_id:str):
     url = f'https://docs.google.com/forms/d/e/{form_id}/viewform'
     response = rq.get(url)
     tree = html.fromstring(response.content)
