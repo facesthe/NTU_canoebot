@@ -8,7 +8,7 @@ import copy
 sampleJSON = {
     "title": None,
     "description": None,
-    "formid": None,
+    "formID": None,
     "fields": None, ## None or list of samplefields
 }
 
@@ -21,31 +21,63 @@ samplefield = {
 }
 
 class gForm():
+    '''Object that handles google form data
 
-    def __init__(self, form_id=None):
+    Object can be initialised with a formID or a filepath, but not both
+    :param formID: Google form id
+    :param filepath: Local formatted JSON (optional kwarg)
+    '''
+    def __init__(self, formID=None, filepath=None):
         self.title = None
         self.desc = None
-        self.formId = None
+        self.formID = None
         self.fields = None
-        self.rawJSON = None
         self.fJSON = None
+        self.rawJSON = None
 
         ## construct all parameters if form id is passed as parameter
-        if form_id is not None:
-            self.parse(form_id)
+        if formID is not None:
+            self.parse(formID)
+        elif filepath is not None:
+            self.load_json(filepath)
 
+        return
 
-    def parse(self, form_id):
-        '''Constructor. Use if form_id parameter not passed during object creation'''
-        self.__get_raw_json(form_id)
+    def __repr__(self):
+
+        return f'Title: {self.title}\n'+\
+            f'Description: {self.desc}\n'+\
+            f'Form ID: {self.formID}\n'+\
+            f'Fields: {[field["name"] for field in self.fields]}\n'
+            # Description: {self.desc}\n\
+            # Form ID: {self.formID}\n\
+            # Fields: {self.fields}\
+            # '
+
+    def parse(self, formID):
+        '''Constructor. Use if formID parameter not passed during object creation'''
+        self.__get_raw_json(formID)
         self.__format_raw_json()
 
         self.title = self.fJSON['title']
         self.desc = self.fJSON['description']
-        self.formId = self.fJSON['formid']
+        self.formID = self.fJSON['formID']
         self.fields = self.fJSON['fields']
 
         return
+
+    def load_json(self, filepath):
+        '''Load a local copy of form'''
+        with open(filepath, 'r') as f:
+            self.fJSON = json.loads(f.read())
+
+        self.title = self.fJSON['title']
+        self.desc = self.fJSON['description']
+        self.formID = self.fJSON['formID']
+        self.fields = self.fJSON['fields']
+
+        return
+
 
     def to_raw_json(self):
         '''Returns the raw JSON taken from the form'''
@@ -67,9 +99,9 @@ class gForm():
             f.write(json.dumps(self.fJSON))
         return
 
-    def __get_raw_json(self, form_id):
+    def __get_raw_json(self, formID):
         '''Pulls the raw form data, with minimal formatting'''
-        url = f'https://docs.google.com/forms/d/e/{form_id}/viewform'
+        url = f'https://docs.google.com/forms/d/e/{formID}/viewform'
         response = rq.get(url)
         tree = html.fromstring(response.content)
         script = tree.xpath('//script[@type="text/javascript"]/text()') \
@@ -98,7 +130,7 @@ class gForm():
         returnJSON = sampleJSON
         returnJSON['title'] = self.rawJSON[3]
         returnJSON['description'] = self.rawJSON[1][0]
-        returnJSON['formid'] = re.sub(r'^.*/', '', self.rawJSON[14])
+        returnJSON['formID'] = re.sub(r'^.*/', '', self.rawJSON[14])
         returnJSON['fields'] = [copy.deepcopy(samplefield) for i in range(len(rawfields))]
 
         ## assigning fields
