@@ -10,6 +10,7 @@ sampleJSON = {
     "description": None,
     "formID": None,
     "fields": None, ## None or list of samplefields
+    "formfields": None
 }
 
 ## template JSON for form field information
@@ -35,7 +36,6 @@ class gForm():
         self.fields = None
         self.fJSON = None
         self.rawJSON = None
-        self.formfields = None
 
         ## construct all parameters if form id is passed as parameter
         if formID is not None:
@@ -49,15 +49,16 @@ class gForm():
         return f'Title: {self.title}\n'+\
             f'Description: {self.desc}\n'+\
             f'Form ID: {self.formID}\n'+\
-            f'Form Fields: {self.formfields}\n'+\
-            f'Fields: {[field["name"] for field in self.fields]}'
+            f'Fields: {[field["name"] for field in self.fields]}\n'+\
+            f'Form Fields: {self.fJSON["formfields"]}'
+
 
     def parse(self, formID):
         '''Constructor. Use if formID parameter not passed during object creation'''
         self.__get_raw_json(formID)
         self.__format_raw_json()
         self.__assign_attr()
-        self.__generate_form()
+        self.__generate_empty_form()
 
         return
 
@@ -67,10 +68,10 @@ class gForm():
             self.fJSON = json.loads(f.read())
 
         self.__assign_attr()
-        self.__generate_form()
+        # self.__generate_empty_form()
+
 
         return
-
 
     def to_raw_json(self):
         '''Returns the raw JSON taken from the form'''
@@ -91,6 +92,24 @@ class gForm():
         with open(filepath, 'w') as f:
             f.write(json.dumps(self.fJSON))
         return
+
+    def fill(self, fieldno, response):
+        '''Fill the specified field with a response'''
+        self.fJSON['formfields'][self.fields[fieldno]['idstr']] = str(response)
+        return
+
+    def submit(self):
+        '''Submits the form. Returns 1 if successful, 0 if unsuccessful'''
+        url = f'https://docs.google.com/forms/d/e/{self.formID}/formResponse'
+        for key in self.fJSON['formfields'].keys():
+            if self.fJSON['formfields'][key] is None:
+                self.fJSON['formfields'][key] = ' '
+
+        response = rq.post(url, data = self.fJSON['formfields'])
+        if (response.status_code == 200):
+            return 1
+        else:
+            return 0
 
     def __get_raw_json(self, formID):
         '''Pulls the raw form data, with minimal formatting'''
@@ -157,11 +176,11 @@ class gForm():
         self.fields = self.fJSON['fields']
         return
 
-    def __generate_form(self):
+    def __generate_empty_form(self):
         '''Generate an empty dictionary that contains form responses.
         Requires that self.fields attribute is populated'''
-        self.formfields = {}
+        self.fJSON['formfields'] = {}
 
         for field in self.fields:
-            self.formfields[field['idstr']] = None
+            self.fJSON['formfields'][field['idstr']] = None
         return
