@@ -9,6 +9,6 @@ jsonobj = formscraper.get_raw_json('1FAIpQLSefOwdgq9W4HJGNy2aa8q5oRnj3wHx4mOtGHc
 
 jsonformatted = formscraper.format_raw_form(jsonobj)
 
-with open('itcc-availability-newformatted.json','w') as f:
+with open('formscraper/itcc-availability-newformatted.json','w') as f:
     f.write(json.dumps(jsonformatted))
 

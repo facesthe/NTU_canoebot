@@ -17,13 +17,14 @@ sampleJSON = {
 samplefield = {
     "name": None,
     "id": None,
+    "idstr": None,
     "options": None ## None or list
 }
 
 class gForm():
     '''Object that handles google form data
 
-    Object can be initialised with a formID or a filepath, but not both
+    Object can be initialised with either formID or filepath, but not both
     :param formID: Google form id
     :param filepath: Local formatted JSON (optional kwarg)
     '''
@@ -34,6 +35,7 @@ class gForm():
         self.fields = None
         self.fJSON = None
         self.rawJSON = None
+        self.formfields = None
 
         ## construct all parameters if form id is passed as parameter
         if formID is not None:
@@ -44,25 +46,18 @@ class gForm():
         return
 
     def __repr__(self):
-
         return f'Title: {self.title}\n'+\
             f'Description: {self.desc}\n'+\
             f'Form ID: {self.formID}\n'+\
-            f'Fields: {[field["name"] for field in self.fields]}\n'
-            # Description: {self.desc}\n\
-            # Form ID: {self.formID}\n\
-            # Fields: {self.fields}\
-            # '
+            f'Form Fields: {self.formfields}\n'+\
+            f'Fields: {[field["name"] for field in self.fields]}'
 
     def parse(self, formID):
         '''Constructor. Use if formID parameter not passed during object creation'''
         self.__get_raw_json(formID)
         self.__format_raw_json()
-
-        self.title = self.fJSON['title']
-        self.desc = self.fJSON['description']
-        self.formID = self.fJSON['formID']
-        self.fields = self.fJSON['fields']
+        self.__assign_attr()
+        self.__generate_form()
 
         return
 
@@ -71,10 +66,8 @@ class gForm():
         with open(filepath, 'r') as f:
             self.fJSON = json.loads(f.read())
 
-        self.title = self.fJSON['title']
-        self.desc = self.fJSON['description']
-        self.formID = self.fJSON['formID']
-        self.fields = self.fJSON['fields']
+        self.__assign_attr()
+        self.__generate_form()
 
         return
 
@@ -141,6 +134,7 @@ class gForm():
 
             try: ## attempt to get field id
                 returnJSON['fields'][i+offset]['id'] = rawfields[i][4][0][0]
+                returnJSON['fields'][i+offset]['idstr'] = f'entry.{rawfields[i][4][0][0]}'
             except: ## attempt failed, index does not correspond to a field (question), skip
                 # print('indexing of None occured, skipping current index')
                 returnJSON['fields'].pop(i+offset)
@@ -156,4 +150,18 @@ class gForm():
         self.fJSON = returnJSON
         return
 
+    def __assign_attr(self):
+        self.title = self.fJSON['title']
+        self.desc = self.fJSON['description']
+        self.formID = self.fJSON['formID']
+        self.fields = self.fJSON['fields']
+        return
 
+    def __generate_form(self):
+        '''Generate an empty dictionary that contains form responses.
+        Requires that self.fields attribute is populated'''
+        self.formfields = {}
+
+        for field in self.fields:
+            self.formfields[field['idstr']] = None
+        return
