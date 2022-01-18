@@ -22,6 +22,12 @@ samplefield = {
     "options": None ## None or list
 }
 
+'''Some pointers on using this module:
+Dates are formatted in string form as YYYY-MM-DD.
+Dates that are not filled in this format will cause a submission error.
+All responses are in string form, responses that correspond to a
+checkbox/selection must be in string form and match exactly.
+For forms that contain required fields, all such fields must be populated with a response.'''
 class gForm():
     '''Object that handles google form data
 
@@ -52,9 +58,8 @@ class gForm():
             f'Fields: {[field["name"] for field in self.fields]}\n'+\
             f'Form Fields: {self.fJSON["formfields"]}'
 
-
     def parse(self, formID):
-        '''Constructor. Use if formID parameter not passed during object creation'''
+        '''Primary constructor. Use if formID parameter not passed during object creation'''
         self.__get_raw_json(formID)
         self.__format_raw_json()
         self.__assign_attr()
@@ -63,13 +68,11 @@ class gForm():
         return
 
     def load_json(self, filepath):
-        '''Load a local copy of form'''
+        '''Alternate constructor. Loads a local copy of form'''
         with open(filepath, 'r') as f:
             self.fJSON = json.loads(f.read())
 
         self.__assign_attr()
-        # self.__generate_empty_form()
-
 
         return
 
@@ -80,6 +83,10 @@ class gForm():
     def to_formatted_json(self):
         '''Returns a formatted JSON of the form'''
         return self.fJSON
+
+    def to_fstring(self):
+        '''Returns a pretty-formatted JSON string'''
+        return json.dumps(self.fJSON, indent=4)
 
     def export_raw_json(self, filepath):
         '''Write the raw json to file. Pretty unreadable ngl'''
@@ -93,9 +100,28 @@ class gForm():
             f.write(json.dumps(self.fJSON))
         return
 
-    def fill(self, fieldno, response):
-        '''Fill the specified field with a response'''
-        self.fJSON['formfields'][self.fields[fieldno]['idstr']] = str(response)
+    def fill(self, fieldno:int, response:str):
+        '''Fill the specified field with a string response'''
+        self.fJSON['formfields'][self.fields[fieldno]['idstr']] = response
+        return
+
+    def fill_option(self, fieldno:int, optionno:int):
+        '''Fill the specified field with a target option.
+        Works only if field contains selectable options.'''
+
+        ## check if there are fields present
+        if self.fields[fieldno]['options'] is None:
+            raise Exception(f'Field {fieldno} has no options available')
+
+        ## check if index passed is within bounds
+        elif optionno+1 > len(self.fields[fieldno]['options']):
+            raise Exception(f'Option number {optionno} out of range ({len(self.fields[fieldno]["options"])})')
+
+        ## perform assignment
+        else:
+            self.fJSON['formfields'][self.fields[fieldno]['idstr']] = \
+                self.fields[fieldno]['options'][optionno]
+
         return
 
     def submit(self):
@@ -170,6 +196,7 @@ class gForm():
         return
 
     def __assign_attr(self):
+        '''Assign main object parameters using formatted JSON data'''
         self.title = self.fJSON['title']
         self.desc = self.fJSON['description']
         self.formID = self.fJSON['formID']
