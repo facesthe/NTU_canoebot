@@ -27,7 +27,7 @@ Dates are formatted in string form as YYYY-MM-DD.
 Dates that are not filled in this format will cause a submission error.
 All responses are in string form, responses that correspond to a
 checkbox/selection must be in string form and match exactly.
-For forms that contain required fields, all such fields must be populated with a response.'''
+For forms that contain required questions, all such fields must be populated with a response.'''
 class gForm():
     '''Object that handles google form data
 
@@ -40,6 +40,7 @@ class gForm():
         self.desc = None
         self.formID = None
         self.fields = None
+        self.form = None ## fJSON formfields
         self.fJSON = None
         self.rawJSON = None
 
@@ -47,7 +48,7 @@ class gForm():
         if formID is not None:
             self.parse(formID)
         elif filepath is not None:
-            self.load_json(filepath)
+            self.import_json(filepath)
 
         return
 
@@ -56,7 +57,7 @@ class gForm():
             f'Description: {self.desc}\n'+\
             f'Form ID: {self.formID}\n'+\
             f'Fields: {[field["name"] for field in self.fields]}\n'+\
-            f'Form Fields: {self.fJSON["formfields"]}'
+            f'Form Fields: {self.form}'
 
     def parse(self, formID):
         '''Primary constructor. Use if formID parameter not passed during object creation'''
@@ -67,7 +68,7 @@ class gForm():
 
         return
 
-    def load_json(self, filepath):
+    def import_json(self, filepath):
         '''Alternate constructor. Loads a local copy of form'''
         with open(filepath, 'r') as f:
             self.fJSON = json.loads(f.read())
@@ -102,7 +103,8 @@ class gForm():
 
     def fill(self, fieldno:int, response:str):
         '''Fill the specified field with a string response'''
-        self.fJSON['formfields'][self.fields[fieldno]['idstr']] = response
+        self.form[self.fields[fieldno]['idstr']] = response
+        self.__update_fJSON()
         return
 
     def fill_option(self, fieldno:int, optionno:int):
@@ -111,17 +113,18 @@ class gForm():
 
         ## check if there are fields present
         if self.fields[fieldno]['options'] is None:
-            raise Exception(f'Field {fieldno} has no options available')
+            raise AttributeError(f'Field {fieldno} has no options available')
 
         ## check if index passed is within bounds
         elif optionno+1 > len(self.fields[fieldno]['options']):
-            raise Exception(f'Option number {optionno} out of range ({len(self.fields[fieldno]["options"])})')
+            raise LookupError(f'Option number {optionno} out of range ({len(self.fields[fieldno]["options"])})')
 
         ## perform assignment
         else:
-            self.fJSON['formfields'][self.fields[fieldno]['idstr']] = \
+            self.form[self.fields[fieldno]['idstr']] = \
                 self.fields[fieldno]['options'][optionno]
 
+        self.__update_fJSON()
         return
 
     def submit(self):
@@ -149,7 +152,6 @@ class gForm():
 
         for item in script:
             if 'var FB_PUBLIC_LOAD_DATA' in item:
-                # print(item)
                 jsonstr = item
                 break
 
@@ -201,6 +203,13 @@ class gForm():
         self.desc = self.fJSON['description']
         self.formID = self.fJSON['formID']
         self.fields = self.fJSON['fields']
+        self.form = self.fJSON['formfields']
+        return
+
+    def __update_fJSON(self):
+        '''Update the form fields in fJSON from self.form'''
+        for key, value in self.form.items():
+            self.fJSON['formfields'][key] = value
         return
 
     def __generate_empty_form(self):
@@ -210,4 +219,5 @@ class gForm():
 
         for field in self.fields:
             self.fJSON['formfields'][field['idstr']] = None
+        self.form = self.fJSON['formfields']
         return
