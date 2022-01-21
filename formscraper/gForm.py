@@ -3,6 +3,7 @@ import json
 import requests as rq
 from lxml import html
 import copy
+from datetime import date, time
 
 ## template JSON for form information
 sampleJSON = {
@@ -107,9 +108,21 @@ class gForm():
         self.__update_fJSON()
         return
 
+    def fill_date(self, fieldno:int, date_in:date):
+        '''Fill the specified field with a date'''
+        self.form[self.fields[fieldno]['idstr']] = date_in.strftime('%Y-%m-%d')
+        self.__update_fJSON()
+        return
+
+    def fill_time(self, fieldno:int, time_in:time):
+        '''Fill the specified form with a time'''
+        self.form[self.fields[fieldno]['idstr']] = time_in.strftime('%H:%M')
+        self.__update_fJSON()
+        return
+
     def fill_option(self, fieldno:int, optionno:int):
         '''Fill the specified field with a target option.
-        Works only if field contains selectable options.'''
+        Field must contain selectable options.'''
 
         ## check if there are fields present
         if self.fields[fieldno]['options'] is None:
@@ -132,7 +145,7 @@ class gForm():
         url = f'https://docs.google.com/forms/d/e/{self.formID}/formResponse'
         for key in self.fJSON['formfields'].keys():
             if self.fJSON['formfields'][key] is None:
-                self.fJSON['formfields'][key] = ' '
+                self.fJSON['formfields'][key] = ''
 
         response = rq.post(url, data = self.fJSON['formfields'])
         if (response.status_code == 200):
