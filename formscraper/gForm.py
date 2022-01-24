@@ -90,6 +90,10 @@ class gForm():
         '''Returns a pretty-formatted JSON string'''
         return json.dumps(self.fJSON, indent=4)
 
+    def to_rstring(self):
+        '''Returns the raw JSON string'''
+        return json.dumps(self.rawJSON, indent=2)
+
     def export_raw_json(self, filepath):
         '''Write the raw json to file. Pretty unreadable ngl'''
         with open(filepath, 'w') as f:
@@ -147,7 +151,7 @@ class gForm():
             if self.fJSON['formfields'][key] is None:
                 self.fJSON['formfields'][key] = ''
 
-        response = rq.post(url, data = self.fJSON['formfields'])
+        response = rq.post(url, data = self.form)
         if (response.status_code == 200):
             return 1
         else:
