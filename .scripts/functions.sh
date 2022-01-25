@@ -17,3 +17,21 @@ remove_matching_line() {
     mv .temp "$2"
     # rm -f .test # not needed
 }
+
+# Adds line to cron, if line does not exist
+# Param $1: Line to add
+add_crontab() {
+    crontab -l > .tempcron
+    append_if_missing "$1" .tempcron
+    crontab .tempcron
+    rm -f .tempcron
+}
+
+# Removes line to cron, if line exists
+# Param $1: Line to remove
+rm_crontab() {
+    crontab -l > .tempcron
+    remove_matching_line "$1" .tempcron
+    crontab .tempcron
+    rm -f .tempcron
+}
