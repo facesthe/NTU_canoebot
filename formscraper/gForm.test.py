@@ -14,7 +14,8 @@ from datetime import date, time
 
 logsheet_form = gForm('1FAIpQLSeZkOoMIFev_08W_Ijkfcs6vVD6ozL0i3jixOMlWOnG-QmpdA')
 print(logsheet_form.to_fstring())
-print(logsheet_form.to_rstring())
+print(logsheet_form)
+# print(logsheet_form.to_rstring())
 
 # logsheet2_form = gForm('1FAIpQLSc1notGcZvtmSjFBDXxk_DZ4Q4_mRSAS4K6OlRUwRyg_o_c7g')
 # print(logsheet2_form.to_fstring())

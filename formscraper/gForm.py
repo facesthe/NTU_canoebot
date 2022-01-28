@@ -1,5 +1,6 @@
 import re
 import json
+import enum
 import requests as rq
 from lxml import html
 import copy
@@ -18,10 +19,27 @@ sampleJSON = {
 ## optional as some fields are open-ended)
 samplefield = {
     "name": None,
+    "type": None,
     "id": None,
     "idstr": None,
     "options": None ## None or list
 }
+
+## Known question options as enum
+## typed questions: 0,1
+## questions with fields: 2,3,4,5,7
+## time-related questions: 9,10
+class question(enum.Enum):
+    short = 0
+    long = 1
+    mcq =  2
+    dropdown = 3
+    checkbox = 4
+    scale = 5
+    grid = 7
+    date = 9
+    time = 10
+
 
 '''Some pointers on using this module:
 Dates are formatted in string form as YYYY-MM-DD.
@@ -195,6 +213,7 @@ class gForm():
         for i in range(len(rawfields)):
             # print(rawfields[i][1])
             returnJSON['fields'][i+offset]['name'] = rawfields[i][1]
+            returnJSON['fields'][i+offset]['type'] = rawfields[i][3]
 
             try: ## attempt to get field id
                 returnJSON['fields'][i+offset]['id'] = rawfields[i][4][0][0]
@@ -216,11 +235,11 @@ class gForm():
 
     def __assign_attr(self):
         '''Assign main object parameters using formatted JSON data'''
-        self.title = self.fJSON['title']
-        self.desc = self.fJSON['description']
-        self.formID = self.fJSON['formID']
-        self.fields = self.fJSON['fields']
-        self.form = self.fJSON['formfields']
+        self.title = copy.deepcopy(self.fJSON['title'])
+        self.desc = copy.deepcopy(self.fJSON['description'])
+        self.formID = copy.deepcopy(self.fJSON['formID'])
+        self.fields = copy.deepcopy(self.fJSON['fields'])
+        self.form = copy.deepcopy(self.fJSON['formfields'])
         return
 
     def __update_fJSON(self):
