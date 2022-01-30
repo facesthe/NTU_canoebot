@@ -256,15 +256,24 @@ def namelist(date_time_str=''):
     try:
         date_time[1]
     except:
-        return getnamesv2(date_time[0], 0)
+        if s.json.sheetscraper.getnames_ver == 2:
+            return getnamesv2(date_time[0], 0)
+        else:
+            return getnames(date_time[0], 0)
 
     ## if 2 elements check if it says 'pm'
     if date_time[1].strip().lower() in ['pm','aft','afternoon']:
         log.debug("using names for PM slot")
-        return getnamesv2(str_in=date_time[0],time=1)
+        if s.json.sheetscraper.getnames_ver == 2:
+            return getnamesv2(str_in=date_time[0],time=1)
+        else:
+            return getnames(str_in=date_time[0],time=1)
     else:
         log.debug("using names for AM slot")
-        return getnamesv2(date_time[0], 0)
+        if s.json.sheetscraper.getnames_ver == 2:
+           return getnamesv2(date_time[0], 0)
+        else:
+            return getnames(date_time[0], 0)
 
 
 ## pair up the boats with names
