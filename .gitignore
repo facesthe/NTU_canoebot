@@ -1,3 +1,4 @@
-botsettings.json
 /__pycache__
+/data
+botsettings.json
 botsettings.debug.json
