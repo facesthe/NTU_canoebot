@@ -124,9 +124,15 @@ class gForm():
             f.write(json.dumps(self.fJSON))
         return
 
-    def fill(self, fieldno:int, response:str):
+    def fill_str(self, fieldno:int, response:str):
         '''Fill the specified field with a string response'''
         self.form[self.fields[fieldno]['idstr']] = response
+        self.__update_fJSON()
+        return
+
+    def fill_int(self, fieldno:int, response:int):
+        '''Fill the specified field with a number response'''
+        self.form[self.fields[fieldno]['idstr']] = str(response)
         self.__update_fJSON()
         return
 
