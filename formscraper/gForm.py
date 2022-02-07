@@ -136,6 +136,12 @@ class gForm():
         self.__update_fJSON()
         return
 
+    def fill_float(self, fieldno:int, response:float):
+        '''Fill the specified field with a float response (to 2dp)'''
+        self.form[self.fields[fieldno]['idstr']] = f"{response:.2f}"
+        self.__update_fJSON()
+        return
+
     def fill_date(self, fieldno:int, date_in:date):
         '''Fill the specified field with a date'''
         self.form[self.fields[fieldno]['idstr']] = date_in.strftime('%Y-%m-%d')

@@ -14,10 +14,12 @@ global SHEET_ID
 
 ## Update this if needed, or sheetscraper won't work!
 ## change the settings in botsettings.json
-SHEET_ID =              s.json.sheetscraper.sheet_id                    ## current sheet id for AY21/22
+SHEET_ID =              s.json.sheetscraper.attendance_sheet            ## current sheet id for AY21/22
+SHEET_PROG =            s.json.sheetscraper.program_sheet               ## training prog sheet AY21/22
 DECONFLICT =            s.json.sheetscraper.use_deconflict              ## boat deconflict enable/disable
 DECONFLICT_VERSION =    s.json.sheetscraper.deconflict_ver              ## version 1 or 2 of __deconflict
 RECURSION_LIMIT =       s.json.sheetscraper.deconflict_recursion_limit  ## set the recursion limit for deconflict()
+
 
 ## create data, attendance folders on first run
 if not os.path.exists('./data'):
@@ -30,6 +32,64 @@ if not os.path.exists('./data/attendance'):
 log.info('/data/attendance already created')
 
 ## Functions are defined from least dependent to most
+
+## basic function for importing google sheet data as a dataframe
+## First row taken to be col headers for dataframe
+## sheet name is optional, not needed if document contains only one sheet
+## if document contains multiple sheets, first sheet created will be passed
+def getgooglesheet(sheet_id, sheet_name=''):
+    url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}'
+    df_raw = pd.read_csv(url, header=None)
+    df_raw = df_raw.rename(columns=df_raw.iloc[0])
+    df_raw = df_raw.drop(0)
+    df_raw = df_raw.reset_index(drop=True)
+
+    return df_raw
+
+
+## For training program sheet (separate from paddling attendance)
+def gettrainingprog(date_in:date):
+    prog_table = getgooglesheet(SHEET_PROG)
+    prog_day = prog_table[prog_table['Date'].str.match(date_in.strftime('%Y-%m-%d'))]
+    prog_day = prog_day.iloc[:,[2,3]].reset_index(drop=True)
+    prog_day = prog_day.convert_dtypes()
+
+    return prog_day
+
+
+## top level function used by canoebot
+## wraps gettrainingprog with input validation
+## am version
+def trainingam(str_in):
+    try:
+        date_in = parse(str_in)
+    except:
+        date_in = date.today()
+
+    prog = gettrainingprog(date_in)['AM program']
+    if prog.isna()[0]:
+        prog = pd.Series(['none'])
+
+    prog = stackontop(prog, date_in.strftime('%a %d %b'))
+    return df2str(prog)
+
+
+## top level function used by canoebot
+## wraps gettrainingprog with input validation
+## pm version
+def trainingpm(str_in):
+    try:
+        date_in = parse(str_in)
+    except:
+        date_in = date.today()
+
+    prog = gettrainingprog(date_in)['PM program']
+    if prog.isna()[0]:
+        prog = pd.Series(['none'])
+
+    prog = stackontop(prog, date_in.strftime('%a %d %b'))
+    return df2str(prog)
+
 
 ## calculate the last sunday that is still within the month
 def getlastsun(date_in:date)->date: ## date_in is a date object
@@ -71,7 +131,7 @@ def getsheetdate(date_in:date)->date:
 
 
 ## get the sheet name for a particular date, in string form
-def getsheetname(date_in): ## date_in is a date object again
+def getsheetname(date_in:date): ## date_in is a date object again
     if date_in > getlastsun(date_in):
         sheet_name = (date_in+timedelta(days=7)).strftime('%b-%Y')
     else:
@@ -82,7 +142,7 @@ def getsheetname(date_in): ## date_in is a date object again
 
 
 ## returns dataframe for entire month, no modifications
-def getsheet(date_in):
+def getsheet(date_in:date):
     '''Returns the chosen month as a dataframe.
 
     Note that the start and end of the month are not consistent.'''
@@ -90,6 +150,7 @@ def getsheet(date_in):
     df_raw = pd.read_csv(url, header=None)
     df_raw.drop(columns=[0],inplace=True)
     df_raw.columns = range(df_raw.shape[1])
+    # print(df_raw.head())
     #df_raw = df_raw.style.set_properties(**{'text-align': 'left'})
 
     return df_raw
@@ -141,6 +202,7 @@ def create_1star_dict():
 
 ## Returns a formatted dataframe containing names, the date and session
 ## Names that can be shortened will be shortened
+## Depreciated
 def getnames(str_in,time:int):
     global SHORT_NAME
     ## time passed as int, am=0,pm=1
@@ -190,6 +252,52 @@ def getnames(str_in,time:int):
     return df_session
     ## return dataframe containing names
 
+## Obtain the full names for a paddling session
+## No date and time information included in the Series
+def getonlynames(str_in, time:int):
+
+    try:
+        date_in = parse(str_in).date()
+    except:
+        date_in = date.today() + timedelta(days=1)
+
+    if len(str_in) == 0: str_in = 'empty string'
+    log.debug(f"{str_in} interpreted as {date_in}")
+
+    ## new code part from here onwards
+    raw_sheet = getsheet(date_in)
+    sheet_start_date = getsheetdate(date_in)
+    log.debug(f'sheet start date: {sheet_start_date}')
+    # sheet_start_date = parse(raw_sheet.iloc[1,0]).date()
+
+    ## get the relative location of the col corresponding to date
+    delta = (date_in - sheet_start_date).days ## in days
+    wekindex = delta // 7
+    dayindex = delta % 7
+    offset = 17*wekindex + 2*dayindex + 4
+
+    if time:
+        offset += 1
+
+    df_session = pd.Series()
+    log.debug(f'looping in range of 3 to {len(raw_sheet)}')
+    log.debug(f'offset col: {offset}')
+
+    ## build df_session
+    names = [] ## temp list
+    #log.debug(raw_sheet.iloc[:, offset])
+
+    for row in range(3, len(raw_sheet)):
+        if(str(raw_sheet.iloc[row, offset]).upper() == 'Y'):
+            names.append(raw_sheet.iloc[row, 0])
+
+    ## add names if there are any
+    if len(names) != 0:
+        df_session = df_session.append(pd.Series(names))
+
+    log.debug(f'names: {names}')
+    return df_session.reset_index(drop=True)
+
 
 def getnamesv2(str_in, time:int):
     global SHORT_NAME
@@ -205,7 +313,7 @@ def getnamesv2(str_in, time:int):
     ## new code part from here onwards
     raw_sheet = getsheet(date_in)
     sheet_start_date = getsheetdate(date_in)
-    log.debug(sheet_start_date)
+    log.debug(f'sheet start date: {sheet_start_date}')
     # sheet_start_date = parse(raw_sheet.iloc[1,0]).date()
 
     ## get the relative location of the col corresponding to date

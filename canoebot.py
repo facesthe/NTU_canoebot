@@ -9,6 +9,7 @@ import bashcmds as bc ## for interfacing with terminal in the pi
 import formfiller as ff ## for sending the log sheet
 import debuglogging as dl ## for info and logging
 import contacttrace as ct ## for contact tracing
+import TrainingLog as tl ## for training log
 import settings as s ## bot settings
 
 TOKEN = s.json.canoebot.apikey ## API token for the bot
@@ -18,6 +19,7 @@ submit_date = None ## for formfiller submit history
 log = dl.log ## logging obj
 trace = ct.tracer()
 
+log.info(f'using settings file {s._path}')
 log.info("starting canoebot")
 
 ## add more commands and update the command list
@@ -46,6 +48,36 @@ misc_handlers = s.json.canoebot.misc_handlers
 
 'y̵̝̝̓e̶̠̬̐̌s̶̻̗̎̊' ## glitch text - for future use
 
+##############################################
+################ DECORATORS ##################
+##############################################
+def handleverify(function):
+    '''Ensures that bot commands are executed only in known_chats'''
+    def wrapper(*args, **kwargs):
+        for arg in args:
+            if type(arg) == telebot.types.Message:
+                if arg.chat.id in s.json.canoebot.known_chats.values():
+                    function(*args, **kwargs)
+                break
+            else:
+                log.warning(
+                    'Handler called outside of known chats\n'+
+                    f'Called in chat {arg.chat.id}\n'+
+                    f'user: {arg.from_user}'
+                )
+        return
+
+    return wrapper
+
+##############################################
+############## DECORATORS-END ################
+##############################################
+
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+
+    return
+
 ## general help
 @bot.message_handler(commands=['help'])
 def handle_help(message):
@@ -70,6 +102,14 @@ def handle_xcohelp(message):
         helptext += command_list_hidden[key] + "\n"
     bot.send_message(cid, helptext)
 
+## echo username - gets the first name of user
+@bot.message_handler(commands=['whoami'])
+def handle_whoami(message):
+    log.info("/whoami handler triggered")
+    log.debug(f'chat name type: {type(message.from_user)}')
+    log.debug(message.from_user)
+    bot.send_message(message.chat.id, str(message.from_user.first_name))
+
 ## wavegym command
 @bot.message_handler(commands=['wavegym'])
 def handle_wavegym(message):
@@ -77,7 +117,6 @@ def handle_wavegym(message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
-
 
 ## src command part 1
 @bot.message_handler(commands=['srcbookings'])
@@ -137,7 +176,6 @@ def handle_srcbooking_4(message, tablecol):
     bot.send_message(message.chat.id, \
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
-
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
 def handle_namelist(message):
@@ -148,6 +186,22 @@ def handle_namelist(message):
         bot.send_message(message.chat.id, ss.df2str(reply),parse_mode='Markdown')
     except: ## to catch out-of-range input dates
         bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
+
+## fetch training program for the day
+@bot.message_handler(commands=['trainingam'])
+def handle_trainingprog(message):
+    log.info("/trainingam handler triggered")
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    reply = ss.trainingam(text)
+    log.debug(f'message is of type {type(message)}')
+    bot.send_message(message.chat.id, reply, parse_mode='Markdown')
+
+@bot.message_handler(commands=['trainingpm'])
+def handle_trainingpm(message):
+    log.info("/trainingpm handler triggered")
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    reply = ss.trainingpm(text)
+    bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 ## sync with contents of the configs sheet
 @bot.message_handler(commands=['reload'])
@@ -540,7 +594,73 @@ def handle_traceall_2(message):
         msg = bot.send_message(message.chat.id, 'enter another date or "exit" to finish')
         bot.register_next_step_handler(msg, handle_traceall_2)
 
+## training log part 1 (under construction)
+@bot.message_handler(commands=['traininglog'])
+def handle_traininglog_1(message):
+    bot.send_message(message.chat.id, "Daily training log. /cancel to exit")
+    traininglog = tl.TrainingLog()
+    traininglog.fill_name(message.from_user.first_name)
+    return
 
+## training log part 2 (date entry)
+def handle_traininglog_2(message, traininglog:tl.TrainingLog):
+    msg = bot.send_message(message.chat.id, "Date (dd mmm or day):")
+
+    return
+
+## training log part 3 (sleep hours entry)
+def handle_traininglog_3(message, traininglog:tl.TrainingLog):
+    nsg = bot.send_message(message.chat.id, "Sleep hours:")
+    return
+
+## training log part 4 (heart rate entry)
+def handle_traininglog_4(message, traininglog:tl.TrainingLog):
+    msg = bot.send_message(message.chat.id, "Heart rate:")
+    return
+
+## training log part 5 (comments entry)
+def handle_traininglog_5(message, traininglog:tl.TrainingLog):
+    msg = bot.send_message(message.chat.id, "Training comments:")
+    return
+
+## training log review (use reply markup keyboard)
+def handle_traininglog_review(message, trainiglog:tl.TrainingLog):
+
+    return
+
+## training log send
+def handle_traininglog_send(message, traininglog:tl.TrainingLog):
+
+    return
+
+## training log cancellation
+def handle_traininglog_cancel(message):
+    log.info("/traininglog-cancel handler triggered")
+    bot.send_message(message.chat.id, "exiting /traininglog")
+    return
+
+
+###############################################################
+## code testing ##
+@bot.message_handler(commands=['test1'])
+def handle_test1(message):
+    bot.send_message(message.chat.id, "/test1 command invoked")
+
+    @bot.message_handler(commands=['test1nest'])
+    def handle_test1nest(message):
+        bot.send_message(message.chat.id, "/test1nest command invoked")
+        return
+    return
+
+@bot.message_handler(commands=['test2'])
+def handle_test2(message):
+    bot.send_message(message.chat.id, "/test2 command invoked")
+
+    @bot.message_handler(commands=['test2nest'])
+    def handle_test2nest(message):
+        bot.send_message(message.chat.id, "/test2nest command invoked")
+        return
+    return
 
 ## keep this at the bottom
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)

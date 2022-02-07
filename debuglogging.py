@@ -16,9 +16,38 @@ levels = {
 ## modify the botsettings.json file to change log settings
 loglevel = s.json.logger.debug_level
 
+logging.basicConfig(
+    stream = sys.stdout,
+    level = loglevel,
+    format='%(levelname)-8s %(asctime)s {%(module)s}:[%(funcName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
-logging.basicConfig(stream = sys.stdout, level = loglevel)
 log = logging.getLogger()
 '''logger class\n
 Use: log.info("statement"), log.debug("statement")\n
 Use f-strings for formatting'''
+
+def log_notset():
+    return
+
+def log_debug(function):
+    '''Log decorator for function/method calls'''
+    def wrapper(*args, **kwargs):
+        log.debug('%(levelname)-8s %(asctime)s')
+        return function(*args, **kwargs)
+
+    return wrapper
+
+def log_info():
+    return
+
+def log_warning():
+    return
+
+def log_error():
+    return
+
+def log_critical():
+    return
+
