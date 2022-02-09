@@ -1,7 +1,7 @@
 '''Settings for canoebot.
 To modify settings see botsettings.json'''
 import json as jsn
-import Dotionary as dot
+import lib.Dotionary as dot
 
 ## path to settings file - do not change!
 ## modify the json file to change settings

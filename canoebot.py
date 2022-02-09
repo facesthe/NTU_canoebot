@@ -7,7 +7,8 @@ import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscrape
 import sheetscraper as ss ## for attendance stuffs
 import bashcmds as bc ## for interfacing with terminal in the pi
 import formfiller as ff ## for sending the log sheet
-import debuglogging as dl ## for info and logging
+# import debuglogging as dl ## for info and logging
+from lib.liblog import loggers as lg ## new logging module (supercedes above)
 import contacttrace as ct ## for contact tracing
 import TrainingLog as tl ## for training log
 import settings as s ## bot settings
@@ -16,11 +17,11 @@ TOKEN = s.json.canoebot.apikey ## API token for the bot
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 submit_date = None ## for formfiller submit history
 
-log = dl.log ## logging obj
+# log = dl.log ## logging obj
 trace = ct.tracer()
 
-log.info(f'using settings file {s._path}')
-log.info("starting canoebot")
+lg.functions.info(f'using settings file {s._path}')
+lg.functions.info("starting canoebot")
 
 ## add more commands and update the command list
 command_list = {
@@ -60,7 +61,7 @@ def handleverify(function):
                     function(*args, **kwargs)
                 break
             else:
-                log.warning(
+                lg.functions.warning(
                     'Handler called outside of known chats\n'+
                     f'Called in chat {arg.chat.id}\n'+
                     f'user: {arg.from_user}'
@@ -80,8 +81,9 @@ def handle_start(message):
 
 ## general help
 @bot.message_handler(commands=['help'])
+@lg.decorators.info()
 def handle_help(message):
-    log.info("/help handler triggered")
+    # log.info("/help handler triggered")
     helptext = 'Commands:\n\n'
     cid = message.chat.id
 
@@ -92,8 +94,9 @@ def handle_help(message):
 
 ## hidden help
 @bot.message_handler(commands=['xcohelp'])
+@lg.decorators.info()
 def handle_xcohelp(message):
-    log.info("/xcohelp handler triggered")
+    # log.info("/xcohelp handler triggered")
     helptext = 'Hidden commands:\n\n'
     cid = message.chat.id
 
@@ -104,38 +107,43 @@ def handle_xcohelp(message):
 
 ## echo username - gets the first name of user
 @bot.message_handler(commands=['whoami'])
+@lg.decorators.info()
 def handle_whoami(message):
-    log.info("/whoami handler triggered")
-    log.debug(f'chat name type: {type(message.from_user)}')
-    log.debug(message.from_user)
+    # log.info("/whoami handler triggered")
+    lg.functions.debug(f'chat name type: {type(message.from_user)}')
+    lg.functions.debug(message.from_user)
     bot.send_message(message.chat.id, str(message.from_user.first_name))
 
 ## wavegym command
 @bot.message_handler(commands=['wavegym'])
+@lg.decorators.info()
 def handle_wavegym(message):
-    log.info("/wavegym handler triggered")
+    # log.info("/wavegym handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 ## src command part 1
 @bot.message_handler(commands=['srcbookings'])
+@lg.decorators.info()
 def handle_srcbooking_1(message):
-    log.info("/srcbooking-1 handler triggered")
+    # log.info("/srcbooking-1 handler triggered")
     bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
     bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
     handle_srcbooking_2(message)
 
 ## src command part 2
+@lg.decorators.info()
 def handle_srcbooking_2(message):
-    log.info("/srcbooking-2 handler triggered")
+    # log.info("/srcbooking-2 handler triggered")
 
     msg = bot.send_message(message.chat.id, "enter a facility number:")
     bot.register_next_step_handler(msg, handle_srcbooking_3)
 
 ## src command part 3
+@lg.decorators.info()
 def handle_srcbooking_3(message):
-    log.info("/srcbooking-3 handler triggered")
+    # log.info("/srcbooking-3 handler triggered")
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -149,22 +157,23 @@ def handle_srcbooking_3(message):
             msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
             bot.register_next_step_handler(msg, handle_srcbooking_4, tablecol)
         else: ## number not in range
-            log.debug(f"Input number is out of range")
+            lg.functions.debug(f"Input number is out of range")
             bot.send_message(message.chat.id, "number not valid")
             # msg = bot.send_message(message.chat.id, "please enter a valid facility number:")
             # bot.register_next_step_handler(message, handle_srcbooking_2)
             handle_srcbooking_2(message)
 
     else:
-        log.debug(f"invalid input: {text} is not a number")
+        lg.functions.debug(f"invalid input: {text} is not a number")
         bot.send_message(message.chat.id, "not a number")
         # msg = bot.send_message(message.chat.id, "please enter a facility number:")
         # bot.register_next_step_handler(message, handle_srcbooking_2)
         handle_srcbooking_2(message)
 
 ## src command part 4
+@lg.decorators.info()
 def handle_srcbooking_4(message, tablecol):
-    log.info("/srcbooking-4 handler triggered")
+    # log.info("/srcbooking-4 handler triggered")
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -177,9 +186,10 @@ def handle_srcbooking_4(message, tablecol):
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
 ## fetch attendance, names only
+@lg.decorators.info()
 @bot.message_handler(commands=['namelist'])
 def handle_namelist(message):
-    log.info("/namelist handler triggered")
+    # log.info("/namelist handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     try:
         reply = ss.namelist(text)
@@ -189,24 +199,27 @@ def handle_namelist(message):
 
 ## fetch training program for the day
 @bot.message_handler(commands=['trainingam'])
-def handle_trainingprog(message):
-    log.info("/trainingam handler triggered")
+@lg.decorators.info()
+def handle_trainingam(message):
+    # log.info("/trainingam handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingam(text)
-    log.debug(f'message is of type {type(message)}')
+    lg.functions.debug(f'message is of type {type(message)}')
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 @bot.message_handler(commands=['trainingpm'])
+@lg.decorators.info()
 def handle_trainingpm(message):
-    log.info("/trainingpm handler triggered")
+    # log.info("/trainingpm handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 ## sync with contents of the configs sheet
 @bot.message_handler(commands=['reload'])
+@lg.decorators.info()
 def handle_reload(message):
-    log.info("/reload handler triggered")
+    # log.info("/reload handler triggered")
     ss.updateconfigs()
     bot.send_message(message.chat.id,'updated')
 
@@ -217,8 +230,9 @@ def handle_reload(message):
 ## enable/disable some annoying handlers
 ## misc - enable
 @bot.message_handler(commands=['enable'])
+@lg.decorators.info()
 def misc_enable(message):
-    log.info("/enable handler triggered")
+    # log.info("/enable handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = True
@@ -228,8 +242,9 @@ def misc_enable(message):
 
 ## misc - disable
 @bot.message_handler(commands=['disable'])
+@lg.decorators.info()
 def misc_disable(message):
-    log.info("/disable handler triggered")
+    # log.info("/disable handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = False
@@ -240,8 +255,9 @@ def misc_disable(message):
 ## view status of handler
 ## misc - status
 @bot.message_handler(commands=['handlerstatus'])
+@lg.decorators.info()
 def misc_handlerstatus(message):
-    log.info("/handlerstatus handler triggered")
+    # log.info("/handlerstatus handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         bot.send_message(message.chat.id, misc_handlers[text.upper()])
@@ -250,57 +266,65 @@ def misc_handlerstatus(message):
 
 ## ooga - booga
 @bot.message_handler(regexp='ooga')
+@lg.decorators.debug()
 def misc_oogabooga(message):
-    log.debug("misc ooga-booga triggered")
+    # log.debug("misc ooga-booga triggered")
     if misc_handlers['MISC_OOGABOOGA'] is False: return
     bot.send_message(message.chat.id, 'booga')
 
 ## marco - polo
 @bot.message_handler(regexp='marco')
+@lg.decorators.debug()
 def misc_marcopolo(message):
-    log.debug("misc marco-polo triggered")
+    # log.debug("misc marco-polo triggered")
     if misc_handlers['MISC_MARCOPOLO'] is False: return
     bot.send_message(message.chat.id, 'polo')
 
 ## ping - pong (only if 'ping' as a word is inside)
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
+@lg.decorators.debug()
 def misc_pingpong(message):
-    log.debug("misc ping-pong triggered")
+    # log.debug("misc ping-pong triggered")
     if misc_handlers['MISC_PINGPONG'] is False: return
     bot.send_message(message.chat.id, 'pong')
 
 ## die - same tbh
 @bot.message_handler(regexp='die')
+@lg.decorators.debug()
 def misc_dietbh(message):
-    log.debug("misc die-sametbh triggered")
+    # log.debug("misc die-sametbh triggered")
     if misc_handlers['MISC_DIETBH'] is False: return
     bot.reply_to(message, 'same tbh')
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
+@lg.decorators.debug()
 def misc_hellno(message):
-    log.debug("misc help-hellno triggered")
+    # log.debug("misc help-hellno triggered")
     if misc_handlers['MISC_HELLNO'] is False: return
     bot.reply_to(message,'hell no')
 
 ## help - no
 @bot.message_handler(regexp='help')
+@lg.decorators.debug()
 def misc_helpno(message):
-    log.debug("misc help-no triggered")
+    # log.debug("misc help-no triggered")
     if misc_handlers['MISC_HELPNO'] is False: return
     bot.reply_to(message, 'no')
 
 ## 69 - nice (see below for continuation)
 @bot.message_handler(regexp='69')
+@lg.decorators.debug()
 def misc_69nice(message):
-    log.debug("misc 69-nice triggered")
+    # log.debug("misc 69-nice triggered")
     if misc_handlers['MISC_69NICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## nice - nice (see above for previous)
 @bot.message_handler(func=lambda message: message.text.lower() == 'nice')
+@lg.decorators.debug()
 def misc_nicenice(message):
-    log.debug("misc nice-nice triggered")
+    # log.debug("misc nice-nice triggered")
     if misc_handlers['MISC_NICENICE'] is False: return
     bot.reply_to(message, 'nice')
 
@@ -311,28 +335,32 @@ def misc_nicenice(message):
 ## Ovuvuevuevue Enyetuenwuevue Ugbemugbem Osas is the full name
 ##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
 @bot.message_handler(regexp='ovuvuevuevue')
+@lg.decorators.debug()
 def misc_osas_1(message):
-    log.debug("misc osas-1 triggered")
+    # log.debug("misc osas-1 triggered")
     if misc_handlers['MISC_OSAS'] is False: return
     msg = bot.reply_to(message, "...i'm listening")
     bot.register_next_step_handler(msg, misc_osas_2)
 
+@lg.decorators.debug()
 def misc_osas_2(message):
-    log.debug("misc osas-2 triggered")
+    # log.debug("misc osas-2 triggered")
     if 'enyetuenwuevue' in message.text.lower():
         msg = bot.send_message(message.chat.id, "go on...")
         bot.register_next_step_handler(msg, misc_osas_3)
 
+@lg.decorators.debug()
 def misc_osas_3(message):
-    log.debug("misc osas-3 triggered")
+    # log.debug("misc osas-3 triggered")
     if 'ugbemugbem' in message.text.lower():
         msg = bot.send_message(message.chat.id, "almost there...")
         bot.register_next_step_handler(msg, misc_osas_4)
     else:
         bot.send_message(message.chat.id, "why you no how call my name na?")
 
+@lg.decorators.debug()
 def misc_osas_4(message):
-    log.debug("misc osas-4 triggered")
+    # log.debug("misc osas-4 triggered")
     if 'osas' in message.text.lower():
         bot.send_message(message.chat.id, "i clapping for u na bratha")
         time.sleep(3)
@@ -343,9 +371,9 @@ def misc_osas_4(message):
 ## reply if text contains 'bot' and 'who'
 @bot.message_handler(func=lambda message: \
     'bot' in message.text.lower() and 'who' in message.text.lower())
-
+@lg.decorators.debug()
 def misc_who_bot(message):
-    log.debug("misc who-bot triggered")
+    # log.debug("misc who-bot triggered")
     if misc_handlers['MISC_WHOBOT'] is False: return
 
     replies = [
@@ -355,8 +383,9 @@ def misc_who_bot(message):
 
 ## reply if text message is too long
 @bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
+@lg.decorators.debug()
 def misc_longmsg(message):
-    log.debug("misc long-msg triggered")
+    # log.debug("misc long-msg triggered")
     if misc_handlers['MISC_LONGMSG'] is False: return
 
     ## exit if it's the paddling attendance message (list still building)
@@ -392,14 +421,16 @@ def misc_bday(message):
 
 ## check logs
 @bot.message_handler(commands=['botlog'])
+@lg.decorators.warning()
 def misc_botlog(message):
-    log.warning("/botlog handler triggered")
+    # log.warning("/botlog handler triggered")
     bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
+@lg.decorators.warning()
 def misc_bash(message):
-    log.warning("/bash handler triggered")
+    # log.warning("/bash handler triggered")
     if misc_handlers['MISC_BASH'] is False: return
 
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
@@ -407,17 +438,18 @@ def misc_bash(message):
 
 ## send messages to specific groups
 @bot.message_handler(commands=['send_msg'])
+@lg.decorators.warning()
 def misc_send_msg(message):
     '''Send message using <chat_name>, <chat text>\n
     Try not to use too often'''
-    log.warning("/send_msg handler triggered")
+    # log.warning("/send_msg handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
-    log.debug(text)
-    log.debug(text.split(','))
-    log.debug(known_chats[text.split(',')[0]])
+    lg.functions.debug(text)
+    lg.functions.debug(text.split(','))
+    lg.functions.debug(known_chats[text.split(',')[0]])
     try:
         bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
-        log.debug('chat action sent')
+        lg.functions.debug('chat action sent')
         time.sleep(random.randint(1,5)) ## make the bot look like there is some typing going on
         bot.send_message(known_chats[text.split(',')[0]], text.split(',')[1])
         bot.send_message(message.chat.id, 'msg sent')
@@ -426,12 +458,13 @@ def misc_send_msg(message):
 
 ## send videos to specific groups
 @bot.message_handler(commands=['send_vid'])
+@lg.decorators.warning()
 def misc_send_video(message):
-    log.warning("/send_vid handler triggered")
+    # log.warning("/send_vid handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     try:
         path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
-        log.info(path)
+        lg.functions.info(path)
         bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
         time.sleep(random.randint(1,5))
         bot.send_video(known_chats[text.split(',')[0]], data=open(path,'rb'))
@@ -442,22 +475,25 @@ def misc_send_video(message):
 
 ## reply in markdown (for testing purposes)
 @bot.message_handler(commands=['send_markdown'])
+@lg.decorators.warning()
 def misc_send_markdown(message):
-    log.warning("/send_markdown handler triggered")
+    # log.warning("/send_markdown handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 ## reply in formatted code block (also for testing purposes)
 @bot.message_handler(commands=['send_code'])
+@lg.decorators.warning()
 def misc_send_code(message):
-    log.warning("/send_code handler triggered")
+    # log.warning("/send_code handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, ss.codeit(text), parse_mode='Markdown')
 
 ## check uptime (keep this at the bottom of misc commands)
 @bot.message_handler(commands=['uptime'])
+@lg.decorators.info()
 def misc_uptime(message):
-    log.info("/uptime handler triggered")
+    # log.info("/uptime handler triggered")
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
 ##################################################################################
@@ -465,8 +501,9 @@ def misc_uptime(message):
 ##################################################################################
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])
+@lg.decorators.info()
 def handle_boatallo(message):
-    log.info("/boatallo handler triggered")
+    # log.info("/boatallo handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
@@ -477,8 +514,9 @@ def handle_boatallo(message):
 
 ## part 1/4 of log sheet sending
 @bot.message_handler(commands=['logsheet'])
+@lg.decorators.info()
 def handle_logsheet(message):
-    log.info("/logsheet-1 handler triggered")
+    # log.info("/logsheet-1 handler triggered")
     global form, submit_date, logsheet
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     logsheet = ff.logSheet()
@@ -492,10 +530,10 @@ Do you want to continue? (Y/N)'''
 
     ## warnings
     if not logsheet.ispresent: ## not sending for present day, continue with warning
-        log.debug("logsheet attempting send on another day")
+        lg.functions.debug("logsheet attempting send on another day")
         reply = 'WARNING: SEND DATE NOT TODAY\n\n' + reply
     elif logsheet.date == submit_date: ## if sending for same day > once
-        log.debug("logsheet attempting send more than once")
+        lg.functions.debug("logsheet attempting send more than once")
         reply = 'WARNING: LOG SHEET SENT BEFORE\n\n' + reply
 
     msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
@@ -503,8 +541,9 @@ Do you want to continue? (Y/N)'''
     bot.register_next_step_handler(msg, handle_logsheet_send)
 
 ## part 2/4 of log sheet sending
+@lg.decorators.info()
 def handle_logsheet_send(message):
-    log.info("/logsheet-2 handler triggered")
+    # log.info("/logsheet-2 handler triggered")
     global form, logsheet, submit_date
     text = message.text
 
@@ -538,8 +577,9 @@ def handle_logsheet_send(message):
         bot.register_next_step_handler(msg, handle_logsheet_send)
 
 ## part 3/4 of log sheet sending (optional)
+@lg.decorators.info()
 def handle_logsheet_modify_count(message):
-    log.info("/logsheet-3 handler triggered")
+    # log.info("/logsheet-3 handler triggered")
     global form, logsheet
 
     try:
@@ -560,8 +600,9 @@ Do you want to continue? (Y/N)'''
     bot.register_next_step_handler(msg, handle_logsheet_send)
 
 ## part 4/4 of log sheet sending (optional)
+@lg.decorators.info()
 def handle_logsheet_modify_name(message):
-    log.info("/logsheet-4 handler triggered")
+    # log.info("/logsheet-4 handler triggered")
     global form, logsheet
 
     logsheet.changename(message.text)
@@ -577,15 +618,17 @@ Do you want to continue? (Y/N)'''
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])
+@lg.decorators.info()
 def handle_traceall_1(message):
-    log.info("/trace-1 handler triggered")
+    # log.info("/trace-1 handler triggered")
     trace.reset()
     msg = bot.send_message(message.chat.id, 'enter date')
     bot.register_next_step_handler(msg, handle_traceall_2)
 
 ## contact tracing part 2
+@lg.decorators.info()
 def handle_traceall_2(message):
-    log.info("/trace-2 handler triggered")
+    # log.info("/trace-2 handler triggered")
     if 'exit' in message.text.lower():
         bot.send_message(message.chat.id, 'result:')
         bot.send_message(message.chat.id, ss.df2str(trace.returntable()), parse_mode='Markdown')
@@ -596,6 +639,7 @@ def handle_traceall_2(message):
 
 ## training log part 1 (under construction)
 @bot.message_handler(commands=['traininglog'])
+@lg.decorators.info()
 def handle_traininglog_1(message):
     bot.send_message(message.chat.id, "Daily training log. /cancel to exit")
     traininglog = tl.TrainingLog()
@@ -603,39 +647,50 @@ def handle_traininglog_1(message):
     return
 
 ## training log part 2 (date entry)
+@lg.decorators.info()
 def handle_traininglog_2(message, traininglog:tl.TrainingLog):
     msg = bot.send_message(message.chat.id, "Date (dd mmm or day):")
-
+    traininglog.fill_date(message.text)
     return
 
 ## training log part 3 (sleep hours entry)
+@lg.decorators.info()
 def handle_traininglog_3(message, traininglog:tl.TrainingLog):
-    nsg = bot.send_message(message.chat.id, "Sleep hours:")
+    msg = bot.send_message(message.chat.id, "Sleep hours:")
+    try:
+        traininglog.fill_sleephr(int(message.text))
+    except:
+        bot.send_message(message.chat.id, "Invalid, ints only")
     return
 
 ## training log part 4 (heart rate entry)
+@lg.decorators.info()
 def handle_traininglog_4(message, traininglog:tl.TrainingLog):
     msg = bot.send_message(message.chat.id, "Heart rate:")
     return
 
 ## training log part 5 (comments entry)
+@lg.decorators.info()
 def handle_traininglog_5(message, traininglog:tl.TrainingLog):
     msg = bot.send_message(message.chat.id, "Training comments:")
     return
 
 ## training log review (use reply markup keyboard)
+@lg.decorators.info()
 def handle_traininglog_review(message, trainiglog:tl.TrainingLog):
 
     return
 
 ## training log send
+@lg.decorators.info()
 def handle_traininglog_send(message, traininglog:tl.TrainingLog):
 
     return
 
 ## training log cancellation
+@lg.decorators.info()
 def handle_traininglog_cancel(message):
-    log.info("/traininglog-cancel handler triggered")
+    # lg.functions.info("/traininglog-cancel handler triggered")
     bot.send_message(message.chat.id, "exiting /traininglog")
     return
 

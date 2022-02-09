@@ -3,11 +3,12 @@ from datetime import date
 from dateutil.parser import parse
 import random
 import sheetscraper as ss
-import debuglogging as dl
+# import debuglogging as dl
+from lib.liblog import loggers as lg
 import settings as s
 
-log = dl.log
-log.debug("formfiller loaded")
+# log = dl.log
+lg.functions.debug("formfiller loaded")
 
 ## change the form id if needed (should be never)
 ## if SCF suddenly decides to change their form, then formfiller will need to be updated

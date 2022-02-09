@@ -1,9 +1,10 @@
 ## for sending bash commands to the bot
 import subprocess as sp
-import debuglogging as dl
+# import debuglogging as dl
+from lib.liblog import loggers as lg
 
-log = dl.log
-log.debug("bashcmds loaded")
+# log = dl.log
+lg.functions.debug("bashcmds loaded")
 
 def bashout(bash_cmd):
     bash_out = sp.run(bash_cmd.split(), capture_output=True, text=True)

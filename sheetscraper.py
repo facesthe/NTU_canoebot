@@ -4,11 +4,11 @@ from datetime import date, timedelta
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 import os
-import debuglogging as dl ## logging extension
+# import debuglogging as dl ## logging extension
+from lib.liblog import loggers as lg ## new logging extension
 import settings as s ## bot settings
 
-log = dl.log ## call log.debug('msg') to output logs
-log.debug("sheetscraper loaded")
+lg.functions.debug("sheetscraper loaded")
 
 global SHEET_ID
 
@@ -24,12 +24,12 @@ RECURSION_LIMIT =       s.json.sheetscraper.deconflict_recursion_limit  ## set t
 ## create data, attendance folders on first run
 if not os.path.exists('./data'):
     os.mkdir('./data')
-    log.info('creating /data')
-log.info('/data already created')
+    lg.functions.info('creating /data')
+lg.functions.info('/data already created')
 if not os.path.exists('./data/attendance'):
-    log.info('creating /data/attendance')
+    lg.functions.info('creating /data/attendance')
     os.mkdir('./data/attendance')
-log.info('/data/attendance already created')
+lg.functions.info('/data/attendance already created')
 
 ## Functions are defined from least dependent to most
 
@@ -137,7 +137,7 @@ def getsheetname(date_in:date): ## date_in is a date object again
     else:
         sheet_name = date_in.strftime('%b-%Y')
 
-    log.debug(f'{date_in} resolved to sheetname {sheet_name}')
+    lg.functions.debug(f'{date_in} resolved to sheetname {sheet_name}')
     return sheet_name
 
 
@@ -174,7 +174,7 @@ def createnamesdict():
 ## Fetch the latest boat config and namelist from Gsheets
 ## shorten names (if applicable) in the boat df, then export
 def updateconfigs():
-    log.debug('updating boats.csv and names.csv in ./data')
+    lg.functions.debug('updating boats.csv and names.csv in ./data')
     df_raw = getconfigsheet()
     df_raw.iloc[:,:2].to_csv('./data/names.csv',encoding='utf-8',index=False)
 
@@ -215,16 +215,16 @@ def getnames(str_in,time:int):
         date_in = date.today() + timedelta(days=1)
 
     if len(str_in) == 0: str_in = 'empty string'
-    log.debug(f"{str_in} interpreted as {date_in}")
+    lg.functions.debug(f"{str_in} interpreted as {date_in}")
 
     raw_sheet = getsheet(date_in)
-    log.debug('first cell:',raw_sheet.iloc[0,0])
+    lg.functions.debug('first cell:',raw_sheet.iloc[0,0])
     ## no longer require the count for males and females
     vertoffset = findlowestname(raw_sheet) + 2 ## dynamic, changes based on how many names are in excel
 
     sheet_start_date = parse(raw_sheet.iloc[1,0]) ## make sure that sheet start date is input correctly in Gsheets
     raw_sheet = raw_sheet.iloc[:,1:]
-    log.debug(sheet_start_date) ## for debugging
+    lg.functions.debug(sheet_start_date) ## for debugging
     ## get the relative location of the col corresponding to date
     delta = (date_in - sheet_start_date.date()).days ## in days
     wekindex = delta // 7
@@ -262,12 +262,12 @@ def getonlynames(str_in, time:int):
         date_in = date.today() + timedelta(days=1)
 
     if len(str_in) == 0: str_in = 'empty string'
-    log.debug(f"{str_in} interpreted as {date_in}")
+    lg.functions.debug(f"{str_in} interpreted as {date_in}")
 
     ## new code part from here onwards
     raw_sheet = getsheet(date_in)
     sheet_start_date = getsheetdate(date_in)
-    log.debug(f'sheet start date: {sheet_start_date}')
+    lg.functions.debug(f'sheet start date: {sheet_start_date}')
     # sheet_start_date = parse(raw_sheet.iloc[1,0]).date()
 
     ## get the relative location of the col corresponding to date
@@ -280,12 +280,12 @@ def getonlynames(str_in, time:int):
         offset += 1
 
     df_session = pd.Series()
-    log.debug(f'looping in range of 3 to {len(raw_sheet)}')
-    log.debug(f'offset col: {offset}')
+    lg.functions.debug(f'looping in range of 3 to {len(raw_sheet)}')
+    lg.functions.debug(f'offset col: {offset}')
 
     ## build df_session
     names = [] ## temp list
-    #log.debug(raw_sheet.iloc[:, offset])
+    #lg.functions.debug(raw_sheet.iloc[:, offset])
 
     for row in range(3, len(raw_sheet)):
         if(str(raw_sheet.iloc[row, offset]).upper() == 'Y'):
@@ -295,7 +295,7 @@ def getonlynames(str_in, time:int):
     if len(names) != 0:
         df_session = df_session.append(pd.Series(names))
 
-    log.debug(f'names: {names}')
+    lg.functions.debug(f'names: {names}')
     return df_session.reset_index(drop=True)
 
 
@@ -308,12 +308,12 @@ def getnamesv2(str_in, time:int):
         date_in = date.today() + timedelta(days=1)
 
     if len(str_in) == 0: str_in = 'empty string'
-    log.debug(f"{str_in} interpreted as {date_in}")
+    lg.functions.debug(f"{str_in} interpreted as {date_in}")
 
     ## new code part from here onwards
     raw_sheet = getsheet(date_in)
     sheet_start_date = getsheetdate(date_in)
-    log.debug(f'sheet start date: {sheet_start_date}')
+    lg.functions.debug(f'sheet start date: {sheet_start_date}')
     # sheet_start_date = parse(raw_sheet.iloc[1,0]).date()
 
     ## get the relative location of the col corresponding to date
@@ -333,12 +333,12 @@ def getnamesv2(str_in, time:int):
         date_in.strftime(f'%a {timestr}'), \
         ''
         ])
-    log.debug(f'looping in range of 3 to {len(raw_sheet)}')
-    log.debug(f'offset col: {offset}')
+    lg.functions.debug(f'looping in range of 3 to {len(raw_sheet)}')
+    lg.functions.debug(f'offset col: {offset}')
 
     ## build df_session
     names = [] ## temp list
-    #log.debug(raw_sheet.iloc[:, offset])
+    #lg.functions.debug(raw_sheet.iloc[:, offset])
 
     for row in range(3, len(raw_sheet)):
         if(str(raw_sheet.iloc[row, offset]).upper() == 'Y'):
@@ -351,7 +351,7 @@ def getnamesv2(str_in, time:int):
                 names[i] = SHORT_NAME[names[i]]
 
         df_session = df_session.append(pd.Series(names))
-    log.debug(f'names: {names}')
+    lg.functions.debug(f'names: {names}')
     return df_session.reset_index(drop=True)
 
 
@@ -371,13 +371,13 @@ def namelist(date_time_str=''):
 
     ## if 2 elements check if it says 'pm'
     if date_time[1].strip().lower() in ['pm','aft','afternoon']:
-        log.debug("using names for PM slot")
+        lg.functions.debug("using names for PM slot")
         if s.json.sheetscraper.getnames_ver == 2:
             return getnamesv2(str_in=date_time[0],time=1)
         else:
             return getnames(str_in=date_time[0],time=1)
     else:
-        log.debug("using names for AM slot")
+        lg.functions.debug("using names for AM slot")
         if s.json.sheetscraper.getnames_ver == 2:
            return getnamesv2(date_time[0], 0)
         else:
@@ -448,7 +448,7 @@ def deconflict(df_in):
     elif COUNT != 0: ## recursion limit of COUNT
         COUNT -= 1
     else:
-        log.info(f'recursion limit of {RECURSION_LIMIT} reached')
+        lg.functions.info(f'recursion limit of {RECURSION_LIMIT} reached')
         return __automarkconflict(df_in)
 
     ## has conflicting boats
@@ -463,10 +463,10 @@ def deconflict(df_in):
     ## perform the actual deconflict (__deconflict is not complete)
     for boat in conflicts:
         if DECONFLICT_VERSION == 1:
-            log.info('using deconflict version 1')
+            lg.functions.info('using deconflict version 1')
             df_in = __deconflict(df_in, boat)
         elif DECONFLICT_VERSION == 2:
-            log.info('using deconflict version 2')
+            lg.functions.info('using deconflict version 2')
             df_in = __deconflictv2(df_in, boat)
 
     return deconflict(df_in)
@@ -484,8 +484,8 @@ def __deconflict(df_in, conflictboat):
     for i in range(len(boatlist)):
         if conflictboat == boatlist.boat_1[i]:
             conflictnames.append(boatlist.name[i])
-    log.debug(f"conflicting boat: {conflictboat}")
-    log.debug(f"conflictning names: {conflictnames}")
+    lg.functions.debug(f"conflicting boat: {conflictboat}")
+    lg.functions.debug(f"conflictning names: {conflictnames}")
 
     for i in range(len(conflictnames)):
         row = boatlist.loc[boatlist.name == conflictnames[i]] ## get the row of boat_1 and boat_2
@@ -493,7 +493,7 @@ def __deconflict(df_in, conflictboat):
         if pd.isnull(row.iloc[0,2]): ## check if boat_2 has a boat
             continue
         elif row.iloc[0,0] not in df_in.col1.tolist(): ## name not in boat allo
-            log.debug(f"{row.iloc[0,0]} not in boat allo, removing")
+            lg.functions.debug(f"{row.iloc[0,0]} not in boat allo, removing")
             continue
         else: ## perform replacement here
             ## has to be done in 2 steps cause python won't let me
@@ -502,10 +502,10 @@ def __deconflict(df_in, conflictboat):
                 continue
             else:
                 df_in.loc[df_in.col1 == conflictnames[i],'col2'] = replacement
-            log.info('deconflict successful')
+            lg.functions.info('deconflict successful')
             return df_in ## successful replacement
 
-    log.info('deconflict failed')
+    lg.functions.info('deconflict failed')
     return __markconflict(df_in, conflictboat) ## all attempts failed, mark the boats
 
 
@@ -536,7 +536,7 @@ def __deconflictv2(df_in, conflictboat):
             conflictboatset.update(tuple(boatdf.iloc[i, 1:].tolist()))
             conflictboatset = set(filter(lambda x: x == x, conflictboatset))
 
-    log.debug(f"all possible conflicting boats: {conflictboatset}")
+    lg.functions.debug(f"all possible conflicting boats: {conflictboatset}")
 
     ## remove names not in current boat allo
     for i in range(len(conflictnames)-1, -1, -1):
@@ -558,9 +558,9 @@ def __deconflictv2(df_in, conflictboat):
     for i in range(len(conflictnames)):
         boatarray.append(boatdf.loc[boatdf.name == conflictnames[i]].iloc[0,1:].tolist())
 
-    log.debug(f"conficting boat: {conflictboat}")
-    log.debug(f'conflicting names: {conflictnames}')
-    log.debug(f'all boat combinations: {boatarray}')
+    lg.functions.debug(f"conficting boat: {conflictboat}")
+    lg.functions.debug(f'conflicting names: {conflictnames}')
+    lg.functions.debug(f'all boat combinations: {boatarray}')
 
     ## try all binary conbinations of boats using black magic
     for x in range(2 ** len(conflictnames)):
@@ -569,16 +569,16 @@ def __deconflictv2(df_in, conflictboat):
         ## build the test list
         for i in range(len(conflictnames)):
             testlist.append(boatarray[i][int(testbinary[i])])
-        log.debug(f'attempting combination: {testlist}')
+        lg.functions.debug(f'attempting combination: {testlist}')
 
         ## if all occurences are unique, use that
         if __islistunique(testlist):
-            log.info('deconflict successful')
-            log.debug(f"new boat assignment:\n{conflictnames}\n{testlist}")
+            lg.functions.info('deconflict successful')
+            lg.functions.debug(f"new boat assignment:\n{conflictnames}\n{testlist}")
             return __replaceboat(df_in, conflictnames, testlist)
 
     ## unsuccessful deconflict, mark boats
-    log.info('deconflict failed')
+    lg.functions.info('deconflict failed')
     return __markconflict(df_in, conflictboat)
 
 
@@ -624,7 +624,7 @@ def __automarkconflict(df_in) -> pd.DataFrame:
             conflicts.append(freqlist.iloc[i,0])
         else: continue
 
-    log.debug(f"automark conflict detected unresolvable conflict(s): {conflicts}")
+    lg.functions.debug(f"automark conflict detected unresolvable conflict(s): {conflicts}")
 
     for boat in conflicts:
         __markconflict(df_in, boat)

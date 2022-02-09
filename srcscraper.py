@@ -1,13 +1,14 @@
 import json as jsn
-import Dotionary as Dot
+import lib.Dotionary as Dot
 import pandas as pd
 import time
 from datetime import date
 from dateutil.parser import parse
-import debuglogging as dl
+# import debuglogging as dl
+from lib.liblog import loggers as lg
 
-log = dl.log
-log.debug("srcscraper loaded")
+# log = dl.log
+lg.functions.debug("srcscraper loaded")
 
 _path = './srcscraper.config.json' ## path to srcscraper.config
 

@@ -10,7 +10,7 @@ import settings as s
 
 class TrainingLog():
     '''Wrapper class for gForm.\n
-    Note that all input validation should be done outside of this class'''
+    Note that all input validation should be done using separate methods'''
     def __init__(self):
         self.name = None
         self.date = None
@@ -24,7 +24,7 @@ class TrainingLog():
         return
 
     def fill_date(self, date_in:date):
-        self.date = date_in
+        self.date = self.dateparser(date_in)
         return
 
     def fill_sleephr(self, sleephr_in:int):
@@ -49,3 +49,11 @@ class TrainingLog():
 
     def submit_form(self):
         return self.gForm.submit()
+
+    @staticmethod
+    def dateparser(str_in)->date:
+        '''Internal date parser'''
+        try:
+            return parse(str_in).date()
+        except:
+            return date.today()

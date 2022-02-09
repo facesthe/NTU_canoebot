@@ -28,26 +28,3 @@ log = logging.getLogger()
 Use: log.info("statement"), log.debug("statement")\n
 Use f-strings for formatting'''
 
-def log_notset():
-    return
-
-def log_debug(function):
-    '''Log decorator for function/method calls'''
-    def wrapper(*args, **kwargs):
-        log.debug('%(levelname)-8s %(asctime)s')
-        return function(*args, **kwargs)
-
-    return wrapper
-
-def log_info():
-    return
-
-def log_warning():
-    return
-
-def log_error():
-    return
-
-def log_critical():
-    return
-
