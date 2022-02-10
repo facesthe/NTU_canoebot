@@ -1,12 +1,14 @@
 ## for sending bash commands to the bot
 import subprocess as sp
-# import debuglogging as dl
 from lib.liblog import loggers as lg
 
-# log = dl.log
 lg.functions.debug("bashcmds loaded")
 
 def bashout(bash_cmd):
+    '''
+    Evaluates and executes code input into the function.
+    Note: can be used for malicious purposes
+    '''
     bash_out = sp.run(bash_cmd.split(), capture_output=True, text=True)
     return bash_out.stdout
 

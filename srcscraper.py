@@ -4,10 +4,8 @@ import pandas as pd
 import time
 from datetime import date
 from dateutil.parser import parse
-# import debuglogging as dl
 from lib.liblog import loggers as lg
 
-# log = dl.log
 lg.functions.debug("srcscraper loaded")
 
 _path = './srcscraper.config.json' ## path to srcscraper.config

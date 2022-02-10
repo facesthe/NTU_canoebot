@@ -5,6 +5,7 @@ import logging, sys, os
 import inspect
 import functools
 import settings as s
+
 logging.basicConfig(
     stream = sys.stdout,
     level = s.json.logger.debug_level,

@@ -3,11 +3,9 @@ from datetime import date
 from dateutil.parser import parse
 import random
 import sheetscraper as ss
-# import debuglogging as dl
 from lib.liblog import loggers as lg
 import settings as s
 
-# log = dl.log
 lg.functions.debug("formfiller loaded")
 
 ## change the form id if needed (should be never)
@@ -137,7 +135,7 @@ def submitform(data_dict):
     global url
 
     response = rq.post(url, data = data_dict)
-    log.debug(f"response {response.status_code}")
+    lg.functions.debug(f"response {response.status_code}")
     if (response.status_code == 200):
         return 1
     else:

@@ -1,11 +1,9 @@
 import pandas as pd
-# import debuglogging as dl
 from lib.liblog import loggers as lg
 import time
 from datetime import date
 from dateutil.parser import parse
 
-# log = dl.log
 lg.functions.debug("gymscraper loaded")
 
 HOUR_SLOTS = 20 ## can be changed for other bookings that have different slot size (STILL TESTING)

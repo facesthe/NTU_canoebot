@@ -7,8 +7,7 @@ import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscrape
 import sheetscraper as ss ## for attendance stuffs
 import bashcmds as bc ## for interfacing with terminal in the pi
 import formfiller as ff ## for sending the log sheet
-# import debuglogging as dl ## for info and logging
-from lib.liblog import loggers as lg ## new logging module (supercedes above)
+from lib.liblog import loggers as lg ## new logging module
 import contacttrace as ct ## for contact tracing
 import TrainingLog as tl ## for training log
 import settings as s ## bot settings
@@ -17,7 +16,6 @@ TOKEN = s.json.canoebot.apikey ## API token for the bot
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 submit_date = None ## for formfiller submit history
 
-# log = dl.log ## logging obj
 trace = ct.tracer()
 
 lg.functions.info(f'using settings file {s._path}')
@@ -83,7 +81,6 @@ def handle_start(message):
 @bot.message_handler(commands=['help'])
 @lg.decorators.info()
 def handle_help(message):
-    # log.info("/help handler triggered")
     helptext = 'Commands:\n\n'
     cid = message.chat.id
 
@@ -96,7 +93,6 @@ def handle_help(message):
 @bot.message_handler(commands=['xcohelp'])
 @lg.decorators.info()
 def handle_xcohelp(message):
-    # log.info("/xcohelp handler triggered")
     helptext = 'Hidden commands:\n\n'
     cid = message.chat.id
 
@@ -109,7 +105,6 @@ def handle_xcohelp(message):
 @bot.message_handler(commands=['whoami'])
 @lg.decorators.info()
 def handle_whoami(message):
-    # log.info("/whoami handler triggered")
     lg.functions.debug(f'chat name type: {type(message.from_user)}')
     lg.functions.debug(message.from_user)
     bot.send_message(message.chat.id, str(message.from_user.first_name))
@@ -118,7 +113,6 @@ def handle_whoami(message):
 @bot.message_handler(commands=['wavegym'])
 @lg.decorators.info()
 def handle_wavegym(message):
-    # log.info("/wavegym handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
@@ -127,7 +121,6 @@ def handle_wavegym(message):
 @bot.message_handler(commands=['srcbookings'])
 @lg.decorators.info()
 def handle_srcbooking_1(message):
-    # log.info("/srcbooking-1 handler triggered")
     bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
     bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
     handle_srcbooking_2(message)
@@ -135,7 +128,6 @@ def handle_srcbooking_1(message):
 ## src command part 2
 @lg.decorators.info()
 def handle_srcbooking_2(message):
-    # log.info("/srcbooking-2 handler triggered")
 
     msg = bot.send_message(message.chat.id, "enter a facility number:")
     bot.register_next_step_handler(msg, handle_srcbooking_3)
@@ -143,7 +135,6 @@ def handle_srcbooking_2(message):
 ## src command part 3
 @lg.decorators.info()
 def handle_srcbooking_3(message):
-    # log.info("/srcbooking-3 handler triggered")
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -173,7 +164,6 @@ def handle_srcbooking_3(message):
 ## src command part 4
 @lg.decorators.info()
 def handle_srcbooking_4(message, tablecol):
-    # log.info("/srcbooking-4 handler triggered")
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -189,7 +179,6 @@ def handle_srcbooking_4(message, tablecol):
 @lg.decorators.info()
 @bot.message_handler(commands=['namelist'])
 def handle_namelist(message):
-    # log.info("/namelist handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     try:
         reply = ss.namelist(text)
@@ -201,16 +190,13 @@ def handle_namelist(message):
 @bot.message_handler(commands=['trainingam'])
 @lg.decorators.info()
 def handle_trainingam(message):
-    # log.info("/trainingam handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingam(text)
-    lg.functions.debug(f'message is of type {type(message)}')
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 @bot.message_handler(commands=['trainingpm'])
 @lg.decorators.info()
 def handle_trainingpm(message):
-    # log.info("/trainingpm handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
@@ -219,7 +205,6 @@ def handle_trainingpm(message):
 @bot.message_handler(commands=['reload'])
 @lg.decorators.info()
 def handle_reload(message):
-    # log.info("/reload handler triggered")
     ss.updateconfigs()
     bot.send_message(message.chat.id,'updated')
 
@@ -232,7 +217,6 @@ def handle_reload(message):
 @bot.message_handler(commands=['enable'])
 @lg.decorators.info()
 def misc_enable(message):
-    # log.info("/enable handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = True
@@ -244,7 +228,6 @@ def misc_enable(message):
 @bot.message_handler(commands=['disable'])
 @lg.decorators.info()
 def misc_disable(message):
-    # log.info("/disable handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = False
@@ -257,7 +240,6 @@ def misc_disable(message):
 @bot.message_handler(commands=['handlerstatus'])
 @lg.decorators.info()
 def misc_handlerstatus(message):
-    # log.info("/handlerstatus handler triggered")
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         bot.send_message(message.chat.id, misc_handlers[text.upper()])
@@ -268,7 +250,6 @@ def misc_handlerstatus(message):
 @bot.message_handler(regexp='ooga')
 @lg.decorators.debug()
 def misc_oogabooga(message):
-    # log.debug("misc ooga-booga triggered")
     if misc_handlers['MISC_OOGABOOGA'] is False: return
     bot.send_message(message.chat.id, 'booga')
 
@@ -276,7 +257,6 @@ def misc_oogabooga(message):
 @bot.message_handler(regexp='marco')
 @lg.decorators.debug()
 def misc_marcopolo(message):
-    # log.debug("misc marco-polo triggered")
     if misc_handlers['MISC_MARCOPOLO'] is False: return
     bot.send_message(message.chat.id, 'polo')
 
@@ -284,7 +264,6 @@ def misc_marcopolo(message):
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
 @lg.decorators.debug()
 def misc_pingpong(message):
-    # log.debug("misc ping-pong triggered")
     if misc_handlers['MISC_PINGPONG'] is False: return
     bot.send_message(message.chat.id, 'pong')
 
@@ -292,7 +271,6 @@ def misc_pingpong(message):
 @bot.message_handler(regexp='die')
 @lg.decorators.debug()
 def misc_dietbh(message):
-    # log.debug("misc die-sametbh triggered")
     if misc_handlers['MISC_DIETBH'] is False: return
     bot.reply_to(message, 'same tbh')
 
@@ -300,7 +278,6 @@ def misc_dietbh(message):
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
 @lg.decorators.debug()
 def misc_hellno(message):
-    # log.debug("misc help-hellno triggered")
     if misc_handlers['MISC_HELLNO'] is False: return
     bot.reply_to(message,'hell no')
 
@@ -308,7 +285,6 @@ def misc_hellno(message):
 @bot.message_handler(regexp='help')
 @lg.decorators.debug()
 def misc_helpno(message):
-    # log.debug("misc help-no triggered")
     if misc_handlers['MISC_HELPNO'] is False: return
     bot.reply_to(message, 'no')
 
@@ -316,7 +292,6 @@ def misc_helpno(message):
 @bot.message_handler(regexp='69')
 @lg.decorators.debug()
 def misc_69nice(message):
-    # log.debug("misc 69-nice triggered")
     if misc_handlers['MISC_69NICE'] is False: return
     bot.reply_to(message, 'nice')
 
@@ -324,7 +299,6 @@ def misc_69nice(message):
 @bot.message_handler(func=lambda message: message.text.lower() == 'nice')
 @lg.decorators.debug()
 def misc_nicenice(message):
-    # log.debug("misc nice-nice triggered")
     if misc_handlers['MISC_NICENICE'] is False: return
     bot.reply_to(message, 'nice')
 
@@ -337,21 +311,18 @@ def misc_nicenice(message):
 @bot.message_handler(regexp='ovuvuevuevue')
 @lg.decorators.debug()
 def misc_osas_1(message):
-    # log.debug("misc osas-1 triggered")
     if misc_handlers['MISC_OSAS'] is False: return
     msg = bot.reply_to(message, "...i'm listening")
     bot.register_next_step_handler(msg, misc_osas_2)
 
 @lg.decorators.debug()
 def misc_osas_2(message):
-    # log.debug("misc osas-2 triggered")
     if 'enyetuenwuevue' in message.text.lower():
         msg = bot.send_message(message.chat.id, "go on...")
         bot.register_next_step_handler(msg, misc_osas_3)
 
 @lg.decorators.debug()
 def misc_osas_3(message):
-    # log.debug("misc osas-3 triggered")
     if 'ugbemugbem' in message.text.lower():
         msg = bot.send_message(message.chat.id, "almost there...")
         bot.register_next_step_handler(msg, misc_osas_4)
@@ -360,7 +331,6 @@ def misc_osas_3(message):
 
 @lg.decorators.debug()
 def misc_osas_4(message):
-    # log.debug("misc osas-4 triggered")
     if 'osas' in message.text.lower():
         bot.send_message(message.chat.id, "i clapping for u na bratha")
         time.sleep(3)
@@ -373,7 +343,6 @@ def misc_osas_4(message):
     'bot' in message.text.lower() and 'who' in message.text.lower())
 @lg.decorators.debug()
 def misc_who_bot(message):
-    # log.debug("misc who-bot triggered")
     if misc_handlers['MISC_WHOBOT'] is False: return
 
     replies = [
@@ -421,16 +390,14 @@ def misc_bday(message):
 
 ## check logs
 @bot.message_handler(commands=['botlog'])
-@lg.decorators.warning()
 def misc_botlog(message):
-    # log.warning("/botlog handler triggered")
+    lg.functions.warning(message.text)
     bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
 @lg.decorators.warning()
 def misc_bash(message):
-    # log.warning("/bash handler triggered")
     if misc_handlers['MISC_BASH'] is False: return
 
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
@@ -442,7 +409,6 @@ def misc_bash(message):
 def misc_send_msg(message):
     '''Send message using <chat_name>, <chat text>\n
     Try not to use too often'''
-    # log.warning("/send_msg handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     lg.functions.debug(text)
     lg.functions.debug(text.split(','))
@@ -460,7 +426,6 @@ def misc_send_msg(message):
 @bot.message_handler(commands=['send_vid'])
 @lg.decorators.warning()
 def misc_send_video(message):
-    # log.warning("/send_vid handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     try:
         path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
@@ -477,7 +442,6 @@ def misc_send_video(message):
 @bot.message_handler(commands=['send_markdown'])
 @lg.decorators.warning()
 def misc_send_markdown(message):
-    # log.warning("/send_markdown handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
@@ -485,7 +449,6 @@ def misc_send_markdown(message):
 @bot.message_handler(commands=['send_code'])
 @lg.decorators.warning()
 def misc_send_code(message):
-    # log.warning("/send_code handler triggered")
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, ss.codeit(text), parse_mode='Markdown')
 
@@ -493,7 +456,6 @@ def misc_send_code(message):
 @bot.message_handler(commands=['uptime'])
 @lg.decorators.info()
 def misc_uptime(message):
-    # log.info("/uptime handler triggered")
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
 ##################################################################################
@@ -503,7 +465,6 @@ def misc_uptime(message):
 @bot.message_handler(commands=['boatallo'])
 @lg.decorators.info()
 def handle_boatallo(message):
-    # log.info("/boatallo handler triggered")
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
@@ -516,7 +477,6 @@ def handle_boatallo(message):
 @bot.message_handler(commands=['logsheet'])
 @lg.decorators.info()
 def handle_logsheet(message):
-    # log.info("/logsheet-1 handler triggered")
     global form, submit_date, logsheet
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     logsheet = ff.logSheet()
@@ -543,7 +503,6 @@ Do you want to continue? (Y/N)'''
 ## part 2/4 of log sheet sending
 @lg.decorators.info()
 def handle_logsheet_send(message):
-    # log.info("/logsheet-2 handler triggered")
     global form, logsheet, submit_date
     text = message.text
 
@@ -579,7 +538,6 @@ def handle_logsheet_send(message):
 ## part 3/4 of log sheet sending (optional)
 @lg.decorators.info()
 def handle_logsheet_modify_count(message):
-    # log.info("/logsheet-3 handler triggered")
     global form, logsheet
 
     try:
@@ -602,7 +560,6 @@ Do you want to continue? (Y/N)'''
 ## part 4/4 of log sheet sending (optional)
 @lg.decorators.info()
 def handle_logsheet_modify_name(message):
-    # log.info("/logsheet-4 handler triggered")
     global form, logsheet
 
     logsheet.changename(message.text)
@@ -620,7 +577,6 @@ Do you want to continue? (Y/N)'''
 @bot.message_handler(commands=['trace'])
 @lg.decorators.info()
 def handle_traceall_1(message):
-    # log.info("/trace-1 handler triggered")
     trace.reset()
     msg = bot.send_message(message.chat.id, 'enter date')
     bot.register_next_step_handler(msg, handle_traceall_2)
@@ -628,7 +584,6 @@ def handle_traceall_1(message):
 ## contact tracing part 2
 @lg.decorators.info()
 def handle_traceall_2(message):
-    # log.info("/trace-2 handler triggered")
     if 'exit' in message.text.lower():
         bot.send_message(message.chat.id, 'result:')
         bot.send_message(message.chat.id, ss.df2str(trace.returntable()), parse_mode='Markdown')
@@ -690,7 +645,6 @@ def handle_traininglog_send(message, traininglog:tl.TrainingLog):
 ## training log cancellation
 @lg.decorators.info()
 def handle_traininglog_cancel(message):
-    # lg.functions.info("/traininglog-cancel handler triggered")
     bot.send_message(message.chat.id, "exiting /traininglog")
     return
 

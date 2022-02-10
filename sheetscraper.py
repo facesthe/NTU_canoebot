@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 import os
-# import debuglogging as dl ## logging extension
 from lib.liblog import loggers as lg ## new logging extension
 import settings as s ## bot settings
 
