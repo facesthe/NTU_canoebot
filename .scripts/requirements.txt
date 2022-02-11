@@ -2,4 +2,4 @@
 pyTelegramBotAPI
 pandas
 numpy
-python-crontab
+# python-crontab (unused atm)
