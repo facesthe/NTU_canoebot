@@ -8,7 +8,7 @@ from lib.liblog import loggers as lg
 
 lg.functions.debug("srcscraper loaded")
 
-_path = './srcscraper.config.json' ## path to srcscraper.config
+_path = './.settings/srcscraper.config.json' ## path to srcscraper.config
 
 ## creating config variable in Dotionary form
 with open(_path) as jsonfile:

@@ -176,8 +176,8 @@ def handle_srcbooking_4(message, tablecol):
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
 ## fetch attendance, names only
-@lg.decorators.info()
 @bot.message_handler(commands=['namelist'])
+@lg.decorators.info()
 def handle_namelist(message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     try:
