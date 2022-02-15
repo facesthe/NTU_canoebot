@@ -1,0 +1,46 @@
+{
+    "canoebot": {
+        "apikey": "paste api key here",
+        "known_chats" : {
+            "chat-name" : 0,
+        },
+        "misc_handlers" : {
+            "MISC_OOGABOOGA"    : true,
+            "MISC_MARCOPOLO"    : true,
+            "MISC_PINGPONG"     : true,
+            "MISC_DIETBH"       : true,
+            "MISC_HELLNO"       : false,
+            "MISC_HELPNO"       : true,
+            "MISC_69NICE"       : true,
+            "MISC_NICENICE"     : true,
+            "MISC_OSAS"         : true,
+            "MISC_WHOBOT"       : true,
+            "MISC_LONGMSG"      : false,
+            "MISC_BASH"         : true
+        }
+    },
+
+    "sheetscraper": {
+        "attendance_sheet": "google sheets sheetid",
+        "program_sheet": "google sheets sheetid",
+        "getnames_ver":2,
+        "use_deconflict": true,
+        "deconflict_ver": 2,
+        "deconflict_recursion_limit": 20
+    },
+
+    "formfiller": {
+        "form_id": "",
+        "particulars" : {
+            "Name": 99990000
+        }
+    },
+
+    "traininglog": {
+        "form_id": "google forms formid"
+    },
+
+    "logger": {
+        "debug_level": "DEBUG"
+    }
+}

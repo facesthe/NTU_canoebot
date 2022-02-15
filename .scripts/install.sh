@@ -40,7 +40,7 @@ append_if_missing "repopath='$repopath'" $repopath/.scripts/.repopath.sh
 # Note that bash will read 'adjacent'"strings" as one if on the same line
 CRON=(
     "@reboot sleep 30 && python3 $repopath/canoebot.py" # start bot on boot
-    '5 0 * * 0 sudo kill $(pgrep python3)'"&& cd $repopath && python3 canoebot.py" # wkly restart
+    '5 0 * * 0 sudo kill $(pgrep -f "python3 canoebot.py")'"&& cd $repopath && python3 canoebot.py" # wkly restart
 ) # crontab entries to append
 
 ALIASES=(
@@ -64,4 +64,4 @@ done
 
 # install pip3 packages
 echo "$green""installing python3 dependencies...$rst"
-# pip3 install -r $repopath/.scripts/requirements.txt
+pip3 install -r $repopath/.scripts/requirements.txt

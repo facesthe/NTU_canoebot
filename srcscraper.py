@@ -8,7 +8,7 @@ from lib.liblog import loggers as lg
 
 lg.functions.debug("srcscraper loaded")
 
-_path = './.settings/srcscraper.config.json' ## path to srcscraper.config
+_path = './.configs/srcscraper.config.json' ## path to srcscraper.config
 
 ## creating config variable in Dotionary form
 with open(_path) as jsonfile:
@@ -117,16 +117,15 @@ def get_booking_result(date:date, tablecol:int) -> str:
     return returnstr
 
 
+def get_time_slots(tablecol:int)->pd.DataFrame:
+    '''Return a DataFrame that corresponds to the time slots for a facility'''
+    rawtable = get_booking_table(date.today(), tablecol)
+    courts = config[tablecol].courts
+    indexes = [i*courts for i in range(int(len(rawtable)/courts))]
+    table = rawtable.iloc[indexes, 0].reset_index(drop=True)
 
-# x = show_facility_table()
-# print(x)
+    returndf = pd.DataFrame({"no":[], "timeslot":[]})
+    for i in range(len(table)):
+        returndf = returndf.append(pd.DataFrame({"no":[i+1], "timeslot":[table[i]]}))
 
-# column = 5
-# y = get_booking_table(date(2022,1,8), column)
-# # print(y.info())
-# print(y)
-# z = format_booking_table(y, column)
-# print(z)
-
-# a = get_booking_result(date.today(), 14)
-# print(a)
+    return returndf.convert_dtypes().reset_index(drop=True)

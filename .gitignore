@@ -3,3 +3,5 @@
 botsettings.json
 botsettings.debug.json
 *.pyc
+.scripts/.repopath.sh
+.scripts/canoebot.log
