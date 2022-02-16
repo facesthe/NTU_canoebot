@@ -2,4 +2,5 @@
 pyTelegramBotAPI
 pandas
 numpy
+lxml
 # python-crontab (unused atm)
