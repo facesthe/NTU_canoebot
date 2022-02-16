@@ -39,8 +39,8 @@ append_if_missing "repopath='$repopath'" $repopath/.scripts/.repopath.sh
 # For all shell expansions, use "double quotes"
 # Note that bash will read 'adjacent'"strings" as one if on the same line
 CRON=(
-    "@reboot sleep 30 && canoebotrestart" # start bot on boot
-    '5 0 * * 0 canoebotrestart' # wkly restart
+    "@reboot sleep 30 && cd $repopath $$ python3 canoebot.py" # start bot on boot
+    '5 0 * * 0 sudo kill 15 $(pgrep -f "python3 canoebot.py")' "&& cd $repopath && python3 canoebot.py" # wkly restart
 ) # crontab entries to append
 
 ALIASES=(
