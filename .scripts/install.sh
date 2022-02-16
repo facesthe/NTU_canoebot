@@ -47,7 +47,7 @@ ALIASES=(
     "# start canoebot aliases #"
     "# read STDOUT of canoebot.py, for debugging or logging"
     "alias canoebotlog='bash $repopath/.scripts/.canoebotlog.sh'" # open stdout log
-    "alias canoebotrestart='bash $repopath/.scripts/.restartbot.sh'" # restart bot
+    "alias canoebotrestart='bash $repopath/.scripts/.canoebotrestart.sh'" # restart bot
     "alias canoebotstop='bash $repopath/.scripts/.canoebotstop.sh'" # stop bot
     "# end canoebot aliases #"
 ) # bash_aliases to append
@@ -68,5 +68,5 @@ echo "$green""updating bash_aliaes...$rst"
 source ~/.bash_aliases
 
 # install pip3 packages
-# echo "$green""installing python3 dependencies...$rst"
-# pip3 install -r $repopath/.scripts/requirements.txt
+echo "$green""installing python3 dependencies...$rst"
+pip3 install -r $repopath/.scripts/requirements.txt
