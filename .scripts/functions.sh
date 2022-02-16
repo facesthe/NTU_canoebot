@@ -84,14 +84,18 @@ git_shallow_clone() {
 }
 
 # Does a shallow pull (depth 2) of the target repo
+# OVERWRITES ALL UNCOMMITED CHANGES
 # Param $1: Path to repo (optional)
 git_shallow_pull() {
     case $# in
         0)
+            git reset --hard origin/main
             git pull --depth 2
             ;;
         1)
-            cd $1 && git pull --depth 2
+            cd $1
+            git reset --hard origin/main
+            git pull --depth 2
             cd -
             ;;
         *)
