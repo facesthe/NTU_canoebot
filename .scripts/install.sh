@@ -39,29 +39,34 @@ append_if_missing "repopath='$repopath'" $repopath/.scripts/.repopath.sh
 # For all shell expansions, use "double quotes"
 # Note that bash will read 'adjacent'"strings" as one if on the same line
 CRON=(
-    "@reboot sleep 30 && python3 $repopath/canoebot.py" # start bot on boot
-    '5 0 * * 0 sudo kill $(pgrep -f "python3 canoebot.py")'"&& cd $repopath && python3 canoebot.py" # wkly restart
+    "@reboot sleep 30 && canoebotrestart" # start bot on boot
+    '5 0 * * 0 canoebotrestart' # wkly restart
 ) # crontab entries to append
 
 ALIASES=(
+    "# start canoebot aliases #"
     "# read STDOUT of canoebot.py, for debugging or logging"
     "alias canoebotlog='bash $repopath/.scripts/.canoebotlog.sh'" # open stdout log
     "alias canoebotrestart='bash $repopath/.scripts/.restartbot.sh'" # restart bot
+    "alias canoebotstop='bash $repopath/.scripts/.canoebotstop.sh'" # stop bot
     "# end canoebot aliases #"
 ) # bash_aliases to append
 
 for cronline in "${CRON[@]}"
 do
-    echo "$green""adding crontab:$rst $cronline"
+    echo "$green""adding crontab:$rst ${cronline:0:30} ..."
     add_crontab "$cronline"
 done
 
 for aliasline in "${ALIASES[@]}"
 do
-    echo "$green""adding alias:$rst $aliasline"
+    echo "$green""adding alias:$rst ${aliasline:0:30} ..."
     add_bash_alias "$aliasline"
 done
 
+echo "$green""updating bash_aliaes...$rst"
+source ~/.bash_aliases
+
 # install pip3 packages
-echo "$green""installing python3 dependencies...$rst"
-pip3 install -r $repopath/.scripts/requirements.txt
+# echo "$green""installing python3 dependencies...$rst"
+# pip3 install -r $repopath/.scripts/requirements.txt
