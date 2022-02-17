@@ -23,4 +23,4 @@ append_to_top "_path = './.configs/botsettings.debug.json' ## debug version" \
 settings.py
 
 cd $currpath
-echo "bot running debug version"
+echo "$green""$bold""bot configured for debugging""$rst"
