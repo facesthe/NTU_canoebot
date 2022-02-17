@@ -10,6 +10,14 @@ install_to_home() {
     echo $(basename "$0") installed into home directory $(realpath ~)
 }
 
+# Adds line to top of file, regardless if line exists or not
+# Param $1: Line to append
+# Param $2: Target file
+append_to_top() {
+    echo "$1" | cat - $2 > /tmp/$2.new
+    mv /tmp/$2.new $2
+}
+
 # Appends line to file if line does not exist
 # Creates new file if file does not exist
 # Param $1: Line to append

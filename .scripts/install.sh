@@ -10,6 +10,7 @@ repopath=$(realpath .)
 cd $currpath
 
 source $repopath/.scripts/functions.sh # import functions
+source $repopath/.scripts/data.sh # cron and aliases stored here
 
 # getting some tput colours
 # black=$(tput setaf 0)
@@ -23,6 +24,7 @@ green=$(tput setaf 2)
 # bg_white=$(tput setab 7)
 
 # extras
+green=$(tput setaf 2)
 bold=$(tput bold)
 rst=$(tput sgr0)
 
@@ -34,24 +36,7 @@ touch $repopath/.scripts/.repopath.sh
 append_if_missing "# Auto-generated file. Do not modify!" $repopath/.scripts/.repopath.sh
 append_if_missing "repopath='$repopath'" $repopath/.scripts/.repopath.sh
 
-# Note that for raw text to be written (no command substitution within $(this bracket) ),
-# A string will need to be enclosed in 'single quotes'
-# For all shell expansions, use "double quotes"
-# Note that bash will read 'adjacent'"strings" as one if on the same line
-CRON=(
-    "@reboot sleep 30 && cd $repopath/.scripts && bash ./.canoebotrestart.sh" # start bot on boot
-    "5 0 * * 0 cd $repopath/.scripts && bash ./.canoebotrestart.sh" # wkly restart
-) # crontab entries to append
-
-ALIASES=(
-    "# start canoebot aliases #"
-    "# read STDOUT of canoebot.py, for debugging or logging"
-    "alias canoebotlog='bash $repopath/.scripts/.canoebotlog.sh'" # open stdout log
-    "alias canoebotrestart='bash $repopath/.scripts/.canoebotrestart.sh'" # restart bot
-    "alias canoebotstop='bash $repopath/.scripts/.canoebotstop.sh'" # stop bot
-    "# end canoebot aliases #"
-) # bash_aliases to append
-
+# Installing crontabs and bash aliases
 for cronline in "${CRON[@]}"
 do
     echo "$green""adding crontab:$rst ${cronline:0:30} ..."
