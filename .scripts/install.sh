@@ -49,9 +49,11 @@ do
     add_bash_alias "$aliasline"
 done
 
-echo "$green""updating bash_aliaes...$rst"
+echo "$green""updating bash_aliases...$rst"
 source ~/.bash_aliases
 
 # install pip3 packages
 echo "$green""installing python3 dependencies...$rst"
 pip3 install -r $repopath/.scripts/requirements.txt
+
+echo "$green""please execute 'source ~/.bash_aliases' to reload installed aliases.""$rst"
