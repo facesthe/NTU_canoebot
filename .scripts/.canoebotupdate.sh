@@ -7,6 +7,10 @@ cd $currpath
 
 source $repopath/.scripts/functions.sh # import functions
 
+red=$(tput setaf 1)
+bold=$(tput bold)
+rst=$(tput sgr0)
+
 git_shallow_pull $repopath
-echo "remember to switch to the correct telegram bot!"
-echo "defaults to botsettings.debug.json"
+echo "$red""$bold""remember to switch to the correct telegram bot!""$rst"
+echo "$red""defaults to botsettings.debug.json""$rst"
