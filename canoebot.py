@@ -391,7 +391,8 @@ def misc_bday(message):
 ## check logs
 @bot.message_handler(commands=['botlog'])
 def misc_botlog(message):
-    lg.functions.warning(message.text)
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    lg.functions.warning(text)
     bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
 
 ## bash - DISABLE THIS AFTER TESTING

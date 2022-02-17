@@ -24,4 +24,4 @@ def echo(str_in =''):
 
 def botlog():
     '''Uses the bash alias canoebotlog to retrieve most recent logs'''
-    return bashreply(bashout("sudo bash ./.scripts/.canoebotlog.sh"))
+    return bashreply(bashout("bash .scripts/.canoebotlog.sh"))
