@@ -23,5 +23,5 @@ def echo(str_in =''):
     return bashreply(bashout(f"echo {str_in}"))
 
 def botlog():
-    '''Uses the bash alias canoebotlog to retrieve most recent logs'''
-    return bashreply(bashout("bash .scripts/.canoebotlog.sh"))
+    '''Retrieve the local log file'''
+    return bashreply(bashout("cat .scripts/canoebot.log"))
