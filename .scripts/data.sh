@@ -20,6 +20,7 @@ ALIASES=(
     "alias canoebotlog='bash $repopath/.scripts/.canoebotlog.sh'" # open stdout log
     "alias canoebotrestart='bash $repopath/.scripts/.canoebotrestart.sh'" # restart bot
     "alias canoebotstop='bash $repopath/.scripts/.canoebotstop.sh'" # stop bot
+    "alias canoebotupdate='bash $repopath/.scripts/.canoebotupdate.sh'" # update bot
     "alias canoebotdebug='bash $repopath/.scripts/.canoebotdebug.sh'" # switch to debug mode
     "alias canoebotdeploy='bash $repopath/.scripts/.canoebotdeploy.sh'" # switch to release mode
     "# end canoebot aliases #"
