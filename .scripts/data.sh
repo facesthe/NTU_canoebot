@@ -11,8 +11,8 @@
 # Note that bash will read 'adjacent'"strings" as one if on the same line
 # No whitespace allowed between adjacent strings
 CRON=(
-    "@reboot sleep 30 && cd $repopath/.scripts && bash ./.canoebotrestart.sh" # start bot on boot
-    "5 0 * * 0 cd $repopath/.scripts && bash ./.canoebotrestart.sh" # wkly restart
+    "@reboot sleep 30 && bash $repopath/.scripts/.canoebotrestart.sh" # start bot on boot
+    "5 0 * * 0 cd bash $repopath/.scripts/.canoebotrestart.sh" # wkly restart
 ) # crontab entries to append
 
 ALIASES=(
