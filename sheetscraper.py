@@ -292,7 +292,7 @@ def getonlynames(str_in, time:int):
 
     ## add names if there are any
     if len(names) != 0:
-        df_session = df_session.append(pd.Series(names))
+        df_session = pd.concat([df_session, pd.Series(names)])
 
     lg.functions.debug(f'names: {names}')
     return df_session.reset_index(drop=True)
@@ -349,7 +349,7 @@ def getnamesv2(str_in, time:int):
             if names[i] in SHORT_NAME:
                 names[i] = SHORT_NAME[names[i]]
 
-        df_session = df_session.append(pd.Series(names))
+        df_session = pd.concat([df_session, pd.Series(names)])
     lg.functions.debug(f'names: {names}')
     return df_session.reset_index(drop=True)
 
