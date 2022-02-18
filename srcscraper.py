@@ -44,7 +44,8 @@ def show_facility_table() -> pd.DataFrame:
 
     returndf = pd.DataFrame({"no":[], "facility":[]})
     for i in range(len(config)):
-        returndf = returndf.append(pd.DataFrame({"no":[i+1], "facility":[config[i].name]}))
+        # returndf = returndf.append(pd.DataFrame({"no":[i+1], "facility":[config[i].name]}))
+        returndf = pd.concat([returndf, pd.DataFrame({"no":[i+1], "facility":[config[i].name]})])
 
     returndf = returndf.convert_dtypes() ## set to ints
     return returndf.to_string(index=False)
@@ -87,7 +88,8 @@ def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
             else:
                 count = 0
 
-        avail_df = avail_df.append({'time':hour,'slots':count},ignore_index=True)
+        avail_df = pd.concat([avail_df, pd.DataFrame({'time':[hour],'slots':[count]})])#, ignore_index=True)
+
 
     ## final formatting step
     for col in avail_df.columns: ## convert to respective data types
@@ -126,6 +128,7 @@ def get_time_slots(tablecol:int)->pd.DataFrame:
 
     returndf = pd.DataFrame({"no":[], "timeslot":[]})
     for i in range(len(table)):
-        returndf = returndf.append(pd.DataFrame({"no":[i+1], "timeslot":[table[i]]}))
+        # returndf = returndf.append(pd.DataFrame({"no":[i+1], "timeslot":[table[i]]}))
+        returndf = pd.concat([returndf, pd.DataFrame({"no":[i+1], "timeslot":[table[i]]})])
 
     return returndf.convert_dtypes().reset_index(drop=True)

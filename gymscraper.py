@@ -44,7 +44,7 @@ def condense(df_in): ## takes the first date col and summarises the booking deta
             else:
                 count = 0
 
-        avail_df = avail_df.append({'time':hour,'slots':count},ignore_index=True)
+        avail_df = pd.concat([avail_df, pd.DataFrame({'time':[hour],'slots':[count]})], ignore_index=True)
 
     ## convert to int
     for col in avail_df.columns:
