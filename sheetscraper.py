@@ -192,8 +192,8 @@ def create_1star_dict():
     df = getconfigsheet()[['name','1_star']]
 
     for i in range(len(df['name'])):
-        if df['name'][i] in SHORT_NAME:
-            df['name'][i] = SHORT_NAME[df['name'][i]]
+        if df.loc[i, 'name'] in SHORT_NAME:
+            df.loc[i, 'name'] = SHORT_NAME[df.loc[i, 'name']]
 
     df = df.set_index('name')['1_star']
     CERT_STATUS =  df.dropna().to_dict()
