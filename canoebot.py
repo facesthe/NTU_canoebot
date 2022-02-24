@@ -1,6 +1,8 @@
 import telebot, time, random
-from datetime import date#, timedelta
+from datetime import date
 
+## config constructor, keep at top of imports
+import json_update
 ## bot modules
 import gymscraper as  gs ## for the wavegym command
 import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
@@ -185,6 +187,14 @@ def handle_namelist(message):
         bot.send_message(message.chat.id, ss.df2str(reply),parse_mode='Markdown')
     except: ## to catch out-of-range input dates
         bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
+
+## boatallo and trainingprog with formatting
+@bot.message_handler(commands=['paddling'])
+@lg.decorators.info()
+def handle_paddling(message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    reply = ss.paddling(text)
+    bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
 
 ## fetch training program for the day
 @bot.message_handler(commands=['trainingam'])

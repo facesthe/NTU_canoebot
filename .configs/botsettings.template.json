@@ -1,22 +1,21 @@
 {
     "canoebot": {
-        "apikey": "paste api key here",
+        "apikey": "modify individual API keys in their respective files",
         "known_chats" : {
-            "chat-name" : 0,
         },
         "misc_handlers" : {
             "MISC_OOGABOOGA"    : true,
             "MISC_MARCOPOLO"    : true,
             "MISC_PINGPONG"     : true,
             "MISC_DIETBH"       : true,
-            "MISC_HELLNO"       : false,
+            "MISC_HELLNO"       : true,
             "MISC_HELPNO"       : true,
             "MISC_69NICE"       : true,
             "MISC_NICENICE"     : true,
             "MISC_OSAS"         : true,
             "MISC_WHOBOT"       : true,
-            "MISC_LONGMSG"      : false,
-            "MISC_BASH"         : true
+            "MISC_LONGMSG"      : true,
+            "MISC_BASH"         : false
         }
     },
 
@@ -26,13 +25,16 @@
         "getnames_ver":2,
         "use_deconflict": true,
         "deconflict_ver": 2,
-        "deconflict_recursion_limit": 20
+        "deconflict_recursion_limit": 20,
+        "paddling": {
+            "format": "*Paddling {date_str}*\n\nTime: 0715\n{boatallo_no_date}\n{smm_measure}\n\nBe at start line at 0800\n\n{trainingam_prog}\n\nPack up at 0915\n\nNot coming:",
+            "smm_measure": "(‼️Groups that have more than 5 people in same shed and time slot please be especially careful in abiding safe distancing measure‼️)"
+        }
     },
 
     "formfiller": {
-        "form_id": "",
+        "form_id": "google forms formid",
         "particulars" : {
-            "Name": 99990000
         }
     },
 

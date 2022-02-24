@@ -1,5 +1,5 @@
-'''Settings for canoebot.
-To modify settings see botsettings.json'''
+'''Settings for canoebot. Do not modify this file.
+To change settings see botsettings.json'''
 import json as jsn
 import lib.Dotionary as dot
 

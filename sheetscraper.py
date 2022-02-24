@@ -18,6 +18,8 @@ SHEET_PROG =            s.json.sheetscraper.program_sheet               ## train
 DECONFLICT =            s.json.sheetscraper.use_deconflict              ## boat deconflict enable/disable
 DECONFLICT_VERSION =    s.json.sheetscraper.deconflict_ver              ## version 1 or 2 of __deconflict
 RECURSION_LIMIT =       s.json.sheetscraper.deconflict_recursion_limit  ## set the recursion limit for deconflict()
+PADDLING_FMT =          s.json.sheetscraper.paddling.format             ## formatting string for paddling attendance
+SMM_MEASURE =           s.json.sheetscraper.paddling.smm_measure
 
 
 ## create data, attendance folders on first run
@@ -54,6 +56,20 @@ def gettrainingprog(date_in:date):
     prog_day = prog_day.convert_dtypes()
 
     return prog_day
+
+
+def trainingam_no_date(str_in):
+    '''Same as trainingam but without a date header'''
+    try:
+        date_in = parse(str_in)
+    except:
+        date_in = date.today()
+
+    prog = gettrainingprog(date_in)['AM program']
+    if prog.isna()[0]:
+        prog = pd.Series(['none'])
+
+    return string_df(prog)
 
 
 ## top level function used by canoebot
@@ -421,6 +437,37 @@ def boatallo(str_in=''):
     See other functions called in here for more details'''
     tempdf = namelist(str_in)
     return match2boats(tempdf)
+
+
+def paddling(str_in=''):
+    '''Returns format for paddling'''
+    try:
+        date_in = parse(str_in).date()
+    except:
+        date_in = date.today()
+
+    ## Thursday 04 Feb
+    date_str = date_in.strftime('%A %d %b')
+    boatallo_no_date = boatallo(str_in).iloc[1:]
+    boatallo_no_date.columns = [
+        (' ' * len(boatallo_no_date.columns[i])) \
+        for i in range(len(boatallo_no_date.columns))]
+    lg.functions.debug(boatallo_no_date)
+    # for item in boatallo_no_date.columns:
+    #     item = ' ' * len(item)
+    # boatallo_no_date.columns = [''] * len(boatallo_no_date.columns)
+    boatallo_no_date = string_df(boatallo_no_date)
+
+    trainingam_prog = trainingam_no_date(str_in)
+
+    message = PADDLING_FMT.format(
+        date_str=date_str,
+        boatallo_no_date=boatallo_no_date,
+        smm_measure=SMM_MEASURE,
+        trainingam_prog=trainingam_prog
+    )
+
+    return message
 
 
 ## recursive deconflict
