@@ -103,6 +103,13 @@ def handle_xcohelp(message):
         helptext += command_list_hidden[key] + "\n"
     bot.send_message(cid, helptext)
 
+## sync with contents of the configs sheet
+@bot.message_handler(commands=['reload'])
+@lg.decorators.info()
+def handle_reload(message):
+    ss.updateconfigs()
+    bot.send_message(message.chat.id,'updated')
+
 ## echo username - gets the first name of user
 @bot.message_handler(commands=['whoami'])
 @lg.decorators.info()
@@ -188,6 +195,18 @@ def handle_namelist(message):
     except: ## to catch out-of-range input dates
         bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
 
+## fetch attendance, with boats
+@bot.message_handler(commands=['boatallo'])
+@lg.decorators.info()
+def handle_boatallo(message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    bot.send_chat_action(message.chat.id, 'typing')
+    try:
+        reply = ss.boatallo(text)
+        bot.send_message(message.chat.id,ss.df2str(reply),parse_mode='Markdown')
+    except:
+        bot.send_message(message.chat.id,'Input out of range!')
+
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
 @lg.decorators.info()
@@ -210,279 +229,6 @@ def handle_trainingpm(message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
-
-## sync with contents of the configs sheet
-@bot.message_handler(commands=['reload'])
-@lg.decorators.info()
-def handle_reload(message):
-    ss.updateconfigs()
-    bot.send_message(message.chat.id,'updated')
-
-##################################################################################
-## Misc commands - these do not contribute to the functionality of the bot
-##################################################################################
-
-## enable/disable some annoying handlers
-## misc - enable
-@bot.message_handler(commands=['enable'])
-@lg.decorators.info()
-def misc_enable(message):
-    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        misc_handlers[text] = True
-        bot.send_message(message.chat.id, f"{text} enabled")
-    else:
-        bot.send_message(message.chat.id, "handle not found")
-
-## misc - disable
-@bot.message_handler(commands=['disable'])
-@lg.decorators.info()
-def misc_disable(message):
-    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        misc_handlers[text] = False
-        bot.send_message(message.chat.id, f"{text} disabled")
-    else:
-        bot.send_message(message.chat.id, "handle not found")
-
-## view status of handler
-## misc - status
-@bot.message_handler(commands=['handlerstatus'])
-@lg.decorators.info()
-def misc_handlerstatus(message):
-    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        bot.send_message(message.chat.id, misc_handlers[text.upper()])
-    else:
-        bot.send_message(message.chat.id, "handle not found")
-
-## ooga - booga
-@bot.message_handler(regexp='ooga')
-@lg.decorators.debug()
-def misc_oogabooga(message):
-    if misc_handlers['MISC_OOGABOOGA'] is False: return
-    bot.send_message(message.chat.id, 'booga')
-
-## marco - polo
-@bot.message_handler(regexp='marco')
-@lg.decorators.debug()
-def misc_marcopolo(message):
-    if misc_handlers['MISC_MARCOPOLO'] is False: return
-    bot.send_message(message.chat.id, 'polo')
-
-## ping - pong (only if 'ping' as a word is inside)
-@bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
-@lg.decorators.debug()
-def misc_pingpong(message):
-    if misc_handlers['MISC_PINGPONG'] is False: return
-    bot.send_message(message.chat.id, 'pong')
-
-## die - same tbh
-@bot.message_handler(regexp='die')
-@lg.decorators.debug()
-def misc_dietbh(message):
-    if misc_handlers['MISC_DIETBH'] is False: return
-    bot.reply_to(message, 'same tbh')
-
-## plshelp - hell no
-@bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
-@lg.decorators.debug()
-def misc_hellno(message):
-    if misc_handlers['MISC_HELLNO'] is False: return
-    bot.reply_to(message,'hell no')
-
-## help - no
-@bot.message_handler(regexp='help')
-@lg.decorators.debug()
-def misc_helpno(message):
-    if misc_handlers['MISC_HELPNO'] is False: return
-    bot.reply_to(message, 'no')
-
-## 69 - nice (see below for continuation)
-@bot.message_handler(regexp='69')
-@lg.decorators.debug()
-def misc_69nice(message):
-    if misc_handlers['MISC_69NICE'] is False: return
-    bot.reply_to(message, 'nice')
-
-## nice - nice (see above for previous)
-@bot.message_handler(func=lambda message: message.text.lower() == 'nice')
-@lg.decorators.debug()
-def misc_nicenice(message):
-    if misc_handlers['MISC_NICENICE'] is False: return
-    bot.reply_to(message, 'nice')
-
-## count the number of times 'bot' has been mentioned
-
-##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
-## the OSAS message handler
-## Ovuvuevuevue Enyetuenwuevue Ugbemugbem Osas is the full name
-##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
-@bot.message_handler(regexp='ovuvuevuevue')
-@lg.decorators.debug()
-def misc_osas_1(message):
-    if misc_handlers['MISC_OSAS'] is False: return
-    msg = bot.reply_to(message, "...i'm listening")
-    bot.register_next_step_handler(msg, misc_osas_2)
-
-@lg.decorators.debug()
-def misc_osas_2(message):
-    if 'enyetuenwuevue' in message.text.lower():
-        msg = bot.send_message(message.chat.id, "go on...")
-        bot.register_next_step_handler(msg, misc_osas_3)
-
-@lg.decorators.debug()
-def misc_osas_3(message):
-    if 'ugbemugbem' in message.text.lower():
-        msg = bot.send_message(message.chat.id, "almost there...")
-        bot.register_next_step_handler(msg, misc_osas_4)
-    else:
-        bot.send_message(message.chat.id, "why you no how call my name na?")
-
-@lg.decorators.debug()
-def misc_osas_4(message):
-    if 'osas' in message.text.lower():
-        bot.send_message(message.chat.id, "i clapping for u na bratha")
-        time.sleep(3)
-        bot.send_message(message.chat.id, "you know how call my naem")
-
-##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
-
-## reply if text contains 'bot' and 'who'
-@bot.message_handler(func=lambda message: \
-    'bot' in message.text.lower() and 'who' in message.text.lower())
-@lg.decorators.debug()
-def misc_who_bot(message):
-    if misc_handlers['MISC_WHOBOT'] is False: return
-
-    replies = [
-        'good question', 'idk', 'you ask me i ask who?', 'quiet', 'dunno shaddup'
-    ]
-    bot.reply_to(message, random.choice(replies)) ## random things
-
-## reply if text message is too long
-@bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
-@lg.decorators.debug()
-def misc_longmsg(message):
-    # log.debug("misc long-msg triggered")
-    if misc_handlers['MISC_LONGMSG'] is False: return
-
-    ## exit if it's the paddling attendance message (list still building)
-    keywords = ['paddling','warm']
-    for key in keywords:
-        if key in message.text.lower():
-            return
-        else: continue
-
-    delay = int(len(message.text)/20) ## delay is >= 10 seconds
-    while delay >= 0: ## keep the typing action on for [delay] seconds
-        bot.send_chat_action(message.chat.id, 'typing')
-        time.sleep(5)
-        delay -= 5
-
-    time.sleep(random.randint(1,int(len(message.text)/20/2))) ## delay again, this time by a rand amt
-    bot.reply_to(message, 'K')
-
-## you are already dead - incomplete, memes required
-@bot.message_handler(regexp='omae wa mou shindeiru')
-def misc_omaewamou(message):
-    #if misc_handlers[] is False: return ## key doesnt exist yet
-    return
-    bot.send_photo(message.chat.id, 'photo_path', 'NANI??') ## upload local file along with a caption
-
-##### bday
-@bot.message_handler(regexp='birthday') ## A C T I V A T E only during my bday
-def misc_bday(message):
-    if date.today() != date(2021,10,16): return
-    bday_responses = ['thanks','wow','i get it a lot','arigathanks gozaimuch','ok','m̴̘̲̑̅y̷̭̿ ̴̠̏c̴͚̗̽ỏ̵͍̑n̸̼̕d̶̤̉̾ȏ̷̰͐l̴̥̠̑e̷̮͋͊ͅn̵͍͙͛͂č̴̣̩͝e̶̘͠s̸͕͍͌͂']
-    bot.send_message(message.chat.id, random.choice(bday_responses))
-##### bday
-
-## check logs
-@bot.message_handler(commands=['botlog'])
-def misc_botlog(message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    lg.functions.warning(text)
-    bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
-
-## bash - DISABLE THIS AFTER TESTING
-@bot.message_handler(commands=['bash'])
-@lg.decorators.warning()
-def misc_bash(message):
-    if misc_handlers['MISC_BASH'] is False: return
-
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    bot.send_message(message.chat.id, bc.bashout(text))
-
-## send messages to specific groups
-@bot.message_handler(commands=['send_msg'])
-@lg.decorators.warning()
-def misc_send_msg(message):
-    '''Send message using <chat_name>, <chat text>\n
-    Try not to use too often'''
-    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
-    lg.functions.debug(text)
-    lg.functions.debug(text.split(','))
-    lg.functions.debug(known_chats[text.split(',')[0]])
-    try:
-        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
-        lg.functions.debug('chat action sent')
-        time.sleep(random.randint(1,5)) ## make the bot look like there is some typing going on
-        bot.send_message(known_chats[text.split(',')[0]], text.split(',')[1])
-        bot.send_message(message.chat.id, 'msg sent')
-    except:
-        bot.send_message(message.chat.id, 'send unsuccessful')
-
-## send videos to specific groups
-@bot.message_handler(commands=['send_vid'])
-@lg.decorators.warning()
-def misc_send_video(message):
-    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
-    try:
-        path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
-        lg.functions.info(path)
-        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
-        time.sleep(random.randint(1,5))
-        bot.send_video(known_chats[text.split(',')[0]], data=open(path,'rb'))
-        bot.send_message(message.chat.id, 'video sent')
-    except:
-        bot.send_message(message.chat.id, 'send unsuccessful')
-
-
-## reply in markdown (for testing purposes)
-@bot.message_handler(commands=['send_markdown'])
-@lg.decorators.warning()
-def misc_send_markdown(message):
-    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
-
-## reply in formatted code block (also for testing purposes)
-@bot.message_handler(commands=['send_code'])
-@lg.decorators.warning()
-def misc_send_code(message):
-    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
-    bot.send_message(message.chat.id, ss.codeit(text), parse_mode='Markdown')
-
-## check uptime (keep this at the bottom of misc commands)
-@bot.message_handler(commands=['uptime'])
-@lg.decorators.info()
-def misc_uptime(message):
-    bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
-
-##################################################################################
-## Start of exo commands - exco specific commands (more to come)
-##################################################################################
-## fetch attendance, with boats
-@bot.message_handler(commands=['boatallo'])
-@lg.decorators.info()
-def handle_boatallo(message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    bot.send_chat_action(message.chat.id, 'typing')
-    try:
-        reply = ss.boatallo(text)
-        bot.send_message(message.chat.id,ss.df2str(reply),parse_mode='Markdown')
-    except:
-        bot.send_message(message.chat.id,'Input out of range!')
 
 ## part 1/4 of log sheet sending
 @bot.message_handler(commands=['logsheet'])
@@ -658,6 +404,263 @@ def handle_traininglog_send(message, traininglog:tl.TrainingLog):
 def handle_traininglog_cancel(message):
     bot.send_message(message.chat.id, "exiting /traininglog")
     return
+
+##################################################################################
+## util commands
+##################################################################################
+
+## check logs
+@bot.message_handler(commands=['botlog'])
+def misc_botlog(message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    lg.functions.warning(text)
+    bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
+
+## bash - DISABLE THIS AFTER TESTING
+@bot.message_handler(commands=['bash'])
+def misc_bash(message):
+    if misc_handlers['MISC_BASH'] is False:
+        lg.functions.warning('command used but no input taken')
+        return
+
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    lg.functions.warning(f'bash input: {text}')
+    bot.send_message(message.chat.id, bc.bashout(text))
+
+## enable/disable some annoying handlers
+## misc - enable
+@bot.message_handler(commands=['enable'])
+@lg.decorators.info()
+def misc_enable(message):
+    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
+    if text in misc_handlers.keys():
+        misc_handlers[text] = True
+        bot.send_message(message.chat.id, f"{text} enabled")
+    else:
+        bot.send_message(message.chat.id, "handle not found")
+
+## misc - disable
+@bot.message_handler(commands=['disable'])
+@lg.decorators.info()
+def misc_disable(message):
+    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
+    if text in misc_handlers.keys():
+        misc_handlers[text] = False
+        bot.send_message(message.chat.id, f"{text} disabled")
+    else:
+        bot.send_message(message.chat.id, "handle not found")
+
+## view status of handler
+## misc - status
+@bot.message_handler(commands=['handlerstatus'])
+@lg.decorators.info()
+def misc_handlerstatus(message):
+    text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
+    if text in misc_handlers.keys():
+        bot.send_message(message.chat.id, misc_handlers[text.upper()])
+    else:
+        bot.send_message(message.chat.id, "handle not found")
+
+## send messages to specific groups
+@bot.message_handler(commands=['send_msg'])
+@lg.decorators.warning()
+def misc_send_msg(message):
+    '''Send message using <chat_name>, <chat text>\n
+    Try not to use too often'''
+    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
+    lg.functions.debug(text)
+    lg.functions.debug(text.split(','))
+    lg.functions.debug(known_chats[text.split(',')[0]])
+    try:
+        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
+        lg.functions.debug('chat action sent')
+        time.sleep(random.randint(1,5)) ## make the bot look like there is some typing going on
+        bot.send_message(known_chats[text.split(',')[0]], text.split(',')[1])
+        bot.send_message(message.chat.id, 'msg sent')
+    except:
+        bot.send_message(message.chat.id, 'send unsuccessful')
+
+## send videos to specific groups
+@bot.message_handler(commands=['send_vid'])
+@lg.decorators.warning()
+def misc_send_video(message):
+    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
+    try:
+        path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
+        lg.functions.info(path)
+        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
+        time.sleep(random.randint(1,5))
+        bot.send_video(known_chats[text.split(',')[0]], data=open(path,'rb'))
+        bot.send_message(message.chat.id, 'video sent')
+    except:
+        bot.send_message(message.chat.id, 'send unsuccessful')
+
+## reply in markdown (for testing purposes)
+@bot.message_handler(commands=['send_markdown'])
+@lg.decorators.warning()
+def misc_send_markdown(message):
+    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
+    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+
+## reply in formatted code block (also for testing purposes)
+@bot.message_handler(commands=['send_code'])
+@lg.decorators.warning()
+def misc_send_code(message):
+    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
+    bot.send_message(message.chat.id, ss.codeit(text), parse_mode='Markdown')
+
+## check uptime (keep this at the bottom of util commands)
+@bot.message_handler(commands=['uptime'])
+@lg.decorators.info()
+def misc_uptime(message):
+    bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
+
+##################################################################################
+## Misc commands - these do not contribute to the functionality of the bot
+##################################################################################
+
+## ooga - booga
+@bot.message_handler(regexp='ooga')
+@lg.decorators.debug()
+def misc_oogabooga(message):
+    if misc_handlers['MISC_OOGABOOGA'] is False: return
+    bot.send_message(message.chat.id, 'booga')
+
+## marco - polo
+@bot.message_handler(regexp='marco')
+@lg.decorators.debug()
+def misc_marcopolo(message):
+    if misc_handlers['MISC_MARCOPOLO'] is False: return
+    bot.send_message(message.chat.id, 'polo')
+
+## ping - pong (only if 'ping' as a word is inside)
+@bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
+@lg.decorators.debug()
+def misc_pingpong(message):
+    if misc_handlers['MISC_PINGPONG'] is False: return
+    bot.send_message(message.chat.id, 'pong')
+
+## die - same tbh
+@bot.message_handler(regexp='die')
+@lg.decorators.debug()
+def misc_dietbh(message):
+    if misc_handlers['MISC_DIETBH'] is False: return
+    bot.reply_to(message, 'same tbh')
+
+## plshelp - hell no
+@bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
+@lg.decorators.debug()
+def misc_hellno(message):
+    if misc_handlers['MISC_HELLNO'] is False: return
+    bot.reply_to(message,'hell no')
+
+## help - no
+@bot.message_handler(regexp='help')
+@lg.decorators.debug()
+def misc_helpno(message):
+    if misc_handlers['MISC_HELPNO'] is False: return
+    bot.reply_to(message, 'no')
+
+## 69 - nice (see below for continuation)
+@bot.message_handler(regexp='69')
+@lg.decorators.debug()
+def misc_69nice(message):
+    if misc_handlers['MISC_69NICE'] is False: return
+    bot.reply_to(message, 'nice')
+
+## nice - nice (see above for previous)
+@bot.message_handler(func=lambda message: message.text.lower() == 'nice')
+@lg.decorators.debug()
+def misc_nicenice(message):
+    if misc_handlers['MISC_NICENICE'] is False: return
+    bot.reply_to(message, 'nice')
+
+## count the number of times 'bot' has been mentioned
+
+##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
+## the OSAS message handler
+## Ovuvuevuevue Enyetuenwuevue Ugbemugbem Osas is the full name
+##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
+@bot.message_handler(regexp='ovuvuevuevue')
+@lg.decorators.debug()
+def misc_osas_1(message):
+    if misc_handlers['MISC_OSAS'] is False: return
+    msg = bot.reply_to(message, "...i'm listening")
+    bot.register_next_step_handler(msg, misc_osas_2)
+
+@lg.decorators.debug()
+def misc_osas_2(message):
+    if 'enyetuenwuevue' in message.text.lower():
+        msg = bot.send_message(message.chat.id, "go on...")
+        bot.register_next_step_handler(msg, misc_osas_3)
+
+@lg.decorators.debug()
+def misc_osas_3(message):
+    if 'ugbemugbem' in message.text.lower():
+        msg = bot.send_message(message.chat.id, "almost there...")
+        bot.register_next_step_handler(msg, misc_osas_4)
+    else:
+        bot.send_message(message.chat.id, "why you no how call my name na?")
+
+@lg.decorators.debug()
+def misc_osas_4(message):
+    if 'osas' in message.text.lower():
+        bot.send_message(message.chat.id, "i clapping for u na bratha")
+        time.sleep(3)
+        bot.send_message(message.chat.id, "you know how call my naem")
+
+##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
+
+## reply if text contains 'bot' and 'who'
+@bot.message_handler(func=lambda message: \
+    'bot' in message.text.lower() and 'who' in message.text.lower())
+@lg.decorators.debug()
+def misc_who_bot(message):
+    if misc_handlers['MISC_WHOBOT'] is False: return
+
+    replies = [
+        'good question', 'idk', 'you ask me i ask who?', 'quiet', 'dunno shaddup'
+    ]
+    bot.reply_to(message, random.choice(replies)) ## random things
+
+## reply if text message is too long
+@bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
+@lg.decorators.debug()
+def misc_longmsg(message):
+    # log.debug("misc long-msg triggered")
+    if misc_handlers['MISC_LONGMSG'] is False: return
+
+    ## exit if it's the paddling attendance message (list still building)
+    keywords = ['paddling','warm']
+    for key in keywords:
+        if key in message.text.lower():
+            return
+        else: continue
+
+    delay = int(len(message.text)/20) ## delay is >= 10 seconds
+    while delay >= 0: ## keep the typing action on for [delay] seconds
+        bot.send_chat_action(message.chat.id, 'typing')
+        time.sleep(5)
+        delay -= 5
+
+    time.sleep(random.randint(1,int(len(message.text)/20/2))) ## delay again, this time by a rand amt
+    bot.reply_to(message, 'K')
+
+## you are already dead - incomplete, memes required
+@bot.message_handler(regexp='omae wa mou shindeiru')
+def misc_omaewamou(message):
+    #if misc_handlers[] is False: return ## key doesnt exist yet
+    return
+    bot.send_photo(message.chat.id, 'photo_path', 'NANI??') ## upload local file along with a caption
+
+##### bday
+@bot.message_handler(regexp='birthday') ## A C T I V A T E only during my bday
+def misc_bday(message):
+    if date.today() != date(2021,10,16): return
+    bday_responses = ['thanks','wow','i get it a lot','arigathanks gozaimuch','ok','m̴̘̲̑̅y̷̭̿ ̴̠̏c̴͚̗̽ỏ̵͍̑n̸̼̕d̶̤̉̾ȏ̷̰͐l̴̥̠̑e̷̮͋͊ͅn̵͍͙͛͂č̴̣̩͝e̶̘͠s̸͕͍͌͂']
+    bot.send_message(message.chat.id, random.choice(bday_responses))
+##### bday
+
 
 
 ###############################################################
