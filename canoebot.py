@@ -12,6 +12,7 @@ import formfiller as ff ## for sending the log sheet
 from lib.liblog import loggers as lg ## new logging module
 import contacttrace as ct ## for contact tracing
 import TrainingLog as tl ## for training log
+import utilities as ut ## random assortment of functions
 import settings as s ## bot settings
 
 TOKEN = s.json.canoebot.apikey ## API token for the bot
@@ -125,6 +126,12 @@ def handle_wavegym(message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
+
+## countdown to ITCC
+@bot.message_handler(commands=['countdown'])
+def handle_countdown(message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    bot.send_message(message.chat.id, f'{ut.countdown()} days to ITCC')
 
 ## src command part 1
 @bot.message_handler(commands=['srcbookings'])
