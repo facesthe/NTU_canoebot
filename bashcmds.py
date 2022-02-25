@@ -24,4 +24,4 @@ def echo(str_in =''):
 
 def botlog():
     '''Retrieve the local log file'''
-    return bashreply(bashout("tail --bytes=4096 .scripts/canoebot.log"))
+    return bashreply(bashout("tail --bytes=1024 .scripts/canoebot.log"))
