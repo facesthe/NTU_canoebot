@@ -440,25 +440,28 @@ def boatallo(str_in=''):
 
 
 def paddling(str_in=''):
-    '''Returns format for paddling'''
+    '''Returns paddling attendance, mostly formatted'''
     try:
         date_in = parse(str_in).date()
     except:
-        date_in = date.today()
+        date_in = date.today() + timedelta(days = 1)
 
-    ## Thursday 04 Feb
+    ## date for passing into boatallo and trainingam
+    actual_date = date_in.strftime('%d %b %y')
+    lg.functions.debug(actual_date)
+    ## Thursday 04 Feb - display date
     date_str = date_in.strftime('%A %d %b')
-    boatallo_no_date = boatallo(str_in).iloc[1:]
+
+    boatallo_no_date = boatallo(actual_date).iloc[1:]
+    ## replace col headers with whitespaces of identical length
     boatallo_no_date.columns = [
         (' ' * len(boatallo_no_date.columns[i])) \
         for i in range(len(boatallo_no_date.columns))]
     lg.functions.debug(boatallo_no_date)
-    # for item in boatallo_no_date.columns:
-    #     item = ' ' * len(item)
-    # boatallo_no_date.columns = [''] * len(boatallo_no_date.columns)
+
     boatallo_no_date = string_df(boatallo_no_date)
 
-    trainingam_prog = trainingam_no_date(str_in)
+    trainingam_prog = trainingam_no_date(actual_date)
 
     message = PADDLING_FMT.format(
         date_str=date_str,
