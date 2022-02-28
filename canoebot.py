@@ -1,5 +1,10 @@
+from this import d
 import telebot, time, random
 from datetime import date
+import json as jsn
+
+## telebot extra classes
+from telebot.callback_data import CallbackData
 
 ## config constructor, keep at top of imports
 import json_update
@@ -53,6 +58,9 @@ misc_handlers = s.json.canoebot.misc_handlers
 ##############################################
 ################ DECORATORS ##################
 ##############################################
+
+REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
+
 def handleverify(function):
     '''Ensures that bot commands are executed only in known_chats'''
     def wrapper(*args, **kwargs):
@@ -237,8 +245,109 @@ def handle_trainingpm(message):
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
-## part 1/4 of log sheet sending
+## re-writing logsheet
 @bot.message_handler(commands=['logsheet'])
+@lg.decorators.info()
+def handle_logsheet_new_start(message:telebot.types.Message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    log_date = ut.parsedatetocurr(text)
+
+    button_names = ['AM','PM']
+    cdata = [{
+        'name':'lgsht_data_start',
+        'date':str(log_date),
+        'time':str(i)
+        } for i in range(2)
+    ]
+
+    buttons = [
+        telebot.types.InlineKeyboardButton(
+            button_names[i],
+            callback_data=jsn.dumps(cdata[i])
+        ) for i in range(2)
+    ]
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        buttons[0], buttons[1]
+    )
+
+    bot.send_message(
+        message.chat.id,
+        f'Logsheet: {log_date}',
+        reply_markup=kb,
+    )
+    return
+
+@bot.callback_query_handler(func=lambda c: 'lgsht_data_start' in c.data)
+@lg.decorators.info()
+def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
+    message = call.message
+    lg.functions.debug(f'callback data: {call.data}')
+    cdata:dict = jsn.loads(call.data)
+    send_cdata = cdata.copy()
+    canc_cdata = cdata.copy()
+    send_cdata.update({'name':'lgsht_data_send'})
+    canc_cdata.update({'name':'lgsht_data_canc'})
+    lg.functions.debug(f'send data: {send_cdata}')
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        telebot.types.InlineKeyboardButton('Send', callback_data=jsn.dumps(send_cdata)),
+        telebot.types.InlineKeyboardButton('Cancel', callback_data=jsn.dumps(canc_cdata))
+    )
+
+    logsheet = ff.logSheet()
+    logsheet.settimeslot(int(cdata['time']))
+    logsheet.generateform(cdata['date'])
+
+    reply = f'Logsheet: {cdata["date"]}\n'\
+            f'Time: {logsheet.starttime} to {logsheet.endtime}\n'\
+            f'Paddlers: {logsheet.star0 + logsheet.star1}'
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=reply,
+        reply_markup=kb,
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'lgsht_data_send' in c.data)
+@lg.decorators.info()
+def callback_logsheet_send(call:telebot.types.CallbackQuery):
+    message = call.message
+    cdata =  jsn.loads(call.data)
+    logsheet = ff.logSheet()
+    logsheet.settimeslot(cdata['time'])
+    logsheet.generateform(cdata['date'])
+
+    result = 'successfully' if ff.submitform(logsheet.form) == 1 else 'unsuccessfully'
+    reply = f'Logsheet: {cdata["date"]} slot {cdata["time"]} '\
+            f'submitted {result}'
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=reply,
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'lgsht_data_canc' in c.data)
+@lg.decorators.info()
+def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
+    message = call.message
+    cdata = jsn.loads(call.data)
+    reply = f'Logsheet: {cdata["date"]} slot {cdata["time"]} cancelled'
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=reply,
+    )
+    return
+
+## part 1/4 of log sheet sending
+@bot.message_handler(commands=['logsheetold'])
 @lg.decorators.info()
 def handle_logsheet(message):
     global form, submit_date, logsheet
@@ -356,60 +465,175 @@ def handle_traceall_2(message):
         msg = bot.send_message(message.chat.id, 'enter another date or "exit" to finish')
         bot.register_next_step_handler(msg, handle_traceall_2)
 
+################################################################################
+## Training Log
+################################################################################
+
 ## training log part 1 (under construction)
 @bot.message_handler(commands=['traininglog'])
 @lg.decorators.info()
-def handle_traininglog_1(message):
-    bot.send_message(message.chat.id, "Daily training log. /cancel to exit")
+def handle_traininglog_1(message:telebot.types.Message):
+    kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add('/exit')
+
+    bot.send_message(
+        message.chat.id,
+        "Daily training log",
+        reply_markup=kb)
+
     traininglog = tl.TrainingLog()
-    traininglog.fill_name(message.from_user.first_name)
+    traininglog.fill_name(message.from_user.full_name)
+    msg = bot.send_message(message.chat.id, "Date (dd mmm or day):")
+    bot.register_next_step_handler(msg, handle_traininglog_2, traininglog)
     return
 
 ## training log part 2 (date entry)
 @lg.decorators.info()
-def handle_traininglog_2(message, traininglog:tl.TrainingLog):
-    msg = bot.send_message(message.chat.id, "Date (dd mmm or day):")
-    traininglog.fill_date(message.text)
+def handle_traininglog_2(message:telebot.types.Message, traininglog:tl.TrainingLog):
+    if message.text == '/exit':
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        return
+
+    traininglog.fill_date(traininglog.dateparser(message.text))
+    msg = bot.send_message(message.chat.id, "Sleep hours:")
+    bot.register_next_step_handler(msg, handle_traininglog_3, traininglog)
     return
 
 ## training log part 3 (sleep hours entry)
 @lg.decorators.info()
-def handle_traininglog_3(message, traininglog:tl.TrainingLog):
-    msg = bot.send_message(message.chat.id, "Sleep hours:")
+def handle_traininglog_3(message:telebot.types.Message, traininglog:tl.TrainingLog):
+    # msg = bot.send_message(message.chat.id, "Sleep hours:")
+    if message.text == '/exit':
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        return
+
     try:
         traininglog.fill_sleephr(int(message.text))
     except:
-        bot.send_message(message.chat.id, "Invalid, ints only")
+        bot.send_message(message.chat.id, "Invalid, numbers only")
+        msg = bot.send_message(message.chat.id, "Sleep hours:")
+        bot.register_next_step_handler(msg, handle_traininglog_3, traininglog)
+        return
+
+    msg = bot.send_message(message.chat.id, "Energy level (1-10):")
+    bot.register_next_step_handler(msg, handle_traininglog_4, traininglog)
     return
 
-## training log part 4 (heart rate entry)
+## training log part 4 (energy level entry)
 @lg.decorators.info()
-def handle_traininglog_4(message, traininglog:tl.TrainingLog):
-    msg = bot.send_message(message.chat.id, "Heart rate:")
+def handle_traininglog_4(message:telebot.types.Message, traininglog:tl.TrainingLog):
+    if message.text == '/exit':
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        return
+
+    try:
+        energy = int(message.text)
+    except:
+        bot.send_message(message.chat.id, "Invalid, numbers only.")
+        msg = bot.send_message(message.chat.id, "Energy level (1-10):")
+        bot.register_next_step_handler(msg, handle_traininglog_4, traininglog)
+        return
+
+    if energy not in range(1,11):
+        bot.send_message(message.chat.id, "Invalid, 1-10 only.")
+        msg = bot.send_message(message.chat.id, "Energy level (1-10):")
+        bot.register_next_step_handler(msg, handle_traininglog_4, traininglog)
+        return
+
+    traininglog.fill_energy(energy)
+    msg = bot.send_message(message.chat.id, "Heart rate (resting):")
+    bot.register_next_step_handler(msg, handle_traininglog_5, traininglog)
     return
 
-## training log part 5 (comments entry)
+## training log part 5 (heart rate entry)
 @lg.decorators.info()
-def handle_traininglog_5(message, traininglog:tl.TrainingLog):
-    msg = bot.send_message(message.chat.id, "Training comments:")
+def handle_traininglog_5(message:telebot.types.Message, traininglog:tl.TrainingLog):
+    # msg = bot.send_message(message.chat.id, "Heart rate:")
+    if message.text == '/exit':
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        return
+
+    try:
+        rhr = int(message.text)
+    except:
+        bot.send_message(message.chat.id, "Invalid, numbers only.")
+        msg = bot.send_message(message.chat.id, "Heart rate (resting):")
+        bot.register_next_step_handler(msg, handle_traininglog_5, traininglog)
+        return
+
+    traininglog.fill_rhr(rhr)
+    msg = bot.send_message(message.chat.id, "Paddling mileage (km):")
+    bot.register_next_step_handler(msg, handle_traininglog_6, traininglog)
     return
 
-## training log review (use reply markup keyboard)
+## training log part 6 (mileage entry)
 @lg.decorators.info()
-def handle_traininglog_review(message, trainiglog:tl.TrainingLog):
+def handle_traininglog_6(message:telebot.types.Message, traininglog:tl.TrainingLog):
+    if message.text == '/exit':
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        return
+
+    try:
+        miles = float(message.text)
+    except:
+        bot.send_message(message.chat.id, "Invalid, numbers only.")
+        msg = bot.send_message(message.chat.id, "Paddling mileage (km):")
+        bot.register_next_step_handler(msg, handle_traininglog_6, traininglog)
+        return
+
+    traininglog.fill_mileage(miles)
+    msg = bot.send_message(message.chat.id, "Training comments:", reply_markup=REMOVE_MARKUP_KB)
+    bot.register_next_step_handler(msg, handle_traininglog_7, traininglog)
+    return
+
+## training log part 7 (comments entry)
+@lg.decorators.info()
+def handle_traininglog_7(message:telebot.types.Message, traininglog:tl.TrainingLog):
+
+    traininglog.fill_comments(message.text)
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        telebot.types.InlineKeyboardButton('send', callback_data='traininglog_send_form'),
+        telebot.types.InlineKeyboardButton('cancel', callback_data='traininglog_cancel_form')
+    )
+    msg = bot.send_message(
+        message.chat.id,
+        str(traininglog),
+        reply_markup=kb
+    )
 
     return
 
-## training log send
+@bot.callback_query_handler(func=lambda c: c.data=='traininglog_send_form')
 @lg.decorators.info()
-def handle_traininglog_send(message, traininglog:tl.TrainingLog):
+def callback_logsheet_send(call:telebot.types.CallbackQuery):
+    message = call.message
+    traininglog = tl.TrainingLog()
+    traininglog.parse_json_data(message.text)
+
+    date_str = str(traininglog.date)
+    traininglog.fill_form()
+    result = traininglog.submit_form()
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=f'Training log {date_str} submitted: code {result}'
+    )
 
     return
 
-## training log cancellation
+@bot.callback_query_handler(func=lambda c: c.data=='traininglog_cancel_form')
 @lg.decorators.info()
-def handle_traininglog_cancel(message):
-    bot.send_message(message.chat.id, "exiting /traininglog")
+def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
+    message = call.message
+    date_str = jsn.loads(message.text)["date"]
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=f'Training log {date_str} cancelled'
+    )
+
     return
 
 ##################################################################################
@@ -672,24 +896,73 @@ def misc_bday(message):
 
 ###############################################################
 ## code testing ##
-@bot.message_handler(commands=['test1'])
-def handle_test1(message):
-    bot.send_message(message.chat.id, "/test1 command invoked")
 
-    @bot.message_handler(commands=['test1nest'])
-    def handle_test1nest(message):
-        bot.send_message(message.chat.id, "/test1nest command invoked")
-        return
+@bot.message_handler(commands=['markupkeyboard'])
+@lg.decorators.debug()
+def handle_markupkeyboard(message):
+    kb = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    kb.add('button 1', 'button 2', 'butt haha')
+    reply = bot.send_message(message.chat.id, "press somthing please", reply_markup=kb)
     return
 
-@bot.message_handler(commands=['test2'])
-def handle_test2(message):
-    bot.send_message(message.chat.id, "/test2 command invoked")
+## Clearing markup after use
+@bot.message_handler(commands=['clearmarkup'])
+@lg.decorators.info()
+def handle_clearmarkup(message:telebot.types.Message):
+    ## remove markup kb
+    kb = telebot.types.ReplyKeyboardRemove()
+    bot.send_message(message.chat.id, 'clear markup keyboard', reply_markup=kb)
+    return
 
-    @bot.message_handler(commands=['test2nest'])
-    def handle_test2nest(message):
-        bot.send_message(message.chat.id, "/test2nest command invoked")
-        return
+@bot.message_handler(commands=['inlinemarkup'])
+@lg.decorators.debug()
+def handle_inlinemarkup(message):
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        telebot.types.InlineKeyboardButton('Option 1', callback_data='inline_yes'),
+        telebot.types.InlineKeyboardButton('Option 2', callback_data='inline_no')
+    )
+    bot.send_message(message.chat.id, 'look at this text bubble!', reply_markup=kb)
+
+## callback handler for callback data 'inline_yes'
+@bot.callback_query_handler(func=lambda c: 'inline_' in c.data)
+@lg.decorators.debug()
+def callback_inline_yes(call: telebot.types.CallbackQuery):
+    message = call.message
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text='look the messaage changed!')
+        ## without a reply markup the edited message will no longer have buttons
+
+button_callback = CallbackData('button_data', prefix='button')
+
+@bot.message_handler(commands=['callbacktest'])
+@lg.decorators.debug()
+def handle_callback_test(message:telebot.types.Message):
+    cdata = button_callback.new(button_data='some string data')
+    lg.functions.debug(f'callback data: {cdata}')
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        telebot.types.InlineKeyboardButton(
+            'button',
+            callback_data='asd'
+        ))
+
+    bot.send_message(message.chat.id, 'new callback test. Press the button.', reply_markup=kb)
+    return
+
+@bot.callback_query_handler(func=lambda c: 'asd' == c.data)
+@lg.decorators.debug()
+def callback_test(call: telebot.types.CallbackQuery):
+    message = call.message
+    text = message.text
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=f'text modified after callback.\nPrev message: {text}'
+    )
+
     return
 
 ## keep this at the bottom

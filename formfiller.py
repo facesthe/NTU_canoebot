@@ -35,10 +35,12 @@ class logSheet():
         self.star0      = None  ## number of 0 star people
         self.date       = None  ## date in datetime.date format
         self.datestr    = None  ## date in string form
+        self.timeslot   = 0     ## AM or PM timeslot, enum(0,1), default 0
         self.isoday     = None  ## day represented as a number
         self.ispresent  = None  ## if log sheet day is same as current day
         self.starttime  = None  ## earliest-boat-in-water time (estimate)
         self.endtime    = None  ## latest-boat-out-of-water time (also estimate)
+        self.form       = None  ## Constructed form
 
     ## modifies name and contact
     def getparticulars(self):
@@ -49,7 +51,8 @@ class logSheet():
         return ss.CERT_STATUS
 
     def __getnamelist(self):
-        df = ss.namelist(self.datestr)[3:]
+        timeslot = 'am' if self.timeslot==0 else 'pm'
+        df = ss.namelist(f'{self.datestr}, {timeslot}')[3:]
         return df.reset_index(drop=True)
 
     ## modifies star1 and star0
@@ -80,15 +83,23 @@ class logSheet():
         self.datestr = d.strftime('%Y-%m-%d')
         self.isoday = d.isoweekday()
 
+    ## tells formfiller which time slot to pull through sheetscraper
+    def settimeslot(self, timeslot:int):
+        self.timeslot = timeslot
+
     ## modifies starttime and endtime
     ## no logic added yet
     def gettimes(self):
-        if self.isoday == 7:
-            self.starttime = '07:30'
-            self.endtime = '10:00'
+        if self.timeslot == 0:
+            if self.isoday == 7:
+                self.starttime = '07:30'
+                self.endtime = '10:00'
+            else:
+                self.starttime = '07:30'
+                self.endtime = '09:30'
         else:
-            self.starttime = '07:30'
-            self.endtime = '09:30'
+            self.starttime = '16:00'
+            self.endtime = '18:00'
 
     ## Change the number of people present for a session
     def changeattendance(self, new_count):
@@ -128,6 +139,7 @@ class logSheet():
             ## Disclaimer (checkbox)
             'entry.1234664796':'I read and agree to the disclaimer note.'
         }
+        self.form = sheetfields
         return sheetfields
 
 ## DO NOT ANYHOW CALL THIS FUNCTION

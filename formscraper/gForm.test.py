@@ -12,9 +12,11 @@ from datetime import date, time
 # print(result)
 # print(test_form.to_fstring())
 
-logsheet_form = gForm('1FAIpQLSeZkOoMIFev_08W_Ijkfcs6vVD6ozL0i3jixOMlWOnG-QmpdA')
-print(logsheet_form.to_fstring())
-print(logsheet_form)
+logsheet_form = gForm('1FAIpQLSd7m_k0VrgA6D0HoStCSyDGIiyhTgbh3OhTa6yqmDl7URaxdw')
+# print(logsheet_form.to_fstring())
+# print(logsheet_form)
+logsheet_form.export_formatted_json('./formscraper/logsheet_form.json')
+logsheet_form.export_raw_json('./formscraper/logsheet_form_raw.json')
 # print(logsheet_form.to_rstring())
 
 # logsheet2_form = gForm('1FAIpQLSc1notGcZvtmSjFBDXxk_DZ4Q4_mRSAS4K6OlRUwRyg_o_c7g')

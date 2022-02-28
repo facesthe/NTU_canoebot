@@ -1,4 +1,5 @@
-from datetime import date
+from dateutil.parser import parse
+from datetime import date, timedelta
 
 def countdown()->int:
     '''
@@ -11,4 +12,19 @@ def countdown()->int:
 
     return date_delta.days
 
+def printsomething():
+    reply = 'asd\n'\
+            'asdf'
+    print(reply)
 
+def parsedatetocurr(str_in='')->date:
+    try:
+        return parse(str_in).date()
+    except:
+        return date.today()
+
+def parsedatetonext(str_in='')->date:
+    try:
+        return parse(str_in).date()
+    except:
+        return date.today() + timedelta(days=1)

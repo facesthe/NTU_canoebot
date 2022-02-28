@@ -19,6 +19,7 @@ sampleJSON = {
 ## optional as some fields are open-ended)
 samplefield = {
     "name": None,
+    "desc": None, ## field description
     "type": None,
     "id": None,
     "idstr": None,
@@ -115,13 +116,13 @@ class gForm():
     def export_raw_json(self, filepath):
         '''Write the raw json to file. Pretty unreadable ngl'''
         with open(filepath, 'w') as f:
-            f.write(json.dumps(self.rawJSON))
+            json.dump(self.rawJSON, f, indent=4)
         return
 
     def export_formatted_json(self, filepath):
         '''Write the formatted json to file'''
         with open(filepath, 'w') as f:
-            f.write(json.dumps(self.fJSON))
+            json.dump(self.fJSON, f, indent=4)
         return
 
     def fill_str(self, fieldno:int, response:str):
@@ -225,6 +226,7 @@ class gForm():
         for i in range(len(rawfields)):
             # print(rawfields[i][1])
             returnJSON['fields'][i+offset]['name'] = rawfields[i][1]
+            returnJSON['fields'][i+offset]['desc'] = rawfields[i][2]
             returnJSON['fields'][i+offset]['type'] = rawfields[i][3]
 
             try: ## attempt to get field id
@@ -246,7 +248,7 @@ class gForm():
         return
 
     def __assign_attr(self):
-        '''Assign main object parameters using formatted JSON data'''
+        '''Assign main top-level object parameters from self.fJSON data'''
         self.title = copy.deepcopy(self.fJSON['title'])
         self.desc = copy.deepcopy(self.fJSON['description'])
         self.formID = copy.deepcopy(self.fJSON['formID'])
@@ -255,7 +257,7 @@ class gForm():
         return
 
     def __update_fJSON(self):
-        '''Update the form fields in fJSON from self.form'''
+        '''Update the form fields in self.fJSON from self.form'''
         for key, value in self.form.items():
             self.fJSON['formfields'][key] = value
         return
