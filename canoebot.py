@@ -1,4 +1,3 @@
-from this import d
 import telebot, time, random
 from datetime import date
 import json as jsn
@@ -892,7 +891,56 @@ def misc_bday(message):
     bot.send_message(message.chat.id, random.choice(bday_responses))
 ##### bday
 
+narc_prayer = [
+    "That didn't happen.",
+    "And if it did, it wasn't that bad.",
+    "And if it was, that's not a big deal.",
+    "And if it is, that's not my fault.",
+    "And if it was, I didn't mean it.",
+    "And if I did, you deserved it."
+]
 
+## narcissist's prayer levels - 6 in total
+@bot.message_handler(commands=['levelone'])
+@lg.decorators.info()
+def handle_narc_prayer_1(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:1])
+    bot.reply_to(message, reply)
+    return
+
+@bot.message_handler(commands=['leveltwo'])
+@lg.decorators.info()
+def handle_narc_prayer_2(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:2])
+    bot.reply_to(message, reply)
+    return
+
+@lg.decorators.info()
+def handle_narc_prayer_3(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:3])
+    bot.reply_to(message, reply)
+    return
+
+@bot.message_handler(commands=['levelfour'])
+@lg.decorators.info()
+def handle_narc_prayer_4(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:4])
+    bot.reply_to(message, reply)
+    return
+
+@bot.message_handler(commands=['levelfive'])
+@lg.decorators.info()
+def handle_narc_prayer_5(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:5])
+    bot.reply_to(message, reply)
+    return
+
+@bot.message_handler(commands=['levelsix'])
+@lg.decorators.info()
+def handle_narc_prayer_6(message:telebot.types.Message):
+    reply = '\n'.join(narc_prayer[:6])
+    bot.reply_to(message, reply)
+    return
 
 ###############################################################
 ## code testing ##
