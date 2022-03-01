@@ -915,6 +915,7 @@ def handle_narc_prayer_2(message:telebot.types.Message):
     bot.reply_to(message, reply)
     return
 
+@bot.message_handler(commands=['levelthree'])
 @lg.decorators.info()
 def handle_narc_prayer_3(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:3])
