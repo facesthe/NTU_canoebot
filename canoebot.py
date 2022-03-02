@@ -604,7 +604,7 @@ def handle_traininglog_7(message:telebot.types.Message, traininglog:tl.TrainingL
 
 @bot.callback_query_handler(func=lambda c: c.data=='traininglog_send_form')
 @lg.decorators.info()
-def callback_logsheet_send(call:telebot.types.CallbackQuery):
+def callback_traininglog_send(call:telebot.types.CallbackQuery):
     message = call.message
     traininglog = tl.TrainingLog()
     traininglog.parse_json_data(message.text)
@@ -623,7 +623,7 @@ def callback_logsheet_send(call:telebot.types.CallbackQuery):
 
 @bot.callback_query_handler(func=lambda c: c.data=='traininglog_cancel_form')
 @lg.decorators.info()
-def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
+def callback_traininglog_cancel(call:telebot.types.CallbackQuery):
     message = call.message
     date_str = jsn.loads(message.text)["date"]
 
