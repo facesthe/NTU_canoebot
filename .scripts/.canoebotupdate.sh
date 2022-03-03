@@ -12,5 +12,6 @@ bold=$(tput bold)
 rst=$(tput sgr0)
 
 git_shallow_pull $repopath
+git_shallow_pull $repopath
 echo "$red""$bold""remember to switch to the correct telegram bot!""$rst"
 echo "$red""defaults to botsettings.debug.json""$rst"
