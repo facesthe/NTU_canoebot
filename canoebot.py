@@ -901,46 +901,65 @@ narc_prayer = [
 ]
 
 ## narcissist's prayer levels - 6 in total
+## sends reply to sender of message that was *replied to* with command
 @bot.message_handler(commands=['levelone'])
 @lg.decorators.info()
 def handle_narc_prayer_1(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:1])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 @bot.message_handler(commands=['leveltwo'])
 @lg.decorators.info()
 def handle_narc_prayer_2(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:2])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 @bot.message_handler(commands=['levelthree'])
 @lg.decorators.info()
 def handle_narc_prayer_3(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:3])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 @bot.message_handler(commands=['levelfour'])
 @lg.decorators.info()
 def handle_narc_prayer_4(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:4])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 @bot.message_handler(commands=['levelfive'])
 @lg.decorators.info()
 def handle_narc_prayer_5(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:5])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 @bot.message_handler(commands=['levelsix'])
 @lg.decorators.info()
 def handle_narc_prayer_6(message:telebot.types.Message):
     reply = '\n'.join(narc_prayer[:6])
-    bot.reply_to(message, reply)
+    try:
+        bot.reply_to(message.reply_to_message, reply)
+    except:
+        lg.functions.debug("No reply message found")
     return
 
 ###############################################################
