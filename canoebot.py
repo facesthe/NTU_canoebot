@@ -83,14 +83,18 @@ def handleverify(function):
 ##############################################
 
 @bot.message_handler(commands=['start'])
-def handle_start(message):
-
+def handle_start(message:telebot.types.Message):
+    bot.send_message(
+        message.chat.id,
+        f'hi {message.from_user.first_name}, this is NTU canoebot! '\
+        'Browse the command list or type /help for more detailed instructions.'
+    )
     return
 
 ## general help
 @bot.message_handler(commands=['help'])
 @lg.decorators.info()
-def handle_help(message):
+def handle_help(message:telebot.types.Message):
     helptext = 'Commands:\n\n'
     cid = message.chat.id
 
@@ -102,7 +106,7 @@ def handle_help(message):
 ## hidden help
 @bot.message_handler(commands=['xcohelp'])
 @lg.decorators.info()
-def handle_xcohelp(message):
+def handle_xcohelp(message:telebot.types.Message):
     helptext = 'Hidden commands:\n\n'
     cid = message.chat.id
 
@@ -114,14 +118,14 @@ def handle_xcohelp(message):
 ## sync with contents of the configs sheet
 @bot.message_handler(commands=['reload'])
 @lg.decorators.info()
-def handle_reload(message):
+def handle_reload(message:telebot.types.Message):
     ss.updateconfigs()
     bot.send_message(message.chat.id,'updated')
 
 ## echo username - gets the first name of user
 @bot.message_handler(commands=['whoami'])
 @lg.decorators.info()
-def handle_whoami(message):
+def handle_whoami(message:telebot.types.Message):
     lg.functions.debug(f'chat name type: {type(message.from_user)}')
     lg.functions.debug(message.from_user)
     bot.send_message(message.chat.id, str(message.from_user.first_name))
@@ -129,35 +133,35 @@ def handle_whoami(message):
 ## wavegym command
 @bot.message_handler(commands=['wavegym'])
 @lg.decorators.info()
-def handle_wavegym(message):
+def handle_wavegym(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 ## countdown to ITCC
 @bot.message_handler(commands=['countdown'])
-def handle_countdown(message):
+def handle_countdown(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_message(message.chat.id, f'{ut.countdown()} days to ITCC')
 
 ## src command part 1
 @bot.message_handler(commands=['srcbookings'])
 @lg.decorators.info()
-def handle_srcbooking_1(message):
+def handle_srcbooking_1(message:telebot.types.Message):
     bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
     bot.send_message(message.chat.id, ss.codeit(sc.show_facility_table()), parse_mode='Markdown')
     handle_srcbooking_2(message)
 
 ## src command part 2
 @lg.decorators.info()
-def handle_srcbooking_2(message):
+def handle_srcbooking_2(message:telebot.types.Message):
 
     msg = bot.send_message(message.chat.id, "enter a facility number:")
     bot.register_next_step_handler(msg, handle_srcbooking_3)
 
 ## src command part 3
 @lg.decorators.info()
-def handle_srcbooking_3(message):
+def handle_srcbooking_3(message:telebot.types.Message):
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -186,7 +190,7 @@ def handle_srcbooking_3(message):
 
 ## src command part 4
 @lg.decorators.info()
-def handle_srcbooking_4(message, tablecol):
+def handle_srcbooking_4(message:telebot.types.Message, tablecol):
     text = message.text
     ## exit command
     if text == "/cancel":
@@ -201,7 +205,7 @@ def handle_srcbooking_4(message, tablecol):
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
 @lg.decorators.info()
-def handle_namelist(message):
+def handle_namelist(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     try:
         reply = ss.namelist(text)
@@ -212,7 +216,7 @@ def handle_namelist(message):
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])
 @lg.decorators.info()
-def handle_boatallo(message):
+def handle_boatallo(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
@@ -224,7 +228,7 @@ def handle_boatallo(message):
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
 @lg.decorators.info()
-def handle_paddling(message):
+def handle_paddling(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.paddling(text)
     bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
@@ -232,14 +236,14 @@ def handle_paddling(message):
 ## fetch training program for the day
 @bot.message_handler(commands=['trainingam'])
 @lg.decorators.info()
-def handle_trainingam(message):
+def handle_trainingam(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingam(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 @bot.message_handler(commands=['trainingpm'])
 @lg.decorators.info()
-def handle_trainingpm(message):
+def handle_trainingpm(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
@@ -348,7 +352,7 @@ def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
 ## part 1/4 of log sheet sending
 @bot.message_handler(commands=['logsheetold'])
 @lg.decorators.info()
-def handle_logsheet(message):
+def handle_logsheet_old(message:telebot.types.Message):
     global form, submit_date, logsheet
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     logsheet = ff.logSheet()
@@ -370,11 +374,11 @@ Do you want to continue? (Y/N)'''
 
     msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
     ## call the next function
-    bot.register_next_step_handler(msg, handle_logsheet_send)
+    bot.register_next_step_handler(msg, handle_logsheet_old_send)
 
 ## part 2/4 of log sheet sending
 @lg.decorators.info()
-def handle_logsheet_send(message):
+def handle_logsheet_old_send(message:telebot.types.Message):
     global form, logsheet, submit_date
     text = message.text
 
@@ -395,7 +399,7 @@ def handle_logsheet_send(message):
     ## modify count
     elif text == 'modify-count':
         msg = bot.send_message(message.chat.id, "enter new count:")
-        bot.register_next_step_handler(msg, handle_logsheet_modify_count)
+        bot.register_next_step_handler(msg, handle_logsheet_old_modify_count)
 
     ## modify name
     elif text == 'modify-name':
@@ -405,18 +409,18 @@ def handle_logsheet_send(message):
     ## go back to start
     else:
         msg = bot.reply_to(message, 'invalid response, try again.')
-        bot.register_next_step_handler(msg, handle_logsheet_send)
+        bot.register_next_step_handler(msg, handle_logsheet_old_send)
 
 ## part 3/4 of log sheet sending (optional)
 @lg.decorators.info()
-def handle_logsheet_modify_count(message):
+def handle_logsheet_old_modify_count(message:telebot.types.Message):
     global form, logsheet
 
     try:
         newcount = int(message.text)
     except:
         msg = bot.reply_to(message, 'invalid response, enter a number.')
-        bot.register_next_step_handler(msg, handle_logsheet_modify_count)
+        bot.register_next_step_handler(msg, handle_logsheet_old_modify_count)
 
     logsheet.changeattendance(newcount)
 
@@ -427,11 +431,11 @@ Total paddlers: {logsheet.star0+logsheet.star1}
 Do you want to continue? (Y/N)'''
 
     msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
-    bot.register_next_step_handler(msg, handle_logsheet_send)
+    bot.register_next_step_handler(msg, handle_logsheet_old_send)
 
 ## part 4/4 of log sheet sending (optional)
 @lg.decorators.info()
-def handle_logsheet_modify_name(message):
+def handle_logsheet_modify_name(message:telebot.types.Message):
     global form, logsheet
 
     logsheet.changename(message.text)
@@ -443,19 +447,19 @@ Total paddlers: {logsheet.star0+logsheet.star1}
 Do you want to continue? (Y/N)'''
 
     msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
-    bot.register_next_step_handler(msg, handle_logsheet_send)
+    bot.register_next_step_handler(msg, handle_logsheet_old_send)
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])
 @lg.decorators.info()
-def handle_traceall_1(message):
+def handle_traceall_1(message:telebot.types.Message):
     trace.reset()
     msg = bot.send_message(message.chat.id, 'enter date')
     bot.register_next_step_handler(msg, handle_traceall_2)
 
 ## contact tracing part 2
 @lg.decorators.info()
-def handle_traceall_2(message):
+def handle_traceall_2(message:telebot.types.Message):
     if 'exit' in message.text.lower():
         bot.send_message(message.chat.id, 'result:')
         bot.send_message(message.chat.id, ss.df2str(trace.returntable()), parse_mode='Markdown')
@@ -641,14 +645,14 @@ def callback_traininglog_cancel(call:telebot.types.CallbackQuery):
 
 ## check logs
 @bot.message_handler(commands=['botlog'])
-def misc_botlog(message):
+def misc_botlog(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(text)
     bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
-def misc_bash(message):
+def misc_bash(message:telebot.types.Message):
     if misc_handlers['MISC_BASH'] is False:
         lg.functions.warning('command used but no input taken')
         return
@@ -661,7 +665,7 @@ def misc_bash(message):
 ## misc - enable
 @bot.message_handler(commands=['enable'])
 @lg.decorators.info()
-def misc_enable(message):
+def misc_enable(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = True
@@ -672,7 +676,7 @@ def misc_enable(message):
 ## misc - disable
 @bot.message_handler(commands=['disable'])
 @lg.decorators.info()
-def misc_disable(message):
+def misc_disable(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         misc_handlers[text] = False
@@ -684,7 +688,7 @@ def misc_disable(message):
 ## misc - status
 @bot.message_handler(commands=['handlerstatus'])
 @lg.decorators.info()
-def misc_handlerstatus(message):
+def misc_handlerstatus(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
     if text in misc_handlers.keys():
         bot.send_message(message.chat.id, misc_handlers[text.upper()])
@@ -694,7 +698,7 @@ def misc_handlerstatus(message):
 ## send messages to specific groups
 @bot.message_handler(commands=['send_msg'])
 @lg.decorators.warning()
-def misc_send_msg(message):
+def misc_send_msg(message:telebot.types.Message):
     '''Send message using <chat_name>, <chat text>\n
     Try not to use too often'''
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
@@ -713,7 +717,7 @@ def misc_send_msg(message):
 ## send videos to specific groups
 @bot.message_handler(commands=['send_vid'])
 @lg.decorators.warning()
-def misc_send_video(message):
+def misc_send_video(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     try:
         path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
@@ -728,21 +732,21 @@ def misc_send_video(message):
 ## reply in markdown (for testing purposes)
 @bot.message_handler(commands=['send_markdown'])
 @lg.decorators.warning()
-def misc_send_markdown(message):
+def misc_send_markdown(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 ## reply in formatted code block (also for testing purposes)
 @bot.message_handler(commands=['send_code'])
 @lg.decorators.warning()
-def misc_send_code(message):
+def misc_send_code(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     bot.send_message(message.chat.id, ss.codeit(text), parse_mode='Markdown')
 
 ## check uptime (keep this at the bottom of util commands)
 @bot.message_handler(commands=['uptime'])
 @lg.decorators.info()
-def misc_uptime(message):
+def misc_uptime(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
 ##################################################################################
@@ -752,56 +756,56 @@ def misc_uptime(message):
 ## ooga - booga
 @bot.message_handler(regexp='ooga')
 @lg.decorators.debug()
-def misc_oogabooga(message):
+def misc_oogabooga(message:telebot.types.Message):
     if misc_handlers['MISC_OOGABOOGA'] is False: return
     bot.send_message(message.chat.id, 'booga')
 
 ## marco - polo
 @bot.message_handler(regexp='marco')
 @lg.decorators.debug()
-def misc_marcopolo(message):
+def misc_marcopolo(message:telebot.types.Message):
     if misc_handlers['MISC_MARCOPOLO'] is False: return
     bot.send_message(message.chat.id, 'polo')
 
 ## ping - pong (only if 'ping' as a word is inside)
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
 @lg.decorators.debug()
-def misc_pingpong(message):
+def misc_pingpong(message:telebot.types.Message):
     if misc_handlers['MISC_PINGPONG'] is False: return
     bot.send_message(message.chat.id, 'pong')
 
 ## die - same tbh
 @bot.message_handler(regexp='die')
 @lg.decorators.debug()
-def misc_dietbh(message):
+def misc_dietbh(message:telebot.types.Message):
     if misc_handlers['MISC_DIETBH'] is False: return
     bot.reply_to(message, 'same tbh')
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
 @lg.decorators.debug()
-def misc_hellno(message):
+def misc_hellno(message:telebot.types.Message):
     if misc_handlers['MISC_HELLNO'] is False: return
     bot.reply_to(message,'hell no')
 
 ## help - no
 @bot.message_handler(regexp='help')
 @lg.decorators.debug()
-def misc_helpno(message):
+def misc_helpno(message:telebot.types.Message):
     if misc_handlers['MISC_HELPNO'] is False: return
     bot.reply_to(message, 'no')
 
 ## 69 - nice (see below for continuation)
 @bot.message_handler(regexp='69')
 @lg.decorators.debug()
-def misc_69nice(message):
+def misc_69nice(message:telebot.types.Message):
     if misc_handlers['MISC_69NICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## nice - nice (see above for previous)
 @bot.message_handler(func=lambda message: message.text.lower() == 'nice')
 @lg.decorators.debug()
-def misc_nicenice(message):
+def misc_nicenice(message:telebot.types.Message):
     if misc_handlers['MISC_NICENICE'] is False: return
     bot.reply_to(message, 'nice')
 
@@ -813,19 +817,19 @@ def misc_nicenice(message):
 ##OSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSASOSAS##
 @bot.message_handler(regexp='ovuvuevuevue')
 @lg.decorators.debug()
-def misc_osas_1(message):
+def misc_osas_1(message:telebot.types.Message):
     if misc_handlers['MISC_OSAS'] is False: return
     msg = bot.reply_to(message, "...i'm listening")
     bot.register_next_step_handler(msg, misc_osas_2)
 
 @lg.decorators.debug()
-def misc_osas_2(message):
+def misc_osas_2(message:telebot.types.Message):
     if 'enyetuenwuevue' in message.text.lower():
         msg = bot.send_message(message.chat.id, "go on...")
         bot.register_next_step_handler(msg, misc_osas_3)
 
 @lg.decorators.debug()
-def misc_osas_3(message):
+def misc_osas_3(message:telebot.types.Message):
     if 'ugbemugbem' in message.text.lower():
         msg = bot.send_message(message.chat.id, "almost there...")
         bot.register_next_step_handler(msg, misc_osas_4)
@@ -833,7 +837,7 @@ def misc_osas_3(message):
         bot.send_message(message.chat.id, "why you no how call my name na?")
 
 @lg.decorators.debug()
-def misc_osas_4(message):
+def misc_osas_4(message:telebot.types.Message):
     if 'osas' in message.text.lower():
         bot.send_message(message.chat.id, "i clapping for u na bratha")
         time.sleep(3)
@@ -845,7 +849,7 @@ def misc_osas_4(message):
 @bot.message_handler(func=lambda message: \
     'bot' in message.text.lower() and 'who' in message.text.lower())
 @lg.decorators.debug()
-def misc_who_bot(message):
+def misc_who_bot(message:telebot.types.Message):
     if misc_handlers['MISC_WHOBOT'] is False: return
 
     replies = [
@@ -856,7 +860,7 @@ def misc_who_bot(message):
 ## reply if text message is too long
 @bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
 @lg.decorators.debug()
-def misc_longmsg(message):
+def misc_longmsg(message:telebot.types.Message):
     # log.debug("misc long-msg triggered")
     if misc_handlers['MISC_LONGMSG'] is False: return
 
@@ -878,14 +882,14 @@ def misc_longmsg(message):
 
 ## you are already dead - incomplete, memes required
 @bot.message_handler(regexp='omae wa mou shindeiru')
-def misc_omaewamou(message):
+def misc_omaewamou(message:telebot.types.Message):
     #if misc_handlers[] is False: return ## key doesnt exist yet
     return
     bot.send_photo(message.chat.id, 'photo_path', 'NANI??') ## upload local file along with a caption
 
 ##### bday
 @bot.message_handler(regexp='birthday') ## A C T I V A T E only during my bday
-def misc_bday(message):
+def misc_bday(message:telebot.types.Message):
     if date.today() != date(2021,10,16): return
     bday_responses = ['thanks','wow','i get it a lot','arigathanks gozaimuch','ok','m̴̘̲̑̅y̷̭̿ ̴̠̏c̴͚̗̽ỏ̵͍̑n̸̼̕d̶̤̉̾ȏ̷̰͐l̴̥̠̑e̷̮͋͊ͅn̵͍͙͛͂č̴̣̩͝e̶̘͠s̸͕͍͌͂']
     bot.send_message(message.chat.id, random.choice(bday_responses))
@@ -967,7 +971,7 @@ def handle_narc_prayer_6(message:telebot.types.Message):
 
 @bot.message_handler(commands=['markupkeyboard'])
 @lg.decorators.debug()
-def handle_markupkeyboard(message):
+def handle_markupkeyboard(message:telebot.types.Message):
     kb = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
     kb.add('button 1', 'button 2', 'butt haha')
     reply = bot.send_message(message.chat.id, "press somthing please", reply_markup=kb)

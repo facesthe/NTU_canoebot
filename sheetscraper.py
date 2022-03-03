@@ -58,7 +58,7 @@ def gettrainingprog(date_in:date):
     return prog_day
 
 
-def trainingam_no_date(str_in):
+def trainingam_no_date(str_in:str):
     '''Same as trainingam but without a date header'''
     try:
         date_in = parse(str_in)
@@ -75,7 +75,7 @@ def trainingam_no_date(str_in):
 ## top level function used by canoebot
 ## wraps gettrainingprog with input validation
 ## am version
-def trainingam(str_in):
+def trainingam(str_in:str):
     try:
         date_in = parse(str_in)
     except:
@@ -92,7 +92,7 @@ def trainingam(str_in):
 ## top level function used by canoebot
 ## wraps gettrainingprog with input validation
 ## pm version
-def trainingpm(str_in):
+def trainingpm(str_in:str):
     try:
         date_in = parse(str_in)
     except:
@@ -218,7 +218,7 @@ def create_1star_dict():
 ## Returns a formatted dataframe containing names, the date and session
 ## Names that can be shortened will be shortened
 ## Depreciated
-def getnames(str_in,time:int):
+def getnames(str_in:str, time:int):
     global SHORT_NAME
     ## time passed as int, am=0,pm=1
     ## no time param passed, assume 0
@@ -269,7 +269,7 @@ def getnames(str_in,time:int):
 
 ## Obtain the full names for a paddling session
 ## No date and time information included in the Series
-def getonlynames(str_in, time:int):
+def getonlynames(str_in:str, time:int):
 
     try:
         date_in = parse(str_in).date()
@@ -314,7 +314,7 @@ def getonlynames(str_in, time:int):
     return df_session.reset_index(drop=True)
 
 
-def getnamesv2(str_in, time:int):
+def getnamesv2(str_in:str, time:int):
     global SHORT_NAME
 
     try:
@@ -370,7 +370,7 @@ def getnamesv2(str_in, time:int):
     return df_session.reset_index(drop=True)
 
 
-def namelist(date_time_str=''):
+def namelist(date_time_str:str=''):
 
     date_time = date_time_str.split(',')
     #print(datetime)
@@ -400,15 +400,23 @@ def namelist(date_time_str=''):
 
 
 ## pair up the boats with names
-def match2boats(df_session):
+def match2boats(df_session:pd.Series):
 
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
     boats = pd.read_csv('./data/boats.csv')
-    session_list = df_session.tolist()
+    session_list = df_session[3:].tolist()
 
-    for i in range(len(boats)):
-        if boats['name'][i] in session_list:
-            boatlist.append(boats['boat_1'][i])
+    # lg.functions.debug(f'boats: {boats}')
+    # lg.functions.debug(f'session_list: {session_list}')
+
+    for i in range(len(session_list)):
+        boat_match = boats[boats['name'] == session_list[i]].iloc[0,1]
+        boatlist.append(boat_match)
+        # lg.functions.debug(f'name {session_list[i]} assigned {boat_match}')
+
+    ## join back df_session's top 3 rows
+    date_info = df_session[:3].tolist()
+    session_list = date_info + session_list
 
     ## construct new dataframe
     return_df = pd.DataFrame({
@@ -463,7 +471,7 @@ def paddling(str_in=''):
 
     trainingam_prog = trainingam_no_date(actual_date)
 
-    message = PADDLING_FMT.format(
+    message:str = PADDLING_FMT.format(
         date_str=date_str,
         boatallo_no_date=boatallo_no_date,
         smm_measure=SMM_MEASURE,
@@ -753,7 +761,7 @@ def string_df(df_in) -> str:
 
 ## for adding entries on top of a pandas series
 ## index reset to fit
-def stackontop(df_in,item):
+def stackontop(df_in:pd.Series, item):
     df_in.loc[-1] = item
     df_in.index += 1
     return df_in.sort_index()
@@ -761,7 +769,7 @@ def stackontop(df_in,item):
 
 ## looks for the lowest name in the sheet, returns the row index for that name
 ## use this function on getsheet()
-def findlowestname(df_in) -> int:
+def findlowestname(df_in:pd.DataFrame) -> int:
     index = 0
     while(True):
         if pd.isnull(df_in.iloc[index+1,0]) and pd.isnull(df_in.iloc[index+2,0]):
