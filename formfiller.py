@@ -3,6 +3,7 @@ from datetime import date
 from dateutil.parser import parse
 import random
 import sheetscraper as ss
+import formscraper.gForm as gf
 from lib.liblog import loggers as lg
 import settings as s
 
@@ -18,14 +19,6 @@ url = f'https://docs.google.com/forms/d/e/{FORM_ID}/formResponse'
 ## key:     [str your_name]
 ## value:   [str your_8_digit_hp_number]
 PARTICULARS = s.json.formfiller.particulars
-{
-    'Ho Chin Wei':'92380475',
-    'Ivan Koh':'96974461',
-    'Teo Xin Yan':'81219456',
-    'Iffah':'87685942',
-    'Yuki':'85353553',
-    'Ng Jia Rui':'98271522'
-}
 
 class logSheet():
     def __init__(self):
@@ -41,6 +34,7 @@ class logSheet():
         self.starttime  = None  ## earliest-boat-in-water time (estimate)
         self.endtime    = None  ## latest-boat-out-of-water time (also estimate)
         self.form       = None  ## Constructed form
+        self.gForm      = gf.gForm(FORM_ID)
 
     ## modifies name and contact
     def getparticulars(self):
@@ -97,7 +91,8 @@ class logSheet():
             else:
                 self.starttime = '07:30'
                 self.endtime = '09:30'
-        else:
+
+        elif self.timeslot == 1:
             self.starttime = '16:00'
             self.endtime = '18:00'
 
@@ -115,6 +110,20 @@ class logSheet():
         self.getparticulars()
         self.getcertstatus()
         self.gettimes()
+
+        ## gForm used to fill form, removes the need to inspect element to get entry id
+        self.gForm.fill_str(0, self.name)
+        self.gForm.fill_str(1, self.contact)
+        self.gForm.fill_str(2, "Nanyang Technological University")
+        self.gForm.fill_option(3, 1)
+        self.gForm.fill_int(4, self.star1)
+        self.gForm.fill_int(5, self.star0)
+        self.gForm.fill_option(6, 1)
+        self.gForm.fill_date(7, self.date)
+        self.gForm.fill_str(8, self.starttime)
+        self.gForm.fill_str(9, self.endtime)
+        self.gForm.fill_option(10, 0)
+
         sheetfields = {
             ## Name
             'entry.650249987':self.name,
@@ -141,6 +150,9 @@ class logSheet():
         }
         self.form = sheetfields
         return sheetfields
+
+    def submitform(self):
+        return self.gForm.submit()
 
 ## DO NOT ANYHOW CALL THIS FUNCTION
 def submitform(data_dict):

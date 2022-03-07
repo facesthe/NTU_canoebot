@@ -319,11 +319,14 @@ def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
 def callback_logsheet_send(call:telebot.types.CallbackQuery):
     message = call.message
     cdata =  jsn.loads(call.data)
-    logsheet = ff.logSheet()
-    logsheet.settimeslot(cdata['time'])
-    logsheet.generateform(cdata['date'])
+    lg.functions.debug(f'callback data contents: {call.data}')
 
-    result = 'successfully' if ff.submitform(logsheet.form) == 1 else 'unsuccessfully'
+    logsheet = ff.logSheet()
+    logsheet.settimeslot(int(cdata['time']))
+    logsheet.generateform(cdata['date'])
+    lg.functions.debug(f'logsheet: {jsn.dumps(logsheet.gForm.fJSON, indent=2)}')
+
+    result = 'successfully' if logsheet.submitform() == 1 else 'unsuccessfully'
     reply = f'Logsheet: {cdata["date"]} slot {cdata["time"]} '\
             f'submitted {result}'
 
