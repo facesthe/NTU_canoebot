@@ -23,7 +23,11 @@ samplefield = {
     "type": None,
     "id": None,
     "idstr": None,
-    "options": None ## None or list
+    "options": None, ## None or list
+    "limits": {
+        "lower": None,
+        "upper": None
+    } ## upper and lower limit desc for options
 }
 
 ## Known question options as enum
@@ -243,6 +247,14 @@ class gForm():
                 returnJSON['fields'][i+offset]['options'] = \
                     [rawfields[i][4][0][1][j][0] for \
                     j in range(len(rawfields[i][4][0][1]))]
+
+                # assigning field limit descriptors (if any, range qns)
+                if rawfields[i][4][0][3] is not None:
+
+                    returnJSON['fields'][i+offset]['limits']['lower'] =\
+                        rawfields[i][4][0][3][0]
+                    returnJSON['fields'][i+offset]['limits']['upper'] =\
+                        rawfields[i][4][0][3][1]
 
         self.fJSON = returnJSON
         return
