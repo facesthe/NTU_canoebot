@@ -12,7 +12,7 @@
 # No whitespace allowed between adjacent strings
 CRON=(
     "@reboot sleep 30 && bash $repopath/.scripts/.canoebotrestart.sh" # start bot on boot
-    "5 0 * * 0 cd bash $repopath/.scripts/.canoebotrestart.sh" # wkly restart
+    "5 0 * * 0 bash $repopath/.scripts/.canoebotrestart.sh" # wkly restart
 ) # crontab entries to append
 
 ALIASES=(
