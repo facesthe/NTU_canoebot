@@ -15,7 +15,7 @@ This bot is designed to work on Linux-based systems! E.g. Ubuntu, Arch, WSL.
 
 3. Install python dependencies by running the install script:
 
-`bash /.scripts/install.sh`
+`bash ./.scripts/install.sh`
 
 This script installs the necessary python modules directly on your system (no venv for now), adds bash aliases to start/stop/view logs, and sets up crontabs.
 
@@ -51,7 +51,7 @@ Add the API key for the deployed version of the bot, google forms resource IDs, 
 ### botsettings.template.debug.json
 This file also takes reference to `botsettings.template.d.json`.
 Follow the same procedure as above, but name the file `botsettings.template.debug.json` instead.
-Change the API key to point to a debug version of the bot, and change the log level to "DEBUG".
+Change the API key to a different bot, and change the log level to "DEBUG".
 
 ### Review
 Altogether there should now be 3 'template' JSON files inside `./.configs`:

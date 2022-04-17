@@ -1,0 +1,28 @@
+{
+    "canoebot": {
+        "apikey": "add the api key here",
+        "known_chats" : {
+            "chat name to go by": "chat id (in number form"
+        }
+    },
+
+    "sheetscraper": {
+        "attendance_sheet": "google sheets sheet id",
+        "program_sheet": "google sheets sheet id"
+    },
+
+    "formfiller": {
+        "form_id": "google forms form id (SCF logsheet)",
+        "particulars" : {
+            "Person's name (no short form)": "mobile number in string form"
+        }
+    },
+
+    "traininglog": {
+        "form_id": "google forms form id (for training log)"
+    },
+
+    "logger": {
+        "debug_level": "INFO"
+    }
+}
