@@ -204,28 +204,29 @@ def handle_srcbooking_4(message:telebot.types.Message, tablecol):
     bot.send_message(message.chat.id, \
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
-## Inline callback keyboard generator for /namelist and related callback functions
-@lg.decorators.info()
-def namelist_button_gen(date_in:date, time_slot:int)->telebot.types.InlineKeyboardMarkup:
+## Inline callback keyboard generator for /namelist, /training and related callback functions
+## Creates a 2 by 2 matrix of buttons that can navigate by day, timeslot, and close
+@lg.decorators.debug()
+def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->telebot.types.InlineKeyboardMarkup:
     button_names = ['<<', '>>', 'time', 'close']
     cdata_navigation:dict = [
         {
-            'name':'namelist_nav',
+            'name':f'{button_keyword}_nav',
             'date':str(date_in+timedelta(days=-1)),
             'time':time_slot
         },
         {
-            'name':'namelist_nav',
+            'name':f'{button_keyword}_nav',
             'date':str(date_in+timedelta(days=1)),
             'time':time_slot
         },
         {
-            'name':'namelist_time',
+            'name':f'{button_keyword}_time',
             'date':str(date_in),
             'time':time_slot
         },
         {
-            'name':'namelist_close'
+            'name':f'{button_keyword}_close'
         }
     ]
     lg.functions.debug(f'cdata_navi: {jsn.dumps(cdata_navigation, indent=2)}')
@@ -251,7 +252,7 @@ def namelist_button_gen(date_in:date, time_slot:int)->telebot.types.InlineKeyboa
 def handle_namelist(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
 
-    kb = namelist_button_gen(ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
+    kb = navigation_button_gen('namelist', ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
 
     try:
         reply = ss.namelist(text)
@@ -275,7 +276,7 @@ def callback_namelist_navigation(call:telebot.types.CallbackQuery):
     namelist_date = ut.parsedatetocurr(cdata['date'])
     namelist_time = int(cdata['time'])
 
-    kb = namelist_button_gen(namelist_date, namelist_time)
+    kb = navigation_button_gen('namelist', namelist_date, namelist_time)
 
     reply = ss.namelist(f'{str(namelist_date)},{"pm" if (namelist_time == 1) else ""}')
 
@@ -297,7 +298,7 @@ def callback_namelist_time(call:telebot.types.CallbackQuery):
     namelist_date = ut.parsedatetocurr(cdata['date'])
     namelist_time = 1 - int(cdata['time'])
 
-    kb = namelist_button_gen(namelist_date, namelist_time)
+    kb = navigation_button_gen('namelist', namelist_date, namelist_time)
 
     reply = ss.namelist(f'{str(namelist_date)},{"pm" if (namelist_time == 1) else ""}')
 
@@ -344,6 +345,90 @@ def handle_paddling(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.paddling(text)
     bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
+
+## view program w/ callbacks to navigate
+## replaces trainingam and trainingpm
+@bot.message_handler(commands=['training'])
+@lg.decorators.info()
+def handle_training_prog(message:telebot.types.Message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    reply = ss.trainingam(text)
+
+    kb = navigation_button_gen('training_prog', ut.parsedatetocurr(text), 0)
+
+    bot.send_message(
+        message.chat.id,
+        reply,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'training_prog_nav' in c.data)
+@lg.decorators.info()
+def callback_training_prog_navi(call:telebot.types.CallbackQuery):
+    message = call.message
+    cdata:dict = jsn.loads(call.data)
+    new_date = ut.parsedatetocurr(cdata['date'])
+    new_time = int(cdata['time'])
+
+    kb = navigation_button_gen('training_prog', new_date, new_time)
+
+    reply:str = ''
+    if(new_time == 0):
+        reply = ss.trainingam(str(new_date))
+    else:
+        reply = ss.trainingpm(str(new_date))
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=reply,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'training_prog_time' in c.data)
+@lg.decorators.info()
+def callback_training_prog_time(call:telebot.types.CallbackQuery):
+    message = call.message
+    cdata:dict = jsn.loads(call.data)
+    new_date = ut.parsedatetocurr(cdata['date'])
+    new_time = 1 - int(cdata['time'])
+
+    kb = navigation_button_gen('training_prog', new_date, new_time)
+
+    reply:str = ''
+    if(new_time == 0):
+        reply = ss.trainingam(str(new_date))
+    else:
+        reply = ss.trainingpm(str(new_date))
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=reply,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'training_prog_close' in c.data)
+@lg.decorators.info()
+def callback_training_prog_close(call:telebot.types.CallbackQuery):
+    message = call.message
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=ss.codeit(message.text),
+        parse_mode='Markdown'
+    )
+    return
 
 ## fetch training program for the day
 @bot.message_handler(commands=['trainingam'])

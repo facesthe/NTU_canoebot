@@ -66,7 +66,7 @@ def trainingam_no_date(str_in:str):
         date_in = date.today()
 
     prog = gettrainingprog(date_in)['AM program']
-    if prog.isna()[0]:
+    if len(prog) == 0 or prog.isna()[0]:
         prog = pd.Series(['none'])
 
     return string_df(prog)
@@ -82,7 +82,7 @@ def trainingam(str_in:str):
         date_in = date.today()
 
     prog = gettrainingprog(date_in)['AM program']
-    if prog.isna()[0]:
+    if len(prog) == 0 or prog.isna()[0]:
         prog = pd.Series(['none'])
 
     prog = stackontop(prog, date_in.strftime('%a %d %b'))
@@ -99,7 +99,7 @@ def trainingpm(str_in:str):
         date_in = date.today()
 
     prog = gettrainingprog(date_in)['PM program']
-    if prog.isna()[0]:
+    if len(prog) == 0 or prog.isna()[0]:
         prog = pd.Series(['none'])
 
     prog = stackontop(prog, date_in.strftime('%a %d %b'))
