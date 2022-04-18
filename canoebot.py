@@ -1,12 +1,14 @@
 import telebot, time, random
-from datetime import date
+from datetime import date, timedelta
 import json as jsn
 
 ## telebot extra classes
 from telebot.callback_data import CallbackData
 
-## config constructor, keep at top of imports
+## config constructor, keep above ALL bot modules
 import json_update
+json_update.run() ## generates the config file(s) read in by settings.py
+
 ## bot modules
 import gymscraper as  gs ## for the wavegym command
 import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
@@ -202,16 +204,126 @@ def handle_srcbooking_4(message:telebot.types.Message, tablecol):
     bot.send_message(message.chat.id, \
         ss.codeit(sc.get_booking_result(date_obj, tablecol-1)), parse_mode='Markdown')
 
+## Inline callback keyboard generator for /namelist and related callback functions
+@lg.decorators.info()
+def namelist_button_gen(date_in:date, time_slot:int)->telebot.types.InlineKeyboardMarkup:
+    button_names = ['<<', '>>', 'time', 'close']
+    cdata_navigation:dict = [
+        {
+            'name':'namelist_nav',
+            'date':str(date_in+timedelta(days=-1)),
+            'time':time_slot
+        },
+        {
+            'name':'namelist_nav',
+            'date':str(date_in+timedelta(days=1)),
+            'time':time_slot
+        },
+        {
+            'name':'namelist_time',
+            'date':str(date_in),
+            'time':time_slot
+        },
+        {
+            'name':'namelist_close'
+        }
+    ]
+    lg.functions.debug(f'cdata_navi: {jsn.dumps(cdata_navigation, indent=2)}')
+
+    buttons = [
+                telebot.types.InlineKeyboardButton(
+                    button_names[i],
+                    callback_data=jsn.dumps(cdata_navigation[i])
+                )
+                for i in range(4)
+            ]
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        buttons[0], buttons[1], buttons[2], buttons[3],
+        row_width=2
+    )
+
+    return kb
+
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
 @lg.decorators.info()
 def handle_namelist(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+
+    kb = namelist_button_gen(ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
+
     try:
         reply = ss.namelist(text)
-        bot.send_message(message.chat.id, ss.df2str(reply),parse_mode='Markdown')
+        bot.send_message(
+            chat_id=message.chat.id,
+            text=ss.df2str(reply),
+            parse_mode='Markdown',
+            reply_markup=kb
+        )
     except: ## to catch out-of-range input dates
         bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'namelist_nav' in c.data)
+@lg.decorators.info()
+def callback_namelist_navigation(call:telebot.types.CallbackQuery):
+    message = call.message
+
+    cdata:dict = jsn.loads(call.data)
+    namelist_date = ut.parsedatetocurr(cdata['date'])
+    namelist_time = int(cdata['time'])
+
+    kb = namelist_button_gen(namelist_date, namelist_time)
+
+    reply = ss.namelist(f'{str(namelist_date)},{"pm" if (namelist_time == 1) else ""}')
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=ss.df2str(reply),
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'namelist_time' in c.data)
+@lg.decorators.info()
+def callback_namelist_time(call:telebot.types.CallbackQuery):
+    message = call.message
+    cdata:dict = jsn.loads(call.data)
+    namelist_date = ut.parsedatetocurr(cdata['date'])
+    namelist_time = 1 - int(cdata['time'])
+
+    kb = namelist_button_gen(namelist_date, namelist_time)
+
+    reply = ss.namelist(f'{str(namelist_date)},{"pm" if (namelist_time == 1) else ""}')
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=ss.df2str(reply),
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'namelist_close' in c.data)
+@lg.decorators.info()
+def callback_namelist_close(call:telebot.types.CallbackQuery):
+    message = call.message
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=ss.codeit(message.text),
+        parse_mode='Markdown'
+    )
+
+    return
 
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])

@@ -80,7 +80,7 @@ def recursive_reorder(template, compare, result):
     return
 
 
-def main():
+def run():
     print("Constructing json settings files...")
 
     ## read in files
@@ -96,7 +96,3 @@ def main():
 
     print("json writeback done.")
     return
-
-
-## run on import
-main()
