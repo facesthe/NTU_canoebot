@@ -1,11 +1,14 @@
 ## run pip3 install -r [this_text_file.txt]
+
 ## manual intervention needed for RPi:
 ## - correct numpy c-extensions dependency:
 ## sudo apt-get install libatlas-base-dev
+
 ## - correct lxml dependency:
 ## sudo apt-get install libxslt-dev
 
-pyTelegramBotAPI
-pandas
-numpy
-lxml
+## last known stable versions
+pyTelegramBotAPI >= 4.4.1
+pandas >= 1.4.2
+numpy >= 1.22.3
+lxml >= 4.8.0

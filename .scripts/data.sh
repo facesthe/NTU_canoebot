@@ -17,6 +17,8 @@ CRON=(
 
 ALIASES=(
     "# start canoebot aliases #"
+    "alias canoebotvenventer='source $repopath/.venv/bin/activate'" # enter bot's venv
+    "alias canoebotvenvexit='deactivate'" # exit bot's venv
     "alias canoebotlog='bash $repopath/.scripts/.canoebotlog.sh'" # open stdout log
     "alias canoebotrestart='bash $repopath/.scripts/.canoebotrestart.sh'" # restart bot
     "alias canoebotstop='bash $repopath/.scripts/.canoebotstop.sh'" # stop bot
