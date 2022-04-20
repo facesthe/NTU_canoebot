@@ -1,6 +1,7 @@
 *__pycache__
 *.pyc
 /data
+/.venv
 
 botsettings.json
 botsettings.debug.json
