@@ -2,22 +2,51 @@
 If you are able to access this repo, you are able to download and host your own canoebot!
 
 ---
+## Prerequisites
+
+### For Debian/Ubuntu-based systems:
+Install the venv package for python3 by running:
+
+`sudo apt install python3-venv`
+
+Install the dependency for lxml by running:
+
+`sudo apt install libxslt-dev`
+
+### For Raspberry Pi (3B and up, zero 2)
+Install the numpy c-extensions by running:
+
+`sudo apt install libatlas-base-dev`
+
+---
 
 ## Installing
-This bot is designed to work on Linux-based systems! E.g. Ubuntu, Arch, WSL.
-1. clone this repository using:
+This bot is designed to work on Linux-based systems E.g. Debian, Arch, WSL.
+1. Fork this repository
 
-`git clone "https://github.com/cruzerngz/NTU_canoebot.git"`
+    If you plan to run the bot based off this repo, you will need to request for
+    access and [create a personal access token.](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token#creating-a-token)
 
-2. Navigate to the repository using:
+2. clone the repository using the command below:
+
+    where username: your username (if you've cloned it)
+
+    where access_token: your generated access token.
+
+    This step is important, as it allows the bot to perform a shallow pull
+    without any need to authenticate again.
+
+`git clone "https://{username}:{access_token}@github.com/{username}/NTU_canoebot.git"`
+
+3. Navigate to the repository using:
 
 `cd /path/to/this/repo`
 
-3. Install python dependencies by running the install script:
+4. Install python dependencies by running the install script:
 
 `bash ./.scripts/install.sh`
 
-This script installs the necessary python modules directly on your system (no venv for now), adds bash aliases to start/stop/view logs, and sets up crontabs.
+This script installs the necessary python modules in a virtual environment, adds bash aliases to start/stop/view logs, and sets up crontabs.
 
 ---
 
