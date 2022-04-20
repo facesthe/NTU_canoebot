@@ -25,7 +25,7 @@ do
     rm_bash_alias "$aliasline"
 done
 
-echo_colours "deleting venv..."
+echo_green "deleting venv..."
 rm -rf $repopath/.venv
 
 source ~/.bashrc
