@@ -7,6 +7,7 @@ cd $currpath
 
 source $repopath/.scripts/functions.sh
 source $repopath/.scripts/data.sh
+source $repopath/.scripts/echo_colours.sh
 
 green=$(tput setaf 2)
 rst=$(tput sgr0)
@@ -23,6 +24,9 @@ do
     echo "$green""removing alias:$rst ${aliasline:0:30} ..."
     rm_bash_alias "$aliasline"
 done
+
+echo_colours "deleting venv..."
+rm -rf $repopath/.venv
 
 source ~/.bashrc
 source ~/.bash_aliases
