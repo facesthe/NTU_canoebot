@@ -1,6 +1,7 @@
-import telebot
 import time, random
 from datetime import date
+
+import telebot
 
 from canoebot_modules.common_core import CanoeBot as bot
 from canoebot_modules.common_core import misc_handlers as misc_handlers
