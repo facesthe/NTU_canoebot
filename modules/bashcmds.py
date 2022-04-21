@@ -1,6 +1,6 @@
 ## for sending bash commands to the bot
 import subprocess as sp
-from lib.liblog import loggers as lg
+import lib.liblog as lg
 
 lg.functions.debug("bashcmds loaded")
 

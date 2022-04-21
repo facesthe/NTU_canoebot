@@ -5,7 +5,7 @@ from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 import os
 
-from lib.liblog import loggers as lg ## new logging extension
+import lib.liblog as lg ## new logging extension
 import modules.settings as s ## bot settings
 
 lg.functions.debug("sheetscraper loaded")

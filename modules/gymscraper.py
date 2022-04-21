@@ -3,7 +3,7 @@ import time
 from datetime import date
 from dateutil.parser import parse
 
-from lib.liblog import loggers as lg
+import lib.liblog as lg
 
 lg.functions.debug("gymscraper loaded")
 

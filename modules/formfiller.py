@@ -4,7 +4,7 @@ from dateutil.parser import parse
 import random
 
 ## bot modules
-from lib.liblog import loggers as lg
+import lib.liblog as lg
 
 import modules.sheetscraper as ss
 import lib.gForm as gf
