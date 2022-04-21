@@ -2,10 +2,13 @@ import requests as rq
 from datetime import date
 from dateutil.parser import parse
 import random
-import sheetscraper as ss
-import formscraper.gForm as gf
+
+## bot modules
 from lib.liblog import loggers as lg
-import settings as s
+
+import modules.sheetscraper as ss
+import lib.gForm as gf
+import modules.settings as s
 
 lg.functions.debug("formfiller loaded")
 

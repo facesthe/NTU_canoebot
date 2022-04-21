@@ -8,20 +8,21 @@ import signal
 from telebot.callback_data import CallbackData
 
 ## config constructor, keep above ALL bot modules
-import json_update
+import modules.json_update as json_update
 json_update.run() ## generates the config file(s) read in by settings.py
 
 ## bot modules
-import gymscraper as  gs ## for the wavegym command
-import srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
-import sheetscraper as ss ## for attendance stuffs
-import bashcmds as bc ## for interfacing with terminal in the pi
-import formfiller as ff ## for sending the log sheet
 from lib.liblog import loggers as lg ## new logging module
-import contacttrace as ct ## for contact tracing
-import TrainingLog as tl ## for training log
-import utilities as ut ## random assortment of functions
-import settings as s ## bot settings
+
+import modules.gymscraper as  gs ## for the wavegym command
+import modules.srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
+import modules.sheetscraper as ss ## for attendance stuffs
+import modules.bashcmds as bc ## for interfacing with terminal in the pi
+import modules.formfiller as ff ## for sending the log sheet
+import modules.contacttrace as ct ## for contact tracing
+import modules.TrainingLog as tl ## for training log
+import modules.utilities as ut ## random assortment of functions
+import modules.settings as s ## bot settings
 
 TOKEN = s.json.canoebot.apikey ## API token for the bot
 bot = telebot.TeleBot(TOKEN, parse_mode=None)

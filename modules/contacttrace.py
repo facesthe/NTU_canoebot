@@ -1,5 +1,5 @@
 import pandas as pd
-import sheetscraper as ss
+import modules.sheetscraper as ss
 
 class tracer():
     def __init__(self):

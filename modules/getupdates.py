@@ -1,6 +1,7 @@
-import settings as s
 import requests as rq
 import json as jsn
+
+import modules.settings as s
 
 updates_url = f"https://api.telegram.org/bot{s.json.canoebot.apikey}/getUpdates"
 

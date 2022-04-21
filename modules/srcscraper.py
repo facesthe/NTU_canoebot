@@ -1,10 +1,11 @@
 import json as jsn
-import lib.Dotionary as Dot
 import pandas as pd
 import time
 from datetime import date
 from dateutil.parser import parse
+
 from lib.liblog import loggers as lg
+import lib.Dotionary as Dot
 
 lg.functions.debug("srcscraper loaded")
 

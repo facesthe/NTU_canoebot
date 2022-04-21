@@ -4,9 +4,10 @@ Passed as a parameter between telebot functions.'''
 from datetime import date
 from time import sleep
 from dateutil.parser import parse
-from formscraper.gForm import gForm
+from lib.gForm import gForm
 import json as jsn
-import settings as s
+
+import modules.settings as s
 
 
 class TrainingLog():

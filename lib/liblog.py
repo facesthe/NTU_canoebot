@@ -4,7 +4,7 @@ import __main__
 import logging, sys, os
 import inspect
 import functools
-import settings as s
+import modules.settings as s
 
 logging.basicConfig(
     stream = sys.stdout,
