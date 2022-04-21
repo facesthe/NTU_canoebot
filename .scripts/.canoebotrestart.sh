@@ -8,7 +8,7 @@ cd $currpath
 
 source $repopath/.venv/bin/activate
 
-sudo kill -15 $(pgrep -f "python3 canoebot.py")
+sudo kill -15 $(pgrep -f "python3 canoebot.py") > /dev/null
 cd $repopath
 nohup python3 canoebot.py >> ./.scripts/canoebot.log &
 sleep 1
