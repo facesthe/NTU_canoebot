@@ -1,6 +1,7 @@
 import telebot, time, random
 from datetime import date, timedelta
 import json as jsn
+import atexit
 
 ## telebot extra classes
 from telebot.callback_data import CallbackData
@@ -1237,5 +1238,21 @@ def callback_test(call: telebot.types.CallbackQuery):
 
     return
 
-## keep this at the bottom
+## keep these at the bottom
+canoebot_start_time = time.time()
+
+def exit_handler():
+    end_time = time.time()
+    up_time = end_time - canoebot_start_time
+    up_hours, remainder = divmod(up_time, 3600)
+    up_mins, up_secs = divmod(remainder, 60)
+
+    lg.functions.info(
+        'bot exiting. Up time: '\
+        '{:02}:{:02}:{:02}'.format(int(up_hours), int(up_mins), int(up_secs))
+    )
+    return
+
+atexit.register(exit_handler)
+
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)
