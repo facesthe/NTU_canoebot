@@ -12,7 +12,7 @@ import modules.json_update as json_update
 json_update.run() ## generates the config file(s) read in by settings.py
 
 ## bot modules
-from lib.liblog import loggers as lg ## new logging module
+import lib.liblog as lg ## new logging module
 
 import modules.gymscraper as  gs ## for the wavegym command
 import modules.srcscraper as sc ## for srcscraper command (NEW), may supercede gymscraper
