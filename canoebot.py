@@ -1,6 +1,7 @@
 import telebot, time, random
 from datetime import date, timedelta
 import json as jsn
+import sys
 import signal
 
 ## telebot extra classes
@@ -1251,7 +1252,8 @@ def exit_handler(signum, frame):
         'bot exiting. Up time: '\
         '{:02}:{:02}:{:02}'.format(int(up_hours), int(up_mins), int(up_secs))
     )
-    return
+    sys.exit("exiting canoebot...")
+
 
 signal.signal(signal.SIGTERM, exit_handler)
 
