@@ -2,6 +2,7 @@ import telebot, time, random
 from datetime import date, timedelta
 import json as jsn
 import atexit
+import signal
 
 ## telebot extra classes
 from telebot.callback_data import CallbackData
@@ -1254,5 +1255,6 @@ def exit_handler():
     return
 
 atexit.register(exit_handler)
+signal.signal(signal.SIGTERM, exit_handler)
 
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)
