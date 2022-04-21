@@ -1,7 +1,6 @@
 import telebot, time, random
 from datetime import date, timedelta
 import json as jsn
-import atexit
 import signal
 
 ## telebot extra classes
@@ -1242,7 +1241,7 @@ def callback_test(call: telebot.types.CallbackQuery):
 ## keep these at the bottom
 canoebot_start_time = time.time()
 
-def exit_handler():
+def exit_handler(signum, frame):
     end_time = time.time()
     up_time = end_time - canoebot_start_time
     up_hours, remainder = divmod(up_time, 3600)
@@ -1254,7 +1253,6 @@ def exit_handler():
     )
     return
 
-atexit.register(exit_handler)
 signal.signal(signal.SIGTERM, exit_handler)
 
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)
