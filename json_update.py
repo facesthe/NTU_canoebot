@@ -9,6 +9,7 @@ To use:
 '''
 
 import json as jsn
+import os
 
 ## Change all common settings params here
 TEMPLATE_PATH = '.configs/botsettings.template.json'
@@ -80,6 +81,15 @@ def recursive_reorder(template, compare, result):
     return
 
 
+def err_missing_files():
+    char_nl = "\n"
+    char_tb = "\t"
+    print(f"Error. Check that these files:", end="\n\t")
+    print(f"{f'{char_nl}{char_tb}'.join(SETTINGS_PATHS)}")
+    print("exist")
+    return
+
+
 def run():
     print("Constructing json settings files...")
 
@@ -89,6 +99,10 @@ def run():
     result = [{} for i in range(len(SETTINGS_PATHS))]
 
     for i in range(len(SETTINGS_PATHS)):
+        if not os.path.isfile(SETTINGS_PATHS[i]):
+            err_missing_files()
+            return
+
         compare[i] = read_json(SETTINGS_PATHS[i])
         recursive_update(template, compare[i])
         recursive_reorder(template, compare[i], result[i])

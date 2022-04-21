@@ -1,6 +1,8 @@
 import json_update as ju
 import json as jsn
 
+
+ju.err_missing_files()
 # template = {
 #     "a": 1,
 #     "b": 2,

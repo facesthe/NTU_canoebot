@@ -88,7 +88,7 @@ def handleverify(function):
 def handle_start(message:telebot.types.Message):
     bot.send_message(
         message.chat.id,
-        f'hi {message.from_user.first_name}, this is NTU canoebot! '\
+        f'Hi {message.from_user.first_name}, this is NTU canoebot! '\
         'Browse the command list or type /help for more detailed instructions.'
     )
     return
@@ -269,7 +269,7 @@ def handle_namelist(message:telebot.types.Message):
 
 @bot.callback_query_handler(func=lambda c: 'namelist_nav' in c.data)
 @lg.decorators.info()
-def callback_namelist_navigation(call:telebot.types.CallbackQuery):
+def callback_namelist_nav(call:telebot.types.CallbackQuery):
     message = call.message
 
     cdata:dict = jsn.loads(call.data)
@@ -367,7 +367,7 @@ def handle_training_prog(message:telebot.types.Message):
 
 @bot.callback_query_handler(func=lambda c: 'training_prog_nav' in c.data)
 @lg.decorators.info()
-def callback_training_prog_navi(call:telebot.types.CallbackQuery):
+def callback_training_prog_nav(call:telebot.types.CallbackQuery):
     message = call.message
     cdata:dict = jsn.loads(call.data)
     new_date = ut.parsedatetocurr(cdata['date'])
