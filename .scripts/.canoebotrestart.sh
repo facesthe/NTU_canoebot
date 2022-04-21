@@ -10,7 +10,7 @@ source $repopath/.venv/bin/activate
 
 sudo kill 15 $(pgrep -f "python3 canoebot.py")
 cd $repopath
-nohup python3 canoebot.py > ./.scripts/canoebot.log &
+nohup python3 canoebot.py >> ./.scripts/canoebot.log &
 sleep 1
 echo
 cd $currpath
