@@ -1,20 +1,11 @@
-'''Main module for canoebot. Called on startup.'''
 import sys
 import time
 import signal
 
-import modules.json_update
-modules.json_update.run()
-
-from canoebot_modules.common_core import CanoeBot as bot
-import canoebot_modules
-
 import lib.liblog as lg
 
-__author__ = "Ng Jia Rui"
-__license__ = "GPL"
-__version__ = "0.4.2"
-__status__ = "Development"
+import canoebot_modules
+from canoebot_modules.common_core import CanoeBot as bot
 
 ## keep these at the bottom
 canoebot_start_time = time.time()
@@ -35,5 +26,4 @@ def exit_handler(signum, frame):
 signal.signal(signal.SIGTERM, exit_handler)
 signal.signal(signal.SIGINT, exit_handler)
 
-## polling
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)

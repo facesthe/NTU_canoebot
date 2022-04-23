@@ -1,6 +1,5 @@
 import json as jsn
 from datetime import date, timedelta
-
 import telebot
 
 from canoebot_modules.common_core import CanoeBot as bot

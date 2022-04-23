@@ -4,7 +4,7 @@
 currpath=$(realpath .)
 cd $(dirname $(realpath "$0")) && cd ..
 repopath=$(realpath .)
-cd $repopath/modules
+cd $repopath
 
 source $repopath/.scripts/functions.sh
 source $repopath/.scripts/data.sh
@@ -16,11 +16,11 @@ rst=$(tput sgr0)
 for filepath in "${FILEPATHS[@]}"
 do
     echo "$green""removing filepath:$rst ${filepath:0:30} ..."
-    remove_matching_line "$filepath" settings.py
+    remove_matching_line "$filepath" modules/settings.py
 done
 
 append_to_top "_path = './.configs/botsettings.debug.json' ## debug version" \
-settings.py
+modules/settings.py
 
 cd $currpath
 echo "$green""$bold""bot configured for debugging""$rst"
