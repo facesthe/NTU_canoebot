@@ -145,3 +145,25 @@ use!
 
 ---
 
+## Setup: Telegram
+These are the current list of public commands available. Copy and paste these when [setting commands with BotFather:](https://core.telegram.org/bots#botfather-commands)
+
+    help - help
+    reload - refresh sheet data
+    whoami - who u
+    uptime - power on time
+    srcbookings - view SRC facilities
+    wavegym - gym availability
+    countdown - days left to ITCC
+    traininglog - daily training log
+    namelist - see who's going training
+    training - view training program
+    paddling - full paddling attendance
+    logsheet - SCF logsheet
+
+---
+
+## Usage: interaction
+
+<img src=".media/canoebot_interaction_512p.gif" alt="Interacting with the bot" width="400"/>
+

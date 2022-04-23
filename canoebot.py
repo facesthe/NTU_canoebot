@@ -2,10 +2,10 @@ import sys
 import time
 import signal
 
-import lib.liblog as lg
-
-import canoebot_modules
 from canoebot_modules.common_core import CanoeBot as bot
+import canoebot_modules
+
+import lib.liblog as lg
 
 ## keep these at the bottom
 canoebot_start_time = time.time()
