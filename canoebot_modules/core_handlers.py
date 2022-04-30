@@ -1,6 +1,7 @@
 import json as jsn
 from datetime import date, timedelta
 import telebot
+from canoebot_modules import keyboards
 
 from canoebot_modules.common_core import CanoeBot as bot
 import modules.sheetscraper as ss
@@ -103,17 +104,17 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
     cdata_navigation:dict = [
         {
             'name':f'{button_keyword}_nav',
-            'date':str(date_in+timedelta(days=-1)),
+            'date':(date_in+timedelta(days=-1)).isoformat(),
             'time':time_slot
         },
         {
             'name':f'{button_keyword}_nav',
-            'date':str(date_in+timedelta(days=1)),
+            'date':(date_in+timedelta(days=1)).isoformat(),
             'time':time_slot
         },
         {
             'name':f'{button_keyword}_time',
-            'date':str(date_in),
+            'date':date_in.isoformat(),
             'time':time_slot
         },
         {
@@ -164,7 +165,7 @@ def callback_namelist_nav(call:telebot.types.CallbackQuery):
     message = call.message
 
     cdata:dict = jsn.loads(call.data)
-    namelist_date = ut.parsedatetocurr(cdata['date'])
+    namelist_date = date.fromisoformat(cdata['date'])
     namelist_time = int(cdata['time'])
 
     kb = navigation_button_gen('namelist', namelist_date, namelist_time)
@@ -186,7 +187,7 @@ def callback_namelist_nav(call:telebot.types.CallbackQuery):
 def callback_namelist_time(call:telebot.types.CallbackQuery):
     message = call.message
     cdata:dict = jsn.loads(call.data)
-    namelist_date = ut.parsedatetocurr(cdata['date'])
+    namelist_date = date.fromisoformat(cdata['date'])
     namelist_time = 1 - int(cdata['time'])
 
     kb = navigation_button_gen('namelist', namelist_date, namelist_time)
@@ -235,7 +236,46 @@ def handle_boatallo(message:telebot.types.Message):
 def handle_paddling(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.paddling(text)
-    bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
+    paddling_date = ut.parsedatetonext(text)
+
+    kb = keyboards.generic_kb_gen(
+        'update',
+        'paddling',
+        {"date":paddling_date.isoformat()}
+    )
+
+    bot.send_message(
+        message.chat.id,
+        ss.codeit(reply),
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda c: 'paddling' in c.data)
+@lg.decorators.info()
+def callback_paddling_refresh(call:telebot.types.CallbackQuery):
+    message=call.message
+    cdata = jsn.loads(call.data)
+    paddling_date = cdata["date"]
+    lg.functions.debug(f'date: {paddling_date}')
+
+    reply = ss.paddling(paddling_date)
+
+    kb = keyboards.generic_kb_gen(
+        'update',
+        'paddling',
+        {"date":paddling_date}
+    )
+
+    bot.edit_message_text(
+        text=ss.codeit(reply),
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
 
 ## view program w/ callbacks to navigate
 ## replaces trainingam and trainingpm

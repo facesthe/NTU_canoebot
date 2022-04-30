@@ -1,10 +1,14 @@
+from datetime import date
+from dateutil.parser import parse
 import random, time
+
 import telebot
 from telebot.callback_data import CallbackData
 
 from canoebot_modules.common_core import CanoeBot as bot
 from canoebot_modules.common_core import misc_handlers as misc_handlers
 from canoebot_modules.common_core import known_chats as known_chats
+import canoebot_modules.keyboards as keyboards
 import modules.sheetscraper as ss
 import modules.bashcmds as bc
 
@@ -180,3 +184,24 @@ def callback_test(call: telebot.types.CallbackQuery):
     )
 
     return
+
+@bot.message_handler(commands=['calendar'])
+@lg.decorators.debug()
+def handle_calendar(message:telebot.types.Message):
+    text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
+
+    try:
+        date_in = parse(text).date()
+    except:
+        date_in = date.today()
+
+    kb = keyboards.calendar_keyboard_gen("calendar", date_in)
+
+    bot.send_message(
+        message.chat.id,
+        "Select a date:",
+        reply_markup=kb
+    )
+
+    return
+

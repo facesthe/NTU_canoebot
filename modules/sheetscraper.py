@@ -27,11 +27,13 @@ SMM_MEASURE =           s.json.sheetscraper.paddling.smm_measure
 if not os.path.exists('./data'):
     os.mkdir('./data')
     lg.functions.info('creating /data')
-lg.functions.info('/data already created')
+else:
+    lg.functions.info('/data already created')
 if not os.path.exists('./data/attendance'):
     lg.functions.info('creating /data/attendance')
     os.mkdir('./data/attendance')
-lg.functions.info('/data/attendance already created')
+else:
+    lg.functions.info('/data/attendance already created')
 
 ## Functions are defined from least dependent to most
 
