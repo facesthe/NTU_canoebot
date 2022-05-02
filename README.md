@@ -152,8 +152,7 @@ These are the current list of public commands available. Copy and paste these wh
     reload - refresh sheet data
     whoami - who u
     uptime - power on time
-    srcbookings - view SRC facilities
-    wavegym - gym availability
+    src - view SRC facilities
     countdown - days left to ITCC
     traininglog - daily training log
     namelist - see who's going training

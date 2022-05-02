@@ -1,4 +1,5 @@
 import json as jsn
+import copy
 from datetime import date, timedelta
 import telebot
 from canoebot_modules import keyboards
@@ -38,8 +39,169 @@ def handle_wavegym(message:telebot.types.Message):
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
-## src command part 1
+## new src command - navigation using callback buttons
 @bot.message_handler(commands=['srcbookings'])
+@lg.decorators.info()
+def handle_srcbooking_new(message:telebot.types.Message):
+
+    reply = "Choose a SRC facility below:"
+
+    src_facility_list = sc.return_facility_list_shortform()
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        *[
+            telebot.types.InlineKeyboardButton(
+                src_facility_list[i],
+                callback_data=jsn.dumps({
+                    "name":"srcbook_select",
+                    "index":i
+                })
+            )
+            for i in range(len(src_facility_list))
+        ]
+    )
+
+    bot.send_message(
+        message.chat.id,
+        reply,
+        reply_markup=kb
+    )
+
+    ## do a pre-fetch (if any)
+    sc.update_existing_cache_entries_sync()
+    return
+
+@bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data)
+@lg.decorators.info()
+def callback_srcbook_restart(call:telebot.types.CallbackQuery):
+    message=call.message
+    reply = "Choose a SRC facility below:"
+
+    src_facility_list = sc.return_facility_list_shortform()
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        *[
+            telebot.types.InlineKeyboardButton(
+                src_facility_list[i],
+                callback_data=jsn.dumps({
+                    "name":"srcbook_select",
+                    "index":i
+                })
+            )
+            for i in range(len(src_facility_list))
+        ]
+    )
+
+    bot.edit_message_text(
+        reply,
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        reply_markup=kb
+    )
+
+    ## do a pre-fetch (if any)
+    sc.update_existing_cache_entries_sync()
+    return
+
+@bot.callback_query_handler(func=lambda c: 'srcbook_select' in c.data)
+@lg.decorators.info()
+def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
+    message=call.message
+    cdata_call:dict = jsn.loads(call.data)
+
+    callback_data:dict = copy.deepcopy(cdata_call)
+    callback_data.pop("name")
+
+    kb = keyboards.calendar_keyboard_gen("srcbook", date.today(), callback_data)
+    kb.add(
+        telebot.types.InlineKeyboardButton(
+            "back",
+            callback_data="srcbook_restart"
+        ),
+        row_width=1
+    ) ## back button
+
+    reply_0 = sc.FACILITY_TABLE[int(cdata_call["index"])]["name"]
+    reply = f"{reply_0}\nChoose a date below:"
+
+    bot.edit_message_text(
+        reply,
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: 'srcbook_date' in c.data)
+@lg.decorators.info()
+def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
+    message=call.message
+    cdata_call:dict = jsn.loads(call.data)
+
+    target_date = date.fromisoformat(cdata_call["date"])
+
+    reply = sc.get_booking_result_cache(
+        target_date,
+        int(cdata_call["index"])
+    )
+
+    navi_buttons=["<<",">>"]
+    other_buttons=["refresh","back"]
+
+    kb = telebot.types.InlineKeyboardMarkup().add( ## row 1, 2 buttons
+        *[
+            telebot.types.InlineKeyboardButton(
+                navi_buttons[i],
+                callback_data=jsn.dumps({
+                    "name":"srcbook_date",
+                    "date":(target_date+timedelta(days=-1)).isoformat() if i==0 else (target_date+timedelta(days=1)).isoformat(),
+                    "index":cdata_call["index"]
+                })
+            ) for i in range(len(navi_buttons))
+        ],
+        row_width=2
+    ).add( ## row 2, 2 buttons
+        *[
+            telebot.types.InlineKeyboardButton(
+                other_buttons[0],
+                callback_data=jsn.dumps({
+                    "name":"srcbook_refresh",
+                    "date":cdata_call["date"],
+                    "index":cdata_call["index"]
+                })
+            ),
+            telebot.types.InlineKeyboardButton(
+                other_buttons[1],
+                callback_data=jsn.dumps({
+                    "name":"srcbook_select",
+                    "index":cdata_call["index"]
+                })
+            )
+        ],
+        row_width=2
+    )
+
+    bot.edit_message_text(
+        ss.codeit(reply),
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: "srcbook_refresh" in c.data)
+@lg.decorators.info()
+def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
+    cdata = jsn.loads(call.data)
+    sc.populate_cache(date.fromisoformat(cdata["date"]), int(cdata["index"]))
+    callback_srcbook_date_select(call)
+    return
+
+## src command part 1
+@bot.message_handler(commands=['srcbookingsold'])
 @lg.decorators.info()
 def handle_srcbooking_1(message:telebot.types.Message):
     bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
@@ -65,7 +227,7 @@ def handle_srcbooking_3(message:telebot.types.Message):
     ## input validation
     if text.isdigit():
         tablecol = int(text)
-        if tablecol in range(1, len(sc.config)+1): ## in range, proceed
+        if tablecol in range(1, len(sc.FACILITY_TABLE)+1): ## in range, proceed
             msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
             bot.register_next_step_handler(msg, handle_srcbooking_4, tablecol)
         else: ## number not in range

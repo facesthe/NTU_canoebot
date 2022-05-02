@@ -1,8 +1,9 @@
 import json as jsn
 import pandas as pd
 import time
-from datetime import date
+from datetime import datetime, date, timedelta
 from dateutil.parser import parse
+import copy
 
 import lib.liblog as lg
 import lib.Dotionary as Dot
@@ -15,10 +16,26 @@ _path = './.configs/srcscraper.config.json' ## path to srcscraper.config
 with open(_path) as jsonfile:
     json = jsn.load(jsonfile)
 
-config = [Dot for i in range(len(json))]
+FACILITY_TABLE = [Dot for i in range(len(json))]
+'''Contains SRC facility info in an array of dot-notation accessible dictionaries.'''
 
-for i in range(len(config)):
-    config[i] = Dot.to_dotionary(json[i])
+for i in range(len(FACILITY_TABLE)):
+    FACILITY_TABLE[i] = Dot.to_dotionary(json[i])
+
+TIME_TO_LIVE:int = 60 * 30
+'''30 minutes cache lifetime'''
+
+FACILITY_CACHE:list = [
+    {
+        "date":None,        ## ISO date format
+        "fetch_time":None,  ## seconds since epoch, int
+        "latency":None,     ## time taken to fetch table
+        "dataframe":None    ## Date table
+    } for i in range(len(FACILITY_TABLE))
+]
+'''Cache vector for src facilities.
+For nerds, this implementation is similar to a directly-mapped cache.
+Will change to 2-way set associative if demand is high.'''
 
 
 def parse_date(date_str:str) -> date:
@@ -40,38 +57,45 @@ def strtoint(data):
         return data
 
 
-def show_facility_table() -> pd.DataFrame:
+def show_facility_table() -> str:
     '''Returns a dataframe that contains facilities to be viewed'''
 
     returndf = pd.DataFrame({"no":[], "facility":[]})
-    for i in range(len(config)):
+    for i in range(len(FACILITY_TABLE)):
         # returndf = returndf.append(pd.DataFrame({"no":[i+1], "facility":[config[i].name]}))
-        returndf = pd.concat([returndf, pd.DataFrame({"no":[i+1], "facility":[config[i].name]})])
+        returndf = pd.concat([returndf, pd.DataFrame({"no":[i+1], "facility":[FACILITY_TABLE[i].name]})])
 
     returndf = returndf.convert_dtypes() ## set to ints
     return returndf.to_string(index=False)
 
 
+def return_facility_list_shortform()->list:
+    returnlist = [FACILITY_TABLE[i].shortname for i in range(len(FACILITY_TABLE))]
+    # print(FACILITY_TABLE[0].shortname)
+    return returnlist
+
+
 def get_booking_table(date:date, tablecol:int) -> pd.DataFrame:
-    '''Returns the booking table for a particular day.\n
+    '''Returns the booking table for a particular day, along with the next 7 days\n
     Raw table output, taken direct from page'''
 
     datereq = date.strftime('%d-%b-%y').upper()
 
-    url = f"https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={config[tablecol].codename}&fcourt={config[tablecol].courts}&ftype=2&p_date={datereq}&p_mode=2"
+    url = f"https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={FACILITY_TABLE[tablecol].codename}&fcourt={FACILITY_TABLE[tablecol].courts}&ftype=2&p_date={datereq}&p_mode=2"
+    lg.functions.debug(f'url: {url}')
 
     table = pd.read_html(url)[0]
     return table
 
 
-def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
-    '''Correctly formats the raw table into summary table.\n
-    Only data from the current day (third col) is taken.'''
+def format_booking_table(table:pd.DataFrame, facility_no:int, offset:int = 0)->pd.DataFrame:
+    '''Formats the raw table into a summary table, with a specified offset.
+    Offset is based on the start date of the booking table.'''
 
     ## blank dataframe
     avail_df = pd.DataFrame({'time':[],'slots':[]})
-    table = table.iloc[:, [0,2]]
-    courts = config[tablecol].courts
+    table = table.iloc[:, [0,offset+2]]
+    courts = FACILITY_TABLE[facility_no].courts
 
     for multi in range(int(len(table)/courts)):
         ## hourly dataframe, each hour has $(courts) slots
@@ -102,20 +126,24 @@ def format_booking_table(table:pd.DataFrame, tablecol:int) -> pd.DataFrame:
     return avail_df
 
 
-def get_booking_result(date:date, tablecol:int) -> str:
+def get_booking_result(date:date, facility_no:int) -> str:
     '''Main calling function.\n
     Returns formatted string to be printed/sent.\n
     Wraps the above 2 functions and formats the resulting string.'''
     ## fetch and format block
     t_start = time.time()
-    table = get_booking_table(date, tablecol)
+    table = get_booking_table(date, facility_no)
     t_end = time.time()
-    table_f = format_booking_table(table, tablecol)
+    table_f = format_booking_table(table, facility_no)
 
     exec_time = "{:5.4f}".format(t_end - t_start) ##in seconds, to check on fetch speed
 
     ## constructing string
-    returnstr = f"{date.strftime('%d %b %y, %A')}\n{config[tablecol].name}\n\n{table_f.to_string(index=False)}\n\nfetch time: {exec_time}s"
+    returnstr = f"\
+{date.strftime('%d %b %y, %A')}\n\
+{FACILITY_TABLE[facility_no].name}\n\n\
+{table_f.to_string(index=False)}\n\n\
+fetch time: {exec_time}s"
 
     return returnstr
 
@@ -123,7 +151,7 @@ def get_booking_result(date:date, tablecol:int) -> str:
 def get_time_slots(tablecol:int)->pd.DataFrame:
     '''Return a DataFrame that corresponds to the time slots for a facility'''
     rawtable = get_booking_table(date.today(), tablecol)
-    courts = config[tablecol].courts
+    courts = FACILITY_TABLE[tablecol].courts
     indexes = [i*courts for i in range(int(len(rawtable)/courts))]
     table = rawtable.iloc[indexes, 0].reset_index(drop=True)
 
@@ -133,3 +161,72 @@ def get_time_slots(tablecol:int)->pd.DataFrame:
         returndf = pd.concat([returndf, pd.DataFrame({"no":[i+1], "timeslot":[table[i]]})])
 
     return returndf.convert_dtypes().reset_index(drop=True)
+
+
+def get_booking_result_cache(date_in:date, facility_no:int)->str:
+    '''Functions the same as get_booking_result(), uses cached data if possible'''
+
+    try:
+        date_in_cache = date.fromisoformat(FACILITY_CACHE[facility_no]["date"])
+    except:
+        date_in_cache = None
+
+    ## check for valid cache entry
+    if date_in_cache is None:
+        populate_cache(date_in, facility_no)
+
+    elif date_in >= date_in_cache and\
+        date_in <= date_in_cache + timedelta(days=7):
+
+        if time.time() - FACILITY_CACHE[facility_no]["fetch_time"] < TIME_TO_LIVE:
+            pass
+        else:
+            populate_cache(date_in, facility_no)
+
+    else:
+        populate_cache(date_in, facility_no)
+
+    ## construct data
+    booking_table:pd.DataFrame = copy.deepcopy(FACILITY_CACHE[facility_no]["dataframe"])
+    date_in_cache = date.fromisoformat(FACILITY_CACHE[facility_no]["date"])
+    offset = date_in - date_in_cache ## offset should be between 0 and 7
+
+    lg.functions.debug(f"booking table offset by days: +{offset.days}")
+
+    table_f:pd.DataFrame = format_booking_table(booking_table, facility_no, offset.days)
+    exec_time = "{:5.4f}".format(FACILITY_CACHE[facility_no]["latency"])
+    fetch_time = datetime.fromtimestamp(FACILITY_CACHE[facility_no]["fetch_time"])
+
+    ## construct string
+    returnstr = f"\
+{date_in.strftime('%d %b %y, %A')}\n\
+{FACILITY_TABLE[facility_no].name}\n\n\
+{table_f.to_string(index=False)}\n\n\
+last fetch time: {fetch_time.strftime('%H:%M')}\n\
+time-to-fetch: {exec_time}s"
+
+    return returnstr
+
+
+def populate_cache(date_in:date, facility_no:int):
+    '''Populates cache location with new data'''
+    t_start = time.time()
+    FACILITY_CACHE[facility_no]["dataframe"] = get_booking_table(date_in, facility_no)
+    t_end = time.time()
+    FACILITY_CACHE[facility_no]["fetch_time"] = t_end
+    FACILITY_CACHE[facility_no]["latency"] = t_end - t_start
+    FACILITY_CACHE[facility_no]["date"] = date_in.isoformat()
+    return
+
+
+def update_existing_cache_entries_sync():
+    '''Updates any existing entries in the cache vector.'''
+
+    for index in range(len(FACILITY_CACHE)):
+        if FACILITY_CACHE[index]["date"] is not None:
+            populate_cache(
+                date.fromisoformat(FACILITY_CACHE[index]["date"]),
+                index
+            )
+
+    return

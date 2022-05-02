@@ -176,7 +176,7 @@ def handle_srcbooking_3(message:telebot.types.Message):
     ## input validation
     if text.isdigit():
         tablecol = int(text)
-        if tablecol in range(1, len(sc.config)+1): ## in range, proceed
+        if tablecol in range(1, len(sc.FACILITY_TABLE)+1): ## in range, proceed
             msg = bot.send_message(message.chat.id, "enter a date (dd mmm or day):")
             bot.register_next_step_handler(msg, handle_srcbooking_4, tablecol)
         else: ## number not in range
