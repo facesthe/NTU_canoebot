@@ -40,7 +40,7 @@ def handle_wavegym(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 ## new src command - navigation using callback buttons
-@bot.message_handler(commands=['srcbookings'])
+@bot.message_handler(commands=['src'])
 @lg.decorators.info()
 def handle_srcbooking_new(message:telebot.types.Message):
 
@@ -201,7 +201,7 @@ def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
     return
 
 ## src command part 1
-@bot.message_handler(commands=['srcbookingsold'])
+@bot.message_handler(commands=['srcbookings'])
 @lg.decorators.info()
 def handle_srcbooking_1(message:telebot.types.Message):
     bot.send_message(message.chat.id, "SRC booking lookup! /cancel to return")
