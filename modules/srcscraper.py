@@ -1,6 +1,7 @@
 import json as jsn
 import pandas as pd
 import time
+import threading
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 import copy
@@ -26,16 +27,18 @@ TIME_TO_LIVE:int = 60 * 30
 '''30 minutes cache lifetime'''
 
 FACILITY_CACHE:list = [
-    {
-        "date":None,        ## ISO date format
-        "fetch_time":None,  ## seconds since epoch, int
-        "latency":None,     ## time taken to fetch table
-        "dataframe":None    ## Date table
-    } for i in range(len(FACILITY_TABLE))
+    [
+        {
+            "date":None,        ## Date object
+            "fetch_time":None,  ## seconds since epoch, int
+            "latency":None,     ## time taken to fetch table
+            "old":None,         ## age of cache line, relative [T/F]
+            "dataframe":None    ## Data table
+        } for x in range(2)
+    ] for i in range(len(FACILITY_TABLE))
 ]
 '''Cache vector for src facilities.
-For nerds, this implementation is similar to a directly-mapped cache.
-Will change to 2-way set associative if demand is high.'''
+For nerds, this implements a modified 2-way set associative cache.'''
 
 
 def parse_date(date_str:str) -> date:
@@ -115,7 +118,6 @@ def format_booking_table(table:pd.DataFrame, facility_no:int, offset:int = 0)->p
 
         avail_df = pd.concat([avail_df, pd.DataFrame({'time':[hour],'slots':[count]})])#, ignore_index=True)
 
-
     ## final formatting step
     for col in avail_df.columns: ## convert to respective data types
         avail_df.loc[:,col] = avail_df[col].apply(strtoint)
@@ -164,69 +166,162 @@ def get_time_slots(tablecol:int)->pd.DataFrame:
 
 
 def get_booking_result_cache(date_in:date, facility_no:int)->str:
-    '''Functions the same as get_booking_result(), uses cached data if possible'''
-
-    try:
-        date_in_cache = date.fromisoformat(FACILITY_CACHE[facility_no]["date"])
-    except:
-        date_in_cache = None
-
-    ## check for valid cache entry
-    if date_in_cache is None:
-        populate_cache(date_in, facility_no)
-
-    elif date_in >= date_in_cache and\
-        date_in <= date_in_cache + timedelta(days=7):
-
-        if time.time() - FACILITY_CACHE[facility_no]["fetch_time"] < TIME_TO_LIVE:
-            pass
-        else:
-            populate_cache(date_in, facility_no)
-
-    else:
-        populate_cache(date_in, facility_no)
+    '''Functions the same as get_booking_result(), but with caching'''
 
     ## construct data
-    booking_table:pd.DataFrame = copy.deepcopy(FACILITY_CACHE[facility_no]["dataframe"])
-    date_in_cache = date.fromisoformat(FACILITY_CACHE[facility_no]["date"])
-    offset = date_in - date_in_cache ## offset should be between 0 and 7
+    cache_entry:pd.DataFrame = copy.deepcopy(get_table_from_cache(date_in, facility_no))
+    date_in_cache:date = cache_entry["date"]
+    offset = (date_in - date_in_cache).days ## offset should be between 0 and 7
 
-    lg.functions.debug(f"booking table offset by days: +{offset.days}")
+    lg.functions.debug(f"booking table offset by days: +{offset}")
 
-    table_f:pd.DataFrame = format_booking_table(booking_table, facility_no, offset.days)
-    exec_time = "{:5.4f}".format(FACILITY_CACHE[facility_no]["latency"])
-    fetch_time = datetime.fromtimestamp(FACILITY_CACHE[facility_no]["fetch_time"])
+    table_f:pd.DataFrame = format_booking_table(cache_entry["dataframe"], facility_no, offset)
+    exec_time = "{:5.4f}".format(cache_entry["latency"])
+    fetch_time = datetime.fromtimestamp(cache_entry["fetch_time"]).strftime('%H:%M')
 
     ## construct string
     returnstr = f"\
 {date_in.strftime('%d %b %y, %A')}\n\
 {FACILITY_TABLE[facility_no].name}\n\n\
 {table_f.to_string(index=False)}\n\n\
-last fetch time: {fetch_time.strftime('%H:%M')}\n\
+last fetch time: {fetch_time}\n\
 time-to-fetch: {exec_time}s"
 
     return returnstr
 
 
-def populate_cache(date_in:date, facility_no:int):
-    '''Populates cache location with new data'''
-    t_start = time.time()
-    FACILITY_CACHE[facility_no]["dataframe"] = get_booking_table(date_in, facility_no)
-    t_end = time.time()
-    FACILITY_CACHE[facility_no]["fetch_time"] = t_end
-    FACILITY_CACHE[facility_no]["latency"] = t_end - t_start
-    FACILITY_CACHE[facility_no]["date"] = date_in.isoformat()
+def get_cache_stored_dates(facility_no:int):
+    '''Returns a list of dates for a particular facility that are populated in cache'''
+    cache_lines = FACILITY_CACHE[facility_no]
+    returnlist:list[date] = []
+
+    for i in range(len(cache_lines)):
+        if cache_lines[i]["date"] is None:
+            lg.functions.debug(f"cache line {i} has no entry")
+            continue
+        else:
+            lg.functions.debug(f"cache line {i} has entry")
+            lg.functions.debug(f'date: {cache_lines[i]["date"]}, type: {type(cache_lines[i]["date"])}')
+            lg.functions.debug(f'timedelta: {timedelta(days=0)}, type: {type(timedelta(days=0))}')
+            for item in [
+                (cache_lines[i]["date"] + timedelta(days=x))
+                for x in range(8) ## every start day has 7 more days ahead of it
+            ]:
+                returnlist.append(item)
+
+    return returnlist
+
+
+def get_cache_line_no(date_in:date, facility_no:int)->int:
+    '''Get the cache line that holds a specified date. Returns -1 if unsuccessful'''
+    for i in range(len(FACILITY_CACHE[facility_no])):
+        cache_date:date = FACILITY_CACHE[facility_no][i]["date"]
+        if 0<= (date_in - cache_date).days <= 7:
+            return i
+    return -1
+
+
+def fill_cache(date_in:date, facility_no:int, cache_line:int):
+    '''Populates specified cache location with data. Flips the other cache line age to true'''
+    FACILITY_CACHE[facility_no][cache_line]["date"] = date_in
+    FACILITY_CACHE[facility_no][cache_line]["old"] = False      ## set itself to new
+    if FACILITY_CACHE[facility_no][1-cache_line]["date"] is not None:
+        FACILITY_CACHE[facility_no][1-cache_line]["old"] = True     ## set other to old
+    update_single_cache_entry(facility_no, cache_line)
     return
 
 
-def update_existing_cache_entries_sync():
-    '''Updates any existing entries in the cache vector.'''
+def get_table_from_cache(date_in:date, facility_no:int)->dict:
+    '''Returns a matching cache entry for a given facility number and date.
+    Performs cache replacement if necessary.'''
 
-    for index in range(len(FACILITY_CACHE)):
-        if FACILITY_CACHE[index]["date"] is not None:
-            populate_cache(
-                date.fromisoformat(FACILITY_CACHE[index]["date"]),
-                index
+    stored_dates = get_cache_stored_dates(facility_no)
+
+    if len(stored_dates) == 0: ## empty cache
+        fill_cache(date_in, facility_no, cache_line=0)
+        cache_line=0
+
+    elif date_in in stored_dates: ## cache entry found
+        cache_line = get_cache_line_no(date_in, facility_no)
+        ## check if outdated, re-fetch if needed
+        if (time.time() - FACILITY_CACHE[facility_no][cache_line]["fetch_time"]) > TIME_TO_LIVE:
+            fill_cache(
+                FACILITY_CACHE[facility_no][cache_line]["date"],
+                facility_no,
+                cache_line
             )
+
+    elif date_in not in stored_dates: ## no cache entry found
+
+        for i in range(len(FACILITY_CACHE[facility_no])):
+
+            ## if there is empty/old slot (mutually exclusive), fill
+            if FACILITY_CACHE[facility_no][i]["old"] is None\
+                or FACILITY_CACHE[facility_no][i]["old"] == True:
+
+                ## determine date to fetch
+                cache_date_max = max(stored_dates)
+                cache_date_min = min(stored_dates)
+
+                if 1 <= (date_in - cache_date_max).days <= 8:
+                    fill_cache(cache_date_max+timedelta(days=1), facility_no, i)
+                elif 1 <= (cache_date_min - date_in).days <= 8:
+                    fill_cache(cache_date_min+timedelta(days=-8), facility_no, i)
+                else:
+                    fill_cache(date_in, facility_no, i)
+
+                cache_line = i
+                break
+
+    FACILITY_CACHE[facility_no][cache_line]["old"] = False
+    if FACILITY_CACHE[facility_no][1-cache_line]["date"] is not None:
+        FACILITY_CACHE[facility_no][1-cache_line]["old"] = True     ## set other to old
+
+    return FACILITY_CACHE[facility_no][cache_line]
+
+
+def update_single_cache_entry(facility_no:int, cache_line:int):
+    '''Worker function for threaded update. Given cache location must have an existing entry.
+    Refreshes data in cache, no modifications to age or date made.'''
+    target_date = FACILITY_CACHE[facility_no][cache_line]["date"]
+    t_start = time.time()
+    data_table = get_booking_table(target_date, facility_no)
+    t_end = time.time()
+
+    FACILITY_CACHE[facility_no][cache_line]["dataframe"] = data_table
+    FACILITY_CACHE[facility_no][cache_line]["fetch_time"] = t_end
+    FACILITY_CACHE[facility_no][cache_line]["latency"] = t_end - t_start
+
+    return
+
+
+def update_existing_cache_entries_threaded():
+    '''Multithreaded update to all existing cache entries.'''
+    thread_vector:list[threading.Thread] = []
+
+    ## create thread array
+    for facility_no in range(len(FACILITY_CACHE)):
+        for cache_line in range(len(FACILITY_CACHE[facility_no])):
+            if FACILITY_CACHE[facility_no][cache_line]["date"] is not None:
+                thread_vector.append(
+                    threading.Thread(
+                        target=update_single_cache_entry,
+                        args=(facility_no, cache_line)
+                    )
+                )
+
+    lg.functions.debug(f"number of threads to start: {len(thread_vector)}")
+
+    t_start = time.time()
+
+    ## start threads
+    for subthread in thread_vector:
+        subthread.start()
+    ## join threads
+    for subthread in thread_vector:
+        subthread.join()
+
+    t_end = time.time()
+    lg.functions.debug("threaded update time: ""{:5.4f}".format(t_end - t_start))
 
     return

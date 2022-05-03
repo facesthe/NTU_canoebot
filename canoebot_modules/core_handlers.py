@@ -68,7 +68,7 @@ def handle_srcbooking_new(message:telebot.types.Message):
     )
 
     ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_sync()
+    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data)
@@ -100,7 +100,7 @@ def callback_srcbook_restart(call:telebot.types.CallbackQuery):
     )
 
     ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_sync()
+    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: 'srcbook_select' in c.data)
@@ -196,7 +196,14 @@ def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
     cdata = jsn.loads(call.data)
-    sc.populate_cache(date.fromisoformat(cdata["date"]), int(cdata["index"]))
+    sc.update_single_cache_entry(
+        int(cdata["index"]),
+        sc.get_cache_line_no(
+            date.fromisoformat(cdata["date"]),
+            int(cdata["index"])
+        )
+    )
+    # sc.populate_cache(date.fromisoformat(cdata["date"]), int(cdata["index"]))
     callback_srcbook_date_select(call)
     return
 
