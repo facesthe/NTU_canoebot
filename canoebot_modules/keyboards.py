@@ -24,6 +24,7 @@ def callback_none(call:telebot.types.CallbackQuery):
 @bot.callback_query_handler(func=lambda c: "_cal_navi" in c.data)
 @lg.decorators.debug()
 def callback_calendar_navi(call: telebot.types.CallbackQuery):
+    '''Generic calendar navigation. Forwards attached callback data.'''
     message = call.message
     cdata:dict = jsn.loads(call.data)
 
@@ -68,7 +69,12 @@ def generic_kb_gen(button_name:str, button_keyword:str, callback_data:dict)->tel
 
     return kb
 
-def calendar_keyboard_gen(button_keyword:str, date_in:date, callback_data:dict=None)->telebot.types.InlineKeyboardMarkup:
+def calendar_keyboard_gen(
+        button_keyword:str,
+        date_in:date,
+        callback_data:dict=None,
+        include_back_button:bool=True
+    )->telebot.types.InlineKeyboardMarkup:
     '''Generates a calendar of a certain month. Attaches general callback data (optional) to every day-number'''
 
     title:str = date_in.strftime("%b %Y")
@@ -161,6 +167,20 @@ def calendar_keyboard_gen(button_keyword:str, date_in:date, callback_data:dict=N
     kb.add(
         *month_buttons, row_width=7
     )
+
+    if include_back_button:
+        back_button_callback_data = {
+        "name":f"{button_keyword}_cal_back",
+        }
+        back_button_callback_data.update(callback_data)
+
+        kb.add(
+            telebot.types.InlineKeyboardButton( ## back button
+                "back",
+                callback_data=jsn.dumps(back_button_callback_data)
+            ),
+            row_width=1
+        )
 
     return kb
 

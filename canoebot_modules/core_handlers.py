@@ -43,7 +43,7 @@ def handle_wavegym(message:telebot.types.Message):
 @bot.message_handler(commands=['src'])
 @lg.decorators.info()
 def handle_srcbooking_new(message:telebot.types.Message):
-
+    '''Displays buttons containing all available facilities'''
     reply = "Choose a SRC facility below:"
 
     src_facility_list = sc.return_facility_list_shortform()
@@ -59,6 +59,12 @@ def handle_srcbooking_new(message:telebot.types.Message):
             )
             for i in range(len(src_facility_list))
         ]
+    ).add( ## close button
+        telebot.types.InlineKeyboardButton(
+            "close",
+            callback_data="srcbook_close"
+        ),
+        row_width=1
     )
 
     bot.send_message(
@@ -71,9 +77,10 @@ def handle_srcbooking_new(message:telebot.types.Message):
     sc.update_existing_cache_entries_threaded()
     return
 
-@bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data)
+@bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data or "srcbook_cal_back" in c.data)
 @lg.decorators.info()
 def callback_srcbook_restart(call:telebot.types.CallbackQuery):
+    '''Displays buttons containing all available facilities'''
     message=call.message
     reply = "Choose a SRC facility below:"
 
@@ -90,6 +97,12 @@ def callback_srcbook_restart(call:telebot.types.CallbackQuery):
             )
             for i in range(len(src_facility_list))
         ]
+    ).add( ## close button
+        telebot.types.InlineKeyboardButton(
+            "close",
+            callback_data="srcbook_close"
+        ),
+        row_width=1
     )
 
     bot.edit_message_text(
@@ -103,9 +116,22 @@ def callback_srcbook_restart(call:telebot.types.CallbackQuery):
     sc.update_existing_cache_entries_threaded()
     return
 
+@bot.callback_query_handler(func=lambda c: "srcbook_close" in c.data)
+@lg.decorators.info()
+def callback_srcbook_close(call:telebot.types.CallbackQuery):
+    '''Deletes message containing list of facilities'''
+    message=call.message
+    bot.edit_message_text(
+        "/src",
+        chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+    return
+
 @bot.callback_query_handler(func=lambda c: 'srcbook_select' in c.data)
 @lg.decorators.info()
 def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
+    '''shows calendar for picking date'''
     message=call.message
     cdata_call:dict = jsn.loads(call.data)
 
@@ -113,13 +139,6 @@ def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
     callback_data.pop("name")
 
     kb = keyboards.calendar_keyboard_gen("srcbook", date.today(), callback_data)
-    kb.add(
-        telebot.types.InlineKeyboardButton(
-            "back",
-            callback_data="srcbook_restart"
-        ),
-        row_width=1
-    ) ## back button
 
     reply_0 = sc.FACILITY_TABLE[int(cdata_call["index"])]["name"]
     reply = f"{reply_0}\nChoose a date below:"
@@ -136,6 +155,7 @@ def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
 @bot.callback_query_handler(func=lambda c: 'srcbook_date' in c.data)
 @lg.decorators.info()
 def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
+    '''Displays result for specified facility and date'''
     message=call.message
     cdata_call:dict = jsn.loads(call.data)
 

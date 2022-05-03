@@ -42,16 +42,22 @@
         "courts": 20
     },
     {
-        "name": "Swimming Pool",
-        "shortname": "Pool",
+        "name": "Swimming Pool Booking Platform A",
+        "shortname": "Swim A",
         "codename": "SP",
         "courts": 25
     },
     {
-        "name": "Campus Clubhouse Gym",
-        "shortname": "CC Gym",
-        "codename": "CG",
-        "courts": 5
+        "name": "Swimming Pool Booking Platform B",
+        "shortname": "Swim B",
+        "codename": "BS",
+        "courts": 15
+    },
+    {
+        "name": "Wading Pool",
+        "shortname": "Wading Pool",
+        "codename": "WP",
+        "courts": 2
     },
     {
         "name": "Main Field @ SRC",
@@ -70,6 +76,18 @@
         "shortname": "MPF 2",
         "codename": "F2",
         "courts": 4
+    },
+    {
+        "name": "MPC 4 @ Hall 2",
+        "shortname": "MPC 4",
+        "codename": "M4",
+        "courts": 1
+    },
+    {
+        "name": "MPC 5 @ Hall 2",
+        "shortname": "MPC 5",
+        "codename": "M5",
+        "courts": 1
     },
     {
         "name": "Outdoor Basketball Court",

@@ -29,11 +29,11 @@ TIME_TO_LIVE:int = 60 * 30
 FACILITY_CACHE:list = [
     [
         {
-            "date":None,        ## Date object
-            "fetch_time":None,  ## seconds since epoch, int
-            "latency":None,     ## time taken to fetch table
-            "old":None,         ## age of cache line, relative [T/F]
-            "dataframe":None    ## Data table
+            "date":         None, ## date object
+            "fetch_time":   None, ## seconds since epoch, int
+            "latency":      None, ## time taken to fetch table, seconds
+            "old":          None, ## age of cache line, relative [T/F]
+            "dataframe":    None  ## data table
         } for x in range(2)
     ] for i in range(len(FACILITY_TABLE))
 ]
@@ -78,13 +78,13 @@ def return_facility_list_shortform()->list:
     return returnlist
 
 
-def get_booking_table(date:date, tablecol:int) -> pd.DataFrame:
+def get_booking_table(date_in:date, facility_no:int) -> pd.DataFrame:
     '''Returns the booking table for a particular day, along with the next 7 days\n
     Raw table output, taken direct from page'''
 
-    datereq = date.strftime('%d-%b-%y').upper()
+    datereq = date_in.strftime('%d-%b-%y').upper()
 
-    url = f"https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={FACILITY_TABLE[tablecol].codename}&fcourt={FACILITY_TABLE[tablecol].courts}&ftype=2&p_date={datereq}&p_mode=2"
+    url = f"https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={FACILITY_TABLE[facility_no].codename}&fcourt={FACILITY_TABLE[facility_no].courts}&ftype=2&p_date={datereq}&p_mode=2"
     lg.functions.debug(f'url: {url}')
 
     table = pd.read_html(url)[0]
@@ -129,7 +129,7 @@ def format_booking_table(table:pd.DataFrame, facility_no:int, offset:int = 0)->p
 
 
 def get_booking_result(date:date, facility_no:int) -> str:
-    '''Main calling function.\n
+    '''Main calling function. DEPRECEATED, use get_booking_result_cache() instead.\n
     Returns formatted string to be printed/sent.\n
     Wraps the above 2 functions and formats the resulting string.'''
     ## fetch and format block
@@ -150,10 +150,10 @@ fetch time: {exec_time}s"
     return returnstr
 
 
-def get_time_slots(tablecol:int)->pd.DataFrame:
+def get_time_slots(facility_no:int)->pd.DataFrame:
     '''Return a DataFrame that corresponds to the time slots for a facility'''
-    rawtable = get_booking_table(date.today(), tablecol)
-    courts = FACILITY_TABLE[tablecol].courts
+    rawtable = get_booking_table(date.today(), facility_no)
+    courts = FACILITY_TABLE[facility_no].courts
     indexes = [i*courts for i in range(int(len(rawtable)/courts))]
     table = rawtable.iloc[indexes, 0].reset_index(drop=True)
 
@@ -197,12 +197,10 @@ def get_cache_stored_dates(facility_no:int):
 
     for i in range(len(cache_lines)):
         if cache_lines[i]["date"] is None:
-            lg.functions.debug(f"cache line {i} has no entry")
+            lg.functions.debug(f"cache line {facility_no}:{i} has no entry")
             continue
         else:
-            lg.functions.debug(f"cache line {i} has entry")
-            lg.functions.debug(f'date: {cache_lines[i]["date"]}, type: {type(cache_lines[i]["date"])}')
-            lg.functions.debug(f'timedelta: {timedelta(days=0)}, type: {type(timedelta(days=0))}')
+            lg.functions.debug(f"cache line {facility_no}:{i} has entry")
             for item in [
                 (cache_lines[i]["date"] + timedelta(days=x))
                 for x in range(8) ## every start day has 7 more days ahead of it
@@ -263,6 +261,8 @@ def get_table_from_cache(date_in:date, facility_no:int)->dict:
                 cache_date_max = max(stored_dates)
                 cache_date_min = min(stored_dates)
 
+                lg.functions.debug(f'overwriting/populating cache line {facility_no}:{i}')
+
                 if 1 <= (date_in - cache_date_max).days <= 8:
                     fill_cache(cache_date_max+timedelta(days=1), facility_no, i)
                 elif 1 <= (cache_date_min - date_in).days <= 8:
@@ -310,8 +310,6 @@ def update_existing_cache_entries_threaded():
                     )
                 )
 
-    lg.functions.debug(f"number of threads to start: {len(thread_vector)}")
-
     t_start = time.time()
 
     ## start threads
@@ -322,6 +320,8 @@ def update_existing_cache_entries_threaded():
         subthread.join()
 
     t_end = time.time()
-    lg.functions.debug("threaded update time: ""{:5.4f}".format(t_end - t_start))
+    lg.functions.debug(
+        f"update time for {len(thread_vector)} thread(s): ""{:5.4f}s".format(t_end - t_start)
+    )
 
     return
