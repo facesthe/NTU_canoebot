@@ -240,12 +240,40 @@ def get_cache_line_no(date_in:date, facility_no:int)->int:
 
 def fill_cache(date_in:date, facility_no:int, cache_line:int):
     '''Populates specified cache location with data. Flips the other cache line age to true'''
+    SRC_CACHE_MUTEX.acquire()
     FACILITY_CACHE[facility_no][cache_line]["date"] = date_in
     FACILITY_CACHE[facility_no][cache_line]["fetch_time"] = 0   ## set to the beginning of time
     FACILITY_CACHE[facility_no][cache_line]["old"] = False      ## set itself to new
     if FACILITY_CACHE[facility_no][1-cache_line]["date"] is not None:
         FACILITY_CACHE[facility_no][1-cache_line]["old"] = True ## set other to old
+    SRC_CACHE_MUTEX.release()
     update_single_cache_entry(facility_no, cache_line)
+    return
+
+
+def fill_all_cache_sets_threaded():
+    '''Fills one cache line in every set, taking the current day as reference.'''
+
+    current_day = date.today()
+    thread_vector:list[threading.Thread] = [
+        threading.Thread(
+            target=fill_cache,
+            args=(
+                current_day,
+                facility_no,
+                0
+            )
+        )
+        for facility_no in range(len(FACILITY_TABLE))
+    ]
+    t_start = time.time()
+    for subthread in thread_vector:
+        subthread.start()
+    for subthread in thread_vector:
+        subthread.join()
+    t_end = time.time()
+
+    lg.functions.debug(f"Fill time for {len(thread_vector)} threads: ""{:5.4f}s".format(t_end - t_start))
     return
 
 
@@ -305,8 +333,8 @@ def update_single_cache_entry(facility_no:int, cache_line:int):#->bool:
     Refreshes data in cache, no modifications to age or date made.'''
     # Returns True if a cache update has been made'''
     global SRC_CACHE_MUTEX
-    SRC_CACHE_MUTEX.acquire()
 
+    SRC_CACHE_MUTEX.acquire()
     cache_line_data = FACILITY_CACHE[facility_no][cache_line]
     target_date = cache_line_data["date"]
     t_start = time.time()
@@ -315,14 +343,15 @@ def update_single_cache_entry(facility_no:int, cache_line:int):#->bool:
         lg.functions.debug(f'cache line {facility_no}:{cache_line} not updated: within {TIME_TO_LIVE_SHORT}s')
         SRC_CACHE_MUTEX.release()
         return ## False
+    SRC_CACHE_MUTEX.release()
 
     data_table = get_booking_table(target_date, facility_no)
     t_end = time.time()
 
+    SRC_CACHE_MUTEX.acquire()
     FACILITY_CACHE[facility_no][cache_line]["dataframe"] = data_table
     FACILITY_CACHE[facility_no][cache_line]["fetch_time"] = t_end
     FACILITY_CACHE[facility_no][cache_line]["latency"] = t_end - t_start
-
     SRC_CACHE_MUTEX.release()
 
     lg.functions.debug(f'cache line {facility_no}:{cache_line} updated: {t_end - t_start}')

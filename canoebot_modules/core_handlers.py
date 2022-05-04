@@ -16,6 +16,7 @@ import modules.bashcmds as bc
 
 import lib.liblog as lg
 
+sc.fill_all_cache_sets_threaded() ## populate facility cache
 REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
 
 ## check uptime (keep this at the bottom of util commands)
