@@ -228,9 +228,9 @@ def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
         sc.get_cache_line_no(
             date.fromisoformat(cdata["date"]),
             int(cdata["index"])
-        )
+        ),
+        True
     )
-    # sc.populate_cache(date.fromisoformat(cdata["date"]), int(cdata["index"]))
     callback_srcbook_date_select(call)
     return
 

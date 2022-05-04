@@ -328,9 +328,10 @@ def get_table_from_cache(date_in:date, facility_no:int)->dict:
     return FACILITY_CACHE[facility_no][cache_line]
 
 
-def update_single_cache_entry(facility_no:int, cache_line:int):#->bool:
+def update_single_cache_entry(facility_no:int, cache_line:int, force=False):#->bool:
     '''Worker function for threaded update. Given cache location must have an existing entry.
-    Refreshes data in cache, no modifications to age or date made.'''
+    Refreshes data in cache, no modifications to age or date made. Set force=True to get past
+    the time-to-live limit.'''
     # Returns True if a cache update has been made'''
     global SRC_CACHE_MUTEX
 
@@ -339,7 +340,7 @@ def update_single_cache_entry(facility_no:int, cache_line:int):#->bool:
     target_date = cache_line_data["date"]
     t_start = time.time()
 
-    if t_start - FACILITY_CACHE[facility_no][cache_line]["fetch_time"] <= TIME_TO_LIVE_SHORT:
+    if t_start - FACILITY_CACHE[facility_no][cache_line]["fetch_time"] <= TIME_TO_LIVE_SHORT and force==False:
         lg.functions.debug(f'cache line {facility_no}:{cache_line} not updated: within {TIME_TO_LIVE_SHORT}s')
         SRC_CACHE_MUTEX.release()
         return ## False
