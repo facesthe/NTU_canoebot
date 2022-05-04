@@ -13,7 +13,7 @@ lg.functions.debug("srcscraper loaded")
 
 _path = './.configs/srcscraper.config.json' ## path to srcscraper.config
 
-SRC_LINK = 'https://wis.ntu.edu.sg/webexe88/owa/srce_smain_s.SRC_GenEntry?p_closewind=N'
+SRC_LINK = 'https://sso.wis.ntu.edu.sg/webexe88/owa/sso_login1.asp?t=1&p2=https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.Notice_O&extra=&pg='
 
 ## creating config variable in Dotionary form
 with open(_path) as jsonfile:
