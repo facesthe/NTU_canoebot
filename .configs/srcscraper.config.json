@@ -18,12 +18,6 @@
         "courts": 6
     },
     {
-        "name": "Table Tennis @ Wave",
-        "shortname": "Table Tennis W",
-        "codename": "TC",
-        "courts": 2
-    },
-    {
         "name": "Tennis Court @ SRC",
         "shortname": "Tennis SRC",
         "codename": "TS",

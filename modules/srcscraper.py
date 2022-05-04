@@ -25,8 +25,11 @@ FACILITY_TABLE = [Dot for i in range(len(json))]
 for i in range(len(FACILITY_TABLE)):
     FACILITY_TABLE[i] = Dot.to_dotionary(json[i])
 
-TIME_TO_LIVE:int = 60 * 30
-'''30 minutes cache lifetime'''
+TIME_TO_LIVE_LONG:int = 60 * 60
+'''60 minutes cache lifetime'''
+
+TIME_TO_LIVE_SHORT:int = 60 * 5
+'''cache refresh interval when entering main menu'''
 
 FACILITY_CACHE:list = [
     [
@@ -41,6 +44,9 @@ FACILITY_CACHE:list = [
 ]
 '''Cache vector for src facilities.
 For nerds, this implements a modified 2-way set associative cache.'''
+
+SRC_CACHE_MUTEX = threading.Lock()
+'''Cache mutex. Don't want to have corrupted data'''
 
 
 def parse_date(date_str:str) -> date:
@@ -235,9 +241,10 @@ def get_cache_line_no(date_in:date, facility_no:int)->int:
 def fill_cache(date_in:date, facility_no:int, cache_line:int):
     '''Populates specified cache location with data. Flips the other cache line age to true'''
     FACILITY_CACHE[facility_no][cache_line]["date"] = date_in
+    FACILITY_CACHE[facility_no][cache_line]["fetch_time"] = 0   ## set to the beginning of time
     FACILITY_CACHE[facility_no][cache_line]["old"] = False      ## set itself to new
     if FACILITY_CACHE[facility_no][1-cache_line]["date"] is not None:
-        FACILITY_CACHE[facility_no][1-cache_line]["old"] = True     ## set other to old
+        FACILITY_CACHE[facility_no][1-cache_line]["old"] = True ## set other to old
     update_single_cache_entry(facility_no, cache_line)
     return
 
@@ -255,7 +262,7 @@ def get_table_from_cache(date_in:date, facility_no:int)->dict:
     elif date_in in stored_dates: ## cache entry found
         cache_line = get_cache_line_no(date_in, facility_no)
         ## check if outdated, re-fetch if needed
-        if (time.time() - FACILITY_CACHE[facility_no][cache_line]["fetch_time"]) > TIME_TO_LIVE:
+        if (time.time() - FACILITY_CACHE[facility_no][cache_line]["fetch_time"]) > TIME_TO_LIVE_LONG:
             fill_cache(
                 FACILITY_CACHE[facility_no][cache_line]["date"],
                 facility_no,
@@ -293,11 +300,22 @@ def get_table_from_cache(date_in:date, facility_no:int)->dict:
     return FACILITY_CACHE[facility_no][cache_line]
 
 
-def update_single_cache_entry(facility_no:int, cache_line:int):
+def update_single_cache_entry(facility_no:int, cache_line:int):#->bool:
     '''Worker function for threaded update. Given cache location must have an existing entry.
     Refreshes data in cache, no modifications to age or date made.'''
-    target_date = FACILITY_CACHE[facility_no][cache_line]["date"]
+    # Returns True if a cache update has been made'''
+    global SRC_CACHE_MUTEX
+    SRC_CACHE_MUTEX.acquire()
+
+    cache_line_data = FACILITY_CACHE[facility_no][cache_line]
+    target_date = cache_line_data["date"]
     t_start = time.time()
+
+    if t_start - FACILITY_CACHE[facility_no][cache_line]["fetch_time"] <= TIME_TO_LIVE_SHORT:
+        lg.functions.debug(f'cache line {facility_no}:{cache_line} not updated: within {TIME_TO_LIVE_SHORT}s')
+        SRC_CACHE_MUTEX.release()
+        return ## False
+
     data_table = get_booking_table(target_date, facility_no)
     t_end = time.time()
 
@@ -305,7 +323,11 @@ def update_single_cache_entry(facility_no:int, cache_line:int):
     FACILITY_CACHE[facility_no][cache_line]["fetch_time"] = t_end
     FACILITY_CACHE[facility_no][cache_line]["latency"] = t_end - t_start
 
-    return
+    SRC_CACHE_MUTEX.release()
+
+    lg.functions.debug(f'cache line {facility_no}:{cache_line} updated: {t_end - t_start}')
+
+    return ## True
 
 
 def update_existing_cache_entries_threaded():
