@@ -13,6 +13,8 @@ lg.functions.debug("srcscraper loaded")
 
 _path = './.configs/srcscraper.config.json' ## path to srcscraper.config
 
+SRC_LINK = 'https://wis.ntu.edu.sg/webexe88/owa/srce_smain_s.SRC_GenEntry?p_closewind=N'
+
 ## creating config variable in Dotionary form
 with open(_path) as jsonfile:
     json = jsn.load(jsonfile)
@@ -50,6 +52,14 @@ def parse_date(date_str:str) -> date:
         date_obj = date.today()
 
     return date_obj
+
+
+def touppercase(data:any):
+    try:
+        data:str = str(data)
+        return data.upper()
+    except:
+        return data
 
 
 def strtoint(data):
@@ -90,7 +100,6 @@ def get_booking_table(date_in:date, facility_no:int) -> pd.DataFrame:
     table = pd.read_html(url)[0]
     return table
 
-
 def format_booking_table(table:pd.DataFrame, facility_no:int, offset:int = 0)->pd.DataFrame:
     '''Formats the raw table into a summary table, with a specified offset.
     Offset is based on the start date of the booking table.'''
@@ -105,8 +114,13 @@ def format_booking_table(table:pd.DataFrame, facility_no:int, offset:int = 0)->p
         hour = table.iloc[multi*courts,0]
         data_hr = table.iloc[multi*courts:multi*courts+courts,[1]]
 
+        ## convert all entries to uppercase strings
+        ## because SRC has both 'closed' and 'CLOSED' for some reason.
+        for col in data_hr:
+            data_hr.loc[:,col] = data_hr[col].apply(touppercase)
+
         try:
-            count = data_hr.value_counts()['Avail']
+            count = data_hr.value_counts()['AVAIL']
         except:
             if (data_hr.value_counts()[0] == courts):   ## if all entries are the same
                 if courts == 1: ## for privacy reasons
@@ -180,12 +194,11 @@ def get_booking_result_cache(date_in:date, facility_no:int)->str:
     fetch_time = datetime.fromtimestamp(cache_entry["fetch_time"]).strftime('%H:%M')
 
     ## construct string
-    returnstr = f"\
-{date_in.strftime('%d %b %y, %A')}\n\
-{FACILITY_TABLE[facility_no].name}\n\n\
-{table_f.to_string(index=False)}\n\n\
-last fetch time: {fetch_time}\n\
-time-to-fetch: {exec_time}s"
+    returnstr = f"{date_in.strftime('%d %b %y, %A')}\n"\
+    f"{FACILITY_TABLE[facility_no].name}\n\n"\
+    f"{table_f.to_string(index=False)}\n\n"\
+    f"last fetch time: {fetch_time}\n"\
+    f"time-to-fetch: {exec_time}s\n"
 
     return returnstr
 

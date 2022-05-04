@@ -200,6 +200,12 @@ def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
             )
         ],
         row_width=2
+    ).add( ## src link
+        telebot.types.InlineKeyboardButton(
+            "Link to SRC",
+            url = sc.SRC_LINK
+        ),
+        row_width=1
     )
 
     bot.edit_message_text(
