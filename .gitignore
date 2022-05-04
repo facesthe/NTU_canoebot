@@ -10,3 +10,5 @@ botsettings.template.debug.json
 
 .scripts/.repopath.sh
 .scripts/canoebot.log
+
+*.test.py

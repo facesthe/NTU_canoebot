@@ -41,9 +41,9 @@ else:
 ## First row taken to be col headers for dataframe
 ## sheet name is optional, not needed if document contains only one sheet
 ## if document contains multiple sheets, first sheet created will be passed
-def getgooglesheet(sheet_id, sheet_name=''):
+def getgooglesheet(sheet_id, sheet_name='')->pd.DataFrame:
     url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}'
-    df_raw = pd.read_csv(url, header=None)
+    df_raw:pd.DataFrame = pd.read_csv(url, header=None)
     df_raw = df_raw.rename(columns=df_raw.iloc[0])
     df_raw = df_raw.drop(0)
     df_raw = df_raw.reset_index(drop=True)
@@ -52,7 +52,7 @@ def getgooglesheet(sheet_id, sheet_name=''):
 
 
 ## For training program sheet (separate from paddling attendance)
-def gettrainingprog(date_in:date):
+def gettrainingprog(date_in:date)->pd.DataFrame:
     prog_table = getgooglesheet(SHEET_PROG)
     prog_day = prog_table[prog_table['Date'].str.match(date_in.strftime('%Y-%m-%d'))]
     prog_day = prog_day.iloc[:,[2,3]].reset_index(drop=True)
