@@ -36,10 +36,16 @@
         "courts": 2
     },
     {
-        "name": "North Hill Gym",
-        "shortname": "NH Gym",
+        "name": "North Hill Gym A (Slots 1 to 25)",
+        "shortname": "NH Gym A",
         "codename": "NG",
-        "courts": 20
+        "courts": 25
+    },
+    {
+        "name": "North Hill Gym B (Slots 26 to 40)",
+        "shortname": "NH Gym B",
+        "codename": "NH",
+        "courts": 15
     },
     {
         "name": "Swimming Pool Booking Platform A",
