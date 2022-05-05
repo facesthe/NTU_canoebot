@@ -150,12 +150,20 @@ def calendar_keyboard_gen(
         if callback_data is not None:
             cdata_temp.update(callback_data)
 
-        month_buttons.append(
-            telebot.types.InlineKeyboardButton(
-                i,
-                callback_data=jsn.dumps(cdata_temp)
+        if date.today().month == date_in.month and date.today().day == i:
+            month_buttons.append(
+                telebot.types.InlineKeyboardButton(
+                    f"{i}\u0332",
+                    callback_data=jsn.dumps(cdata_temp)
+                )
             )
-        )
+        else:
+            month_buttons.append(
+                telebot.types.InlineKeyboardButton(
+                    i,
+                    callback_data=jsn.dumps(cdata_temp)
+                )
+            )
 
     for i in range(month_post_padding):
         month_buttons.append(
