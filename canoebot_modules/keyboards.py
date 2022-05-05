@@ -152,7 +152,7 @@ def calendar_keyboard_gen(
 
         date_now = date.today()
 
-        if  date_now.year == date_in.month and\
+        if  date_now.year == date_in.year and\
             date_now.month == date_in.month and\
             date_now.day == i:
 
