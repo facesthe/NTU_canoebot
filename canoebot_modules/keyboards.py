@@ -69,6 +69,7 @@ def generic_kb_gen(button_name:str, button_keyword:str, callback_data:dict)->tel
 
     return kb
 
+@lg.decorators.timers.debug()
 def calendar_keyboard_gen(
         button_keyword:str,
         date_in:date,
@@ -152,10 +153,11 @@ def calendar_keyboard_gen(
 
         date_now = date.today()
 
-        if  date_now.year == date_in.year and\
+        if  date_now.day == i and\
             date_now.month == date_in.month and\
-            date_now.day == i:
+            date_now.year == date_in.year:
 
+            ## underline the day on calendar
             month_buttons.append(
                 telebot.types.InlineKeyboardButton(
                     f"{i}\u0332",
