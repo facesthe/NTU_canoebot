@@ -150,7 +150,12 @@ def calendar_keyboard_gen(
         if callback_data is not None:
             cdata_temp.update(callback_data)
 
-        if date.today().month == date_in.month and date.today().day == i:
+        date_now = date.today()
+
+        if  date_now.year == date_in.month and\
+            date_now.month == date_in.month and\
+            date_now.day == i:
+
             month_buttons.append(
                 telebot.types.InlineKeyboardButton(
                     f"{i}\u0332",
