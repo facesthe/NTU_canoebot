@@ -1,6 +1,12 @@
+'''Definitions for all relavant core handlers.
+No code should be executed in this file.
+For execution of code on startup see canoebot_modules.events.
+'''
+
 import json as jsn
 import copy
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
+
 import telebot
 from canoebot_modules import keyboards
 
@@ -16,7 +22,6 @@ import modules.bashcmds as bc
 
 import lib.liblog as lg
 
-sc.fill_all_cache_sets_threaded() ## populate facility cache
 REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
 
 ## check uptime (keep this at the bottom of util commands)
@@ -456,6 +461,7 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
     lg.functions.debug(f'date: {paddling_date}')
 
     reply = ss.paddling(paddling_date)
+    reply += datetime.now().strftime('\n\nLast updated at %X')
 
     kb = keyboards.generic_kb_gen(
         'update',

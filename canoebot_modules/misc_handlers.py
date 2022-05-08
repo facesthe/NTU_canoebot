@@ -1,3 +1,5 @@
+'''Definitions for handlers not related to the main function of the bot.'''
+
 import telebot
 import time, random
 from datetime import date

@@ -1,3 +1,5 @@
+'''Definitions for user-restricted message handlers. Define debug handlers here.'''
+
 from datetime import date
 from dateutil.parser import parse
 import random, time

@@ -23,3 +23,4 @@ CanoeBot = telebot.TeleBot(
     threaded=True,
     num_threads=SYS_THREADS_AVAIL,
 )
+'''Main telebot object. Used to create new message handlers.'''
