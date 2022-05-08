@@ -273,7 +273,7 @@ def fill_all_cache_sets_threaded():
         subthread.join()
     t_end = time.time()
 
-    lg.functions.debug(f"Fill time for {len(thread_vector)} threads: ""{:5.4f}s".format(t_end - t_start))
+    lg.functions.info(f"Fill time for {len(thread_vector)} threads: ""{:5.4f}s".format(t_end - t_start))
     return
 
 
@@ -385,7 +385,7 @@ def update_existing_cache_entries_threaded():
         subthread.join()
 
     t_end = time.time()
-    lg.functions.debug(
+    lg.functions.info(
         f"update time for {len(thread_vector)} thread(s): ""{:5.4f}s".format(t_end - t_start)
     )
 
