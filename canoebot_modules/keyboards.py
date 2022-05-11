@@ -80,7 +80,7 @@ def calendar_keyboard_gen(
 
     title:str = date_in.strftime("%b %Y")
     lg.functions.debug(f'date: {date_in}')
-    lg.functions.debug(f'callback data passed: {callback_data}')
+    lg.functions.debug(f'callback data passed: {callback_data if callback_data is not None else "None"}')
 
     header = ["<<",title,">>"]
 
@@ -160,7 +160,8 @@ def calendar_keyboard_gen(
             ## underline the day on calendar
             month_buttons.append(
                 telebot.types.InlineKeyboardButton(
-                    f"{i}\u0332",
+                    ## anonymus func, adds a unicode underscore after every char
+                    (lambda num: "\u0332".join([str(char) for char in str(num)]) + "\u0332")(i),
                     callback_data=jsn.dumps(cdata_temp)
                 )
             )
@@ -187,7 +188,8 @@ def calendar_keyboard_gen(
         back_button_callback_data = {
         "name":f"{button_keyword}_cal_back",
         }
-        back_button_callback_data.update(callback_data)
+        if callback_data is not None:
+            back_button_callback_data.update(callback_data)
 
         kb.add(
             telebot.types.InlineKeyboardButton( ## back button
