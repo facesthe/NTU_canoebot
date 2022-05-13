@@ -14,13 +14,13 @@ global SHEET_ID
 
 ## Update this if needed, or sheetscraper won't work!
 ## change the settings in botsettings.json
-SHEET_ID =              s.json.sheetscraper.attendance_sheet            ## current sheet id for AY21/22
-SHEET_PROG =            s.json.sheetscraper.program_sheet               ## training prog sheet AY21/22
-DECONFLICT =            s.json.sheetscraper.use_deconflict              ## boat deconflict enable/disable
-DECONFLICT_VERSION =    s.json.sheetscraper.deconflict_ver              ## version 1 or 2 of __deconflict
-RECURSION_LIMIT =       s.json.sheetscraper.deconflict_recursion_limit  ## set the recursion limit for deconflict()
-PADDLING_FMT =          s.json.sheetscraper.paddling.format             ## formatting string for paddling attendance
-SMM_MEASURE =           s.json.sheetscraper.paddling.smm_measure
+SHEET_ID:str =              s.json.sheetscraper.attendance_sheet            ## current sheet id for AY21/22
+SHEET_PROG:str =            s.json.sheetscraper.program_sheet               ## training prog sheet AY21/22
+DECONFLICT:int =            s.json.sheetscraper.use_deconflict              ## boat deconflict enable/disable
+DECONFLICT_VERSION:int =    s.json.sheetscraper.deconflict_ver              ## version 1 or 2 of __deconflict
+RECURSION_LIMIT:int =       s.json.sheetscraper.deconflict_recursion_limit  ## set the recursion limit for deconflict()
+PADDLING_FMT:str =          s.json.sheetscraper.paddling.format             ## formatting string for paddling attendance
+SMM_MEASURE:str =           s.json.sheetscraper.paddling.smm_measure
 
 
 ## create data, attendance folders on first run
@@ -61,7 +61,7 @@ def gettrainingprog(date_in:date)->pd.DataFrame:
     return prog_day
 
 
-def trainingam_no_date(str_in:str):
+def trainingam_no_date(str_in:str)->str:
     '''Same as trainingam but without a date header'''
     try:
         date_in = parse(str_in)
@@ -78,7 +78,7 @@ def trainingam_no_date(str_in:str):
 ## top level function used by canoebot
 ## wraps gettrainingprog with input validation
 ## am version
-def trainingam(str_in:str):
+def trainingam(str_in:str)->str:
     try:
         date_in = parse(str_in)
     except:
@@ -95,7 +95,7 @@ def trainingam(str_in:str):
 ## top level function used by canoebot
 ## wraps gettrainingprog with input validation
 ## pm version
-def trainingpm(str_in:str):
+def trainingpm(str_in:str)->str:
     try:
         date_in = parse(str_in)
     except:
@@ -160,7 +160,7 @@ def getsheetname(date_in:date): ## date_in is a date object again
 
 
 ## returns dataframe for entire month, no modifications
-def getsheet(date_in:date):
+def getsheet(date_in:date)->pd.DataFrame:
     '''Returns the chosen month as a dataframe.
 
     Note that the start and end of the month are not consistent.'''
@@ -174,7 +174,7 @@ def getsheet(date_in:date):
     return df_raw
 
 
-def getconfigsheet():
+def getconfigsheet()->pd.DataFrame:
     url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=configs'
     return pd.read_csv(url).iloc[:,1:]
 
@@ -221,7 +221,7 @@ def create_1star_dict():
 ## Returns a formatted dataframe containing names, the date and session
 ## Names that can be shortened will be shortened
 ## Depreciated
-def getnames(str_in:str, time:int):
+def getnames(str_in:str, time:int)->pd.Series:
     global SHORT_NAME
     ## time passed as int, am=0,pm=1
     ## no time param passed, assume 0
@@ -250,6 +250,8 @@ def getnames(str_in:str, time:int):
     amoffset = 17*wekindex + 2*dayindex + 3
     #pmoffset = amoffset + 1 ## no need to assign another var
 
+    df_session:pd.Series
+
     if(not time):
         timestr = 'AM'
         df_session = raw_sheet.iloc[vertoffset:,amoffset]
@@ -272,7 +274,7 @@ def getnames(str_in:str, time:int):
 
 ## Obtain the full names for a paddling session
 ## No date and time information included in the Series
-def getonlynames(str_in:str, time:int):
+def getonlynames(str_in:str, time:int)->pd.Series:
 
     try:
         date_in = parse(str_in).date()
@@ -297,7 +299,7 @@ def getonlynames(str_in:str, time:int):
     if time:
         offset += 1
 
-    df_session = pd.Series()
+    df_session:pd.Series
     lg.functions.debug(f'looping in range of 3 to {len(raw_sheet)}')
     lg.functions.debug(f'offset col: {offset}')
 
@@ -317,7 +319,7 @@ def getonlynames(str_in:str, time:int):
     return df_session.reset_index(drop=True)
 
 
-def getnamesv2(str_in:str, time:int):
+def getnamesv2(str_in:str, time:int)->pd.Series:
     global SHORT_NAME
 
     try:
@@ -373,7 +375,7 @@ def getnamesv2(str_in:str, time:int):
     return df_session.reset_index(drop=True)
 
 
-def namelist(date_time_str:str=''):
+def namelist(date_time_str:str='')->pd.Series:
 
     date_time = date_time_str.split(',')
     #print(datetime)
@@ -403,7 +405,7 @@ def namelist(date_time_str:str=''):
 
 
 ## pair up the boats with names
-def match2boats(df_session:pd.Series):
+def match2boats(df_session:pd.Series)->pd.DataFrame:
 
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
     boats = pd.read_csv('./data/boats.csv')
@@ -440,7 +442,7 @@ def match2boats(df_session:pd.Series):
     return return_df[1:].reset_index(drop=True)
 
 
-def boatallo(str_in=''):
+def boatallo(str_in:str='')->pd.DataFrame:
     '''Boat allo function that is used by the canoebot\n
     No params -> next day used\n
     Input [date, time] as string\n
@@ -450,7 +452,7 @@ def boatallo(str_in=''):
     return match2boats(tempdf)
 
 
-def paddling(str_in=''):
+def paddling(str_in:str='')->str:
     '''Returns paddling attendance, mostly formatted'''
     try:
         date_in = parse(str_in).date()
@@ -463,7 +465,7 @@ def paddling(str_in=''):
     ## Thursday 04 Feb - display date
     date_str = date_in.strftime('%A %d %b')
 
-    boatallo_no_date = boatallo(actual_date).iloc[1:]
+    boatallo_no_date:pd.DataFrame = boatallo(actual_date).iloc[1:]
     ## replace col headers with whitespaces of identical length
     boatallo_no_date.columns = [
         (' ' * len(boatallo_no_date.columns[i])) \
@@ -487,7 +489,7 @@ def paddling(str_in=''):
 ## recursive deconflict
 ## takes in unprocessed boat allo dataframe
 ## check for any matching boats, change the boat allo so that all are unique (if possible)
-def deconflict(df_in):
+def deconflict(df_in:pd.DataFrame)->pd.DataFrame:
     ## take the 2nd col of dataframe
     ## ignore the top 3 blank entries
     ## generate a frequency df
@@ -508,7 +510,7 @@ def deconflict(df_in):
     elif COUNT != 0: ## recursion limit of COUNT
         COUNT -= 1
     else:
-        lg.functions.info(f'recursion limit of {RECURSION_LIMIT} reached')
+        lg.functions.debug(f'recursion limit of {RECURSION_LIMIT} reached')
         return __automarkconflict(df_in)
 
     ## has conflicting boats
@@ -523,10 +525,10 @@ def deconflict(df_in):
     ## perform the actual deconflict (__deconflict is not complete)
     for boat in conflicts:
         if DECONFLICT_VERSION == 1:
-            lg.functions.info('using deconflict version 1')
+            lg.functions.debug('using deconflict version 1')
             df_in = __deconflict(df_in, boat)
         elif DECONFLICT_VERSION == 2:
-            lg.functions.info('using deconflict version 2')
+            lg.functions.debug('using deconflict version 2')
             df_in = __deconflictv2(df_in, boat)
 
     return deconflict(df_in)
@@ -534,10 +536,10 @@ def deconflict(df_in):
 
 ## helper function
 ## does the search and replacement of boats
-def __deconflict(df_in, conflictboat):
+def __deconflict(df_in:pd.DataFrame, conflictboat)->pd.DataFrame:
     '''search and find a replacement for problem boat'''
 
-    boatlist = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
+    boatlist:pd.DataFrame = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
 
     ## build list of conflict names for particular boat
     conflictnames = []
@@ -562,20 +564,20 @@ def __deconflict(df_in, conflictboat):
                 continue
             else:
                 df_in.loc[df_in.col1 == conflictnames[i],'col2'] = replacement
-            lg.functions.info('deconflict successful')
+            lg.functions.debug('deconflict successful')
             return df_in ## successful replacement
 
-    lg.functions.info('deconflict failed')
+    lg.functions.debug('deconflict failed')
     return __markconflict(df_in, conflictboat) ## all attempts failed, mark the boats
 
 
 ## helper function
 ## improved version of __deconflict
-def __deconflictv2(df_in, conflictboat):
+def __deconflictv2(df_in:pd.DataFrame, conflictboat)->pd.DataFrame:
     '''improved version of __deconflict\n
     Right now this can go on an infinite loop'''
 
-    boatdf = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
+    boatdf:pd.DataFrame = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
 
     ## build list of conflict names for particular boat
     ## use set logic to build list
@@ -633,12 +635,12 @@ def __deconflictv2(df_in, conflictboat):
 
         ## if all occurences are unique, use that
         if __islistunique(testlist):
-            lg.functions.info('deconflict successful')
+            lg.functions.debug('deconflict successful')
             lg.functions.debug(f"new boat assignment:\n{conflictnames}\n{testlist}")
             return __replaceboat(df_in, conflictnames, testlist)
 
     ## unsuccessful deconflict, mark boats
-    lg.functions.info('deconflict failed')
+    lg.functions.debug('deconflict failed')
     return __markconflict(df_in, conflictboat)
 
 
@@ -647,7 +649,7 @@ def predeconflict():
     COUNT = RECURSION_LIMIT ## set recursion counter
 
 
-def __replaceboat(df_in, names_in, boats_in) -> pd.DataFrame:
+def __replaceboat(df_in:pd.DataFrame, names_in:list, boats_in:list) -> pd.DataFrame:
     '''override boats that match the index of the name list passed.\n
     Size of name and boat list must match'''
     for i in range(len(names_in)):
@@ -656,7 +658,7 @@ def __replaceboat(df_in, names_in, boats_in) -> pd.DataFrame:
     return df_in
 
 
-def __islistunique(list_in) -> int:
+def __islistunique(list_in:list) -> int:
     '''Return 1 if list contains unique entries. Return 0 otherwise.'''
     if np.nan in list_in:
         return 0
@@ -667,14 +669,14 @@ def __islistunique(list_in) -> int:
 
 ## helper function
 ## appends 'CONFLICT' to boats that are unable to be deconflicted
-def __markconflict(df_in, conflictboat) -> pd.DataFrame:
+def __markconflict(df_in:pd.DataFrame, conflictboat) -> pd.DataFrame:
     for i in range(len(df_in)):
         if df_in.iloc[i,1] == conflictboat:
             df_in.iloc[i,1] += ' CONFLICT'
     return df_in
 
 
-def __automarkconflict(df_in) -> pd.DataFrame:
+def __automarkconflict(df_in:pd.DataFrame) -> pd.DataFrame:
     freq = df_in.iloc[3:,1].value_counts()
     conflicts = []
     freqlist = freq.reset_index()
@@ -694,7 +696,7 @@ def __automarkconflict(df_in) -> pd.DataFrame:
 
 ###### Dataframe/string manipulation ######
 ## adds some backticks to turn text into code form
-def codeit(str_in) -> str:
+def codeit(str_in:str) -> str:
 
     return '```\n' + str_in + '\n```'
 
@@ -764,7 +766,7 @@ def string_df(df_in) -> str:
 
 ## for adding entries on top of a pandas series
 ## index reset to fit
-def stackontop(df_in:pd.Series, item):
+def stackontop(df_in:pd.Series, item)->pd.Series:
     df_in.loc[-1] = item
     df_in.index += 1
     return df_in.sort_index()
