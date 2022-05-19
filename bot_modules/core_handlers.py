@@ -8,9 +8,9 @@ import copy
 from datetime import datetime, date, timedelta
 
 import telebot
-from canoebot_modules import keyboards
+from bot_modules import keyboards
 
-from canoebot_modules.common_core import CanoeBot as bot
+from bot_modules.common_core import CanoeBot as bot
 import modules.sheetscraper as ss
 import modules.gymscraper as gs
 import modules.srcscraper as sc

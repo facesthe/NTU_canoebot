@@ -4,9 +4,9 @@ import telebot
 import time, random
 from datetime import date
 
-from canoebot_modules.common_core import CanoeBot as bot
-from canoebot_modules.common_core import misc_handlers as misc_handlers
-from canoebot_modules.common_core import known_chats as known_chats
+from bot_modules.common_core import CanoeBot as bot
+from bot_modules.common_core import misc_handlers as misc_handlers
+from bot_modules.common_core import known_chats as known_chats
 import modules.utilities as ut
 import modules.settings as s
 

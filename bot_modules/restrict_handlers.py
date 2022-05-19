@@ -7,10 +7,10 @@ import random, time
 import telebot
 from telebot.callback_data import CallbackData
 
-from canoebot_modules.common_core import CanoeBot as bot
-from canoebot_modules.common_core import misc_handlers as misc_handlers
-from canoebot_modules.common_core import known_chats as known_chats
-import canoebot_modules.keyboards as keyboards
+from bot_modules.common_core import CanoeBot as bot
+from bot_modules.common_core import misc_handlers as misc_handlers
+from bot_modules.common_core import known_chats as known_chats
+import bot_modules.keyboards as keyboards
 import modules.sheetscraper as ss
 import modules.bashcmds as bc
 

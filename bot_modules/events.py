@@ -5,7 +5,7 @@ import signal
 import sys
 import time
 
-from canoebot_modules.common_core import CanoeBot as bot
+from bot_modules.common_core import CanoeBot as bot
 import modules.srcscraper as sc
 
 import lib.liblog as lg
