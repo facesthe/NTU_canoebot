@@ -91,9 +91,9 @@ git_shallow_clone() {
     esac
 }
 
-# Does a shallow pull (depth 2) of the target repo
+# Does a shallow pull (depth 2) of the target repo - main branch
 # OVERWRITES ALL UNCOMMITED CHANGES
-# Param $1: Path to repo (optional)
+# Param $1: File path to repo (optional, if already in repo)
 git_shallow_pull() {
     case $# in
         0)
