@@ -1,3 +1,6 @@
+'''DEPRECEATED. Superceded by srcscraper.py
+Original src fetch module. Improvements made in new module'''
+
 import pandas as pd
 import time
 from datetime import date

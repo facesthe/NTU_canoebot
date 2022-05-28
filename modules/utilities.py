@@ -1,3 +1,5 @@
+'''Miscellaneous helper functions, used primarily in message handlers'''
+
 from dateutil.parser import parse
 from datetime import date, timedelta
 
