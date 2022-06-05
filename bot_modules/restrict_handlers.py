@@ -3,6 +3,7 @@
 from datetime import date
 from dateutil.parser import parse
 import random, time
+import json as jsn
 
 import telebot
 from telebot.callback_data import CallbackData
@@ -15,6 +16,78 @@ import modules.sheetscraper as ss
 import modules.bashcmds as bc
 
 import lib.liblog as lg
+
+## send user data to logs - restrict use
+@bot.message_handler(commands=['ping'])
+@lg.decorators.info()
+def misc_ping(message:telebot.types.Message):
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        telebot.types.InlineKeyboardButton(
+            "continue",
+            callback_data="ping_continue"
+        ),
+        telebot.types.InlineKeyboardButton(
+            "cancel",
+            callback_data="ping_cancel"
+        )
+    )
+
+    bot.send_message(
+        message.chat.id,
+        "/ping logs the message, its sender, contents and other attributes. "
+        "Doing this will expose your username, chat ID and other information. "
+        "Do not continue with this action unless explicitly told to.",
+        reply_markup=kb
+    )
+    return
+
+@bot.callback_query_handler(func=lambda c: "ping_continue" in c.data)
+def callback_ping_send(call:telebot.types.CallbackQuery):
+    message=call.message
+
+    message_unformatted = str(message.chat)
+    message_unformatted = message_unformatted.replace("None", "null") ## convert to valid JSON
+    message_unformatted = message_unformatted.replace("'", '"') ## replace single with double quotes
+    lg.functions.info(jsn.dumps(
+        jsn.loads(message_unformatted),
+        indent=2
+    ))
+
+    bot.edit_message_text(
+        "ping sent. this message will be deleted shortly.",
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+    )
+
+    time.sleep(10)
+
+    bot.delete_message(
+        chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    return
+
+@bot.callback_query_handler(func=lambda c: "ping_cancel" in c.data)
+@lg.decorators.info()
+def callback_ping_cancel(call:telebot.types.CallbackQuery):
+    message=call.message
+
+    bot.edit_message_text(
+        "ping cancelled. this message will be deleted shortly.",
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+    )
+
+    time.sleep(10)
+
+    bot.delete_message(
+        chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    return
 
 ## check logs
 @bot.message_handler(commands=['botlog'])
