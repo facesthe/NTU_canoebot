@@ -414,10 +414,22 @@ def match2boats(df_session:pd.Series)->pd.DataFrame:
     # lg.functions.debug(f'boats: {boats}')
     # lg.functions.debug(f'session_list: {session_list}')
 
+    indices_to_rm: list[int] = []
+    '''a list of non-matching persons is kept'''
+
     for i in range(len(session_list)):
-        boat_match = boats[boats['name'] == session_list[i]].iloc[0,1]
-        boatlist.append(boat_match)
-        # lg.functions.debug(f'name {session_list[i]} assigned {boat_match}')
+        try:
+            boat_match = boats[boats['name'] == session_list[i]].iloc[0,1]
+            boatlist.append(boat_match)
+            lg.functions.debug(f'name {session_list[i]} assigned {boat_match}')
+        except IndexError as e:
+            lg.functions.debug(f'Error: {e} when looking up boat config for {session_list[i]}')
+            indices_to_rm.append(i)
+
+    ## Pop the unmatched indices from largest to smallest
+    indices_to_rm.sort(reverse=True)
+    for ind in indices_to_rm:
+        session_list.pop(ind)
 
     ## join back df_session's top 3 rows
     date_info = df_session[:3].tolist()
