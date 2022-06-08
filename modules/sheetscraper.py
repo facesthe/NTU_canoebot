@@ -9,6 +9,7 @@ import os
 
 import lib.liblog as lg ## new logging extension
 import modules.settings as s ## bot settings
+import modules.utilities as ut
 
 lg.functions.debug("sheetscraper loaded")
 
@@ -25,17 +26,17 @@ PADDLING_FMT:str =          s.json.sheetscraper.paddling.format             ## f
 SMM_MEASURE:str =           s.json.sheetscraper.paddling.smm_measure
 
 
-## create data, attendance folders on first run
-if not os.path.exists('./data'):
-    os.mkdir('./data')
-    lg.functions.info('creating /data')
-else:
-    lg.functions.info('/data already created')
-if not os.path.exists('./data/attendance'):
-    lg.functions.info('creating /data/attendance')
-    os.mkdir('./data/attendance')
-else:
-    lg.functions.info('/data/attendance already created')
+DIRECTORY_STRUCTURE :dict = {
+    "data": {
+        "attendance": {
+            "AM": {},
+            "PM": {}
+        },
+        "logs": {}
+    }
+}
+
+ut.mkdirs_from_dict(DIRECTORY_STRUCTURE)
 
 ## Functions are defined from least dependent to most
 
@@ -779,11 +780,17 @@ def stackontop(df_in:pd.Series, item)->pd.Series:
 def findlowestname(df_in:pd.DataFrame) -> int:
     index = 0
     while(True):
-        if pd.isnull(df_in.iloc[index+1,0]) and pd.isnull(df_in.iloc[index+2,0]):
-            return index
-        else:
-            index += 1
-            continue
+
+        if pd.isnull(df_in.iloc[index+1,0]):
+            try:
+                if pd.isnull(df_in.iloc[index+2,0]):
+                    lg.functions.debug("old double null format found")
+                    return index
+            except:
+                lg.functions.debug("new single null format found")
+                return index
+
+        index += 1
 
 ## run update on import/load
 updateconfigs()
