@@ -1,3 +1,5 @@
+'''Python module to shell interface.'''
+
 ## for sending bash commands to the bot
 import subprocess as sp
 import lib.liblog as lg

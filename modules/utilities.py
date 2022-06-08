@@ -1,5 +1,10 @@
+'''Miscellaneous helper functions, used primarily in message handlers'''
+import os
+
 from dateutil.parser import parse
 from datetime import date, timedelta
+
+import lib.liblog as lg
 
 def countdown()->int:
     '''
@@ -44,3 +49,25 @@ def parsenamelisttimeslot(str_in='')->int:
         return 1
     else:
         return 0
+
+def mkdirs_from_dict(dict_in: dict):
+    '''Recursive mkdir function. Takes in a multilevel dict and recursively creates directories.
+    Note that all keys must be strings (directory names) and all values must be dictionaries.
+    The lowest directory key must have an empty dictionary as a value.'''
+
+    ## base case: empty dictionary as value in key-val pair
+    for key, val in dict_in.items():
+        if not val: ## if empty dictionary as value
+            lg.functions.debug(f"making relative path: {key}")
+            os.makedirs(key, exist_ok=True)
+
+        else: ## append the filepath to all child nodes
+            for subkey in list(val):
+                new_subkey = f"{key}/{subkey}"
+                lg.functions.debug(f"changing key {subkey} to {new_subkey}")
+                val[new_subkey] = val.pop(subkey) ## replace with new subkey
+
+    for key, val in dict_in.items():
+        mkdirs_from_dict(val)
+
+    return

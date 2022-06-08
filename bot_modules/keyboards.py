@@ -2,16 +2,17 @@
 
 from  datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-from dateutil.parser import parse
 import json  as jsn
 import copy
 
 import telebot
 
 from bot_modules.common_core import CanoeBot as bot
+
 NULL_STR = "None"
 RR_LINK = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 RR_LINK = "None"
+REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
 
 import lib.liblog as lg
 

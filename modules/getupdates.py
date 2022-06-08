@@ -18,6 +18,7 @@ response:rq.Response = rq.get(updates_url)
 empty_post_response:rq.Response = rq.post(send_msg_url, {})
 
 response_json = jsn.loads(response.text)
+print(updates_url)
 print(jsn.dumps(response_json, indent=4))
 print("Post response:")
 print(empty_post_response)

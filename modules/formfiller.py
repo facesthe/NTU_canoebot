@@ -1,3 +1,5 @@
+'''Interface to SCF for submitting daily log sheet'''
+
 import requests as rq
 from datetime import date
 from dateutil.parser import parse

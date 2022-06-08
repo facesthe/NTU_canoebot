@@ -1,3 +1,5 @@
+'''Rudimentary contact tracing module'''
+
 import pandas as pd
 import modules.sheetscraper as ss
 

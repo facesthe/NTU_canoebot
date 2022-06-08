@@ -1,3 +1,5 @@
+'''SRC module for fetching facility availiability from NTU's Sports and Recreation Center'''
+
 import json as jsn
 import pandas as pd
 import time
