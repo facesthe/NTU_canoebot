@@ -88,8 +88,9 @@ def unweave_attendance_frames(df_in: pd.DataFrame) -> "tuple[pd.DataFrame, pd.Da
 
     return (df_am, df_pm)
 
-def fetch_format_store_month_frames():
-    '''Performs checks, updates stored database from Sheets. Main entry point into module'''
+def fetch_format_store_month_frames() -> date:
+    '''Performs checks, updates stored database from Sheets. Main fetch function.
+    Returns the last valid month and year in date format (ignore day)'''
     start_date:date = date.today()
 
     lg.functions.debug(start_date)
@@ -104,14 +105,18 @@ def fetch_format_store_month_frames():
             lg.functions.debug(f'get sheet successful')
         except:
             ## stop on error in fetching oldest sheet
-            break
+            return start_date + relativedelta(months=1)
 
-        formatted_df = format_sheet_df(month_df)
+        try:
+            formatted_df = format_sheet_df(month_df)
+        except:
+            return start_date + relativedelta(months=1)
+
         df_tuple = unweave_attendance_frames(formatted_df)
 
-        df_tuple[0].to_csv(f"./data/attendance/AM/{start_date.strftime('%Y-%m')}")
-        df_tuple[0].to_csv(f"./data/attendance/PM/{start_date.strftime('%Y-%m')}")
+        df_tuple[0].to_csv(f"./data/attendance/AM/{start_date.strftime('%Y-%m')}.csv")
+        df_tuple[0].to_csv(f"./data/attendance/PM/{start_date.strftime('%Y-%m')}.csv")
 
         start_date -= relativedelta(months=1)
 
-    return
+
