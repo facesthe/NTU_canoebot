@@ -46,7 +46,6 @@ class logSheet():
         self.name,self.contact = random.choice(list(PARTICULARS.items()))
 
     def __certstatus(self):
-        ss.create_1star_dict()
         return ss.CERT_STATUS
 
     def __getnamelist(self):

@@ -22,20 +22,18 @@ import modules.bashcmds as bc
 
 import lib.liblog as lg
 
-REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
-
-## check uptime (keep this at the bottom of util commands)
+## uptime of the host machine
 @bot.message_handler(commands=['uptime'])
 @lg.decorators.info()
 def misc_uptime(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
-## sync with contents of the configs sheet
+## sync with contents of the 'configs' sheet
 @bot.message_handler(commands=['reload'])
 @lg.decorators.info()
 def handle_reload(message:telebot.types.Message):
-    ss.updateconfigs()
-    bot.send_message(message.chat.id,'updated')
+    ss.update_globals()
+    bot.send_message(message.chat.id,'Globals updated')
 
 ## wavegym command
 @bot.message_handler(commands=['wavegym'])
@@ -43,7 +41,69 @@ def handle_reload(message:telebot.types.Message):
 def handle_wavegym(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
+    bot.send_message(message.chat.id, "The /wavegym command is depreceated! Use /src instead.")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
+
+@bot.message_handler(commands=['weeklybreakdown'])
+@lg.decorators.info()
+def handle_weekly_breakdown(message:telebot.types.Message):
+    '''Returns a breakdown of people going to training for the current week, Mon-Sun.'''
+
+    reply = ss.weekly_breakdown()
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        *[
+            telebot.types.InlineKeyboardButton(
+                '<<' if day_delta < 0 else '>>',
+                callback_data=jsn.dumps(
+                    {
+                        "name":"breakdown_nav",
+                        "date":(date.today() - timedelta(days=day_delta)).isoformat()
+                    }
+                )
+            )
+        for day_delta in range(-7,8,14)]
+    )
+
+    bot.send_message(
+        message.chat.id,
+        ss.codeit(reply.to_string()),
+        parse_mode="Markdown",
+        reply_markup=kb)
+
+    return
+
+@bot.callback_query_handler(func=lambda c: "breakdown_nav" in c.data)
+@lg.decorators.info()
+def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
+    '''Advances the breakdown query one week forwards or backwards'''
+    message = call.message
+    cdata = jsn.loads(call.data)
+    ref_date:date = date.fromisoformat(cdata["date"])
+
+    reply = ss.weekly_breakdown(ref_date)
+    kb = telebot.types.InlineKeyboardMarkup().add(
+        *[
+            telebot.types.InlineKeyboardButton(
+                '<<' if day_delta < 0 else '>>',
+                callback_data=jsn.dumps(
+                    {
+                        "name":"breakdown_nav",
+                        "date":(ref_date + timedelta(days=day_delta)).isoformat()
+                    }
+                )
+            )
+        for day_delta in range(-7,8,14)]
+    )
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=ss.codeit(reply.to_string()),
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+
+    return
 
 ## new src command - navigation using callback buttons
 @bot.message_handler(commands=['src'])
@@ -355,8 +415,8 @@ def handle_namelist(message:telebot.types.Message):
             parse_mode='Markdown',
             reply_markup=kb
         )
-    except: ## to catch out-of-range input dates
-        bot.send_message(message.chat.id,'Out of range. Sheet may not yet exist.')
+    except Exception as e: ## to catch out-of-range input dates
+        bot.send_message(message.chat.id, f'Exception: *{e}*', parse_mode='Markdown')
 
     return
 
@@ -428,8 +488,11 @@ def handle_boatallo(message:telebot.types.Message):
     try:
         reply = ss.boatallo(text)
         bot.send_message(message.chat.id,ss.df2str(reply),parse_mode='Markdown')
-    except:
-        bot.send_message(message.chat.id,'Input out of range!')
+    except Exception as e:
+        bot.send_message(
+            message.chat.id,
+            f'Exception: *{e}*. Please show this message to the bot maintainer.',
+            parse_mode='Markdown')
 
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
@@ -615,6 +678,14 @@ def handle_logsheet_new_start(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
     message = call.message
+
+    ## immediately change the message contents to prevent multiple button presses
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text="generating logsheet data..."
+    )
+
     lg.functions.debug(f'callback data: {call.data}')
     cdata:dict = jsn.loads(call.data)
     send_cdata = cdata.copy()
@@ -648,6 +719,14 @@ def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_logsheet_send(call:telebot.types.CallbackQuery):
     message = call.message
+
+    ## immediately change the message contents to prevent multiple button presses
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text="sending logsheet..."
+    )
+
     cdata =  jsn.loads(call.data)
     lg.functions.debug(f'callback data contents: {call.data}')
 
@@ -806,7 +885,7 @@ def handle_traceall_2(message:telebot.types.Message, trace:ct.tracer):
 ## Training Log
 ################################################################################
 
-## training log part 1 (under construction)
+## training log part 1
 @bot.message_handler(commands=['traininglog'])
 @lg.decorators.info()
 def handle_traininglog_1(message:telebot.types.Message):
@@ -821,14 +900,27 @@ def handle_traininglog_1(message:telebot.types.Message):
     traininglog = tl.TrainingLog()
     traininglog.fill_name(message.from_user.full_name)
     msg = bot.send_message(message.chat.id, "Date (dd mmm or day):")
+
+    # kb=keyboards.calendar_keyboard_gen(
+    #     "traininglog",
+    #     date.today(),
+    #     include_back_button=False
+    # )
+
+    # bot.send_message(
+    #     message.chat.id,
+    #     "Enter a date:",
+    #     reply_markup=kb
+    # )
+
     bot.register_next_step_handler(msg, handle_traininglog_2, traininglog)
     return
 
-## training log part 2 (date entry)
+## training log part 2 changed to callback to accomodate calendar buttons for date sel
 @lg.decorators.info()
 def handle_traininglog_2(message:telebot.types.Message, traininglog:tl.TrainingLog):
     if message.text == '/exit':
-        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=keyboards.REMOVE_MARKUP_KB)
         return
 
     traininglog.fill_date(traininglog.dateparser(message.text))
@@ -841,7 +933,7 @@ def handle_traininglog_2(message:telebot.types.Message, traininglog:tl.TrainingL
 def handle_traininglog_3(message:telebot.types.Message, traininglog:tl.TrainingLog):
     # msg = bot.send_message(message.chat.id, "Sleep hours:")
     if message.text == '/exit':
-        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=keyboards.REMOVE_MARKUP_KB)
         return
 
     try:
@@ -860,7 +952,7 @@ def handle_traininglog_3(message:telebot.types.Message, traininglog:tl.TrainingL
 @lg.decorators.info()
 def handle_traininglog_4(message:telebot.types.Message, traininglog:tl.TrainingLog):
     if message.text == '/exit':
-        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=keyboards.REMOVE_MARKUP_KB)
         return
 
     try:
@@ -887,7 +979,7 @@ def handle_traininglog_4(message:telebot.types.Message, traininglog:tl.TrainingL
 def handle_traininglog_5(message:telebot.types.Message, traininglog:tl.TrainingLog):
     # msg = bot.send_message(message.chat.id, "Heart rate:")
     if message.text == '/exit':
-        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=keyboards.REMOVE_MARKUP_KB)
         return
 
     try:
@@ -907,7 +999,7 @@ def handle_traininglog_5(message:telebot.types.Message, traininglog:tl.TrainingL
 @lg.decorators.info()
 def handle_traininglog_6(message:telebot.types.Message, traininglog:tl.TrainingLog):
     if message.text == '/exit':
-        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=REMOVE_MARKUP_KB)
+        bot.send_message(message.chat.id, "Exiting /traininglog", reply_markup=keyboards.REMOVE_MARKUP_KB)
         return
 
     try:
@@ -919,7 +1011,7 @@ def handle_traininglog_6(message:telebot.types.Message, traininglog:tl.TrainingL
         return
 
     traininglog.fill_mileage(miles)
-    msg = bot.send_message(message.chat.id, "Training comments:", reply_markup=REMOVE_MARKUP_KB)
+    msg = bot.send_message(message.chat.id, "Training comments:", reply_markup=keyboards.REMOVE_MARKUP_KB)
     bot.register_next_step_handler(msg, handle_traininglog_7, traininglog)
     return
 

@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+import copy
 from datetime import date, timedelta
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
@@ -15,14 +16,29 @@ lg.functions.debug("sheetscraper loaded")
 
 global SHEET_ID
 
+SHEET_CONFIGS: pd.DataFrame
+'''Holds a frame containing the current configuration sheet in the paddling attendance.
+Sheet name is 'configs'.'''
+BOAT_ALLOCATIONS: pd.DataFrame
+'''Contains boat allocations taken from sheet configs.'''
+SHORT_NAME:dict = {}
+'''dictionary to convert short -> long names'''
+LONG_NAME:dict = {}
+'''dictionary to convert long -> short names'''
+CERT_STATUS:dict = {}
+'''dictionary that contains key-val pairs of each person and their 1-star status'''
+EXCO_NAMES:"list[str]" = []
+'''List of exco members'''
+
+
 ## Update this if needed, or sheetscraper won't work!
 ## change the settings in botsettings.json
-SHEET_ID:str =              s.json.sheetscraper.attendance_sheet            ## current sheet id for AY21/22
-SHEET_PROG:str =            s.json.sheetscraper.program_sheet               ## training prog sheet AY21/22
-DECONFLICT:int =            s.json.sheetscraper.use_deconflict              ## boat deconflict enable/disable
-DECONFLICT_VERSION:int =    s.json.sheetscraper.deconflict_ver              ## version 1 or 2 of __deconflict
-RECURSION_LIMIT:int =       s.json.sheetscraper.deconflict_recursion_limit  ## set the recursion limit for deconflict()
-PADDLING_FMT:str =          s.json.sheetscraper.paddling.format             ## formatting string for paddling attendance
+SHEET_ID:str =              s.json.sheetscraper.attendance_sheet
+SHEET_PROG:str =            s.json.sheetscraper.program_sheet
+DECONFLICT:int =            s.json.sheetscraper.use_deconflict
+DECONFLICT_VERSION:int =    s.json.sheetscraper.deconflict_ver
+RECURSION_LIMIT:int =       s.json.sheetscraper.deconflict_recursion_limit
+PADDLING_FMT:str =          s.json.sheetscraper.paddling.format
 SMM_MEASURE:str =           s.json.sheetscraper.paddling.smm_measure
 
 
@@ -39,6 +55,44 @@ DIRECTORY_STRUCTURE :dict = {
 ut.mkdirs_from_dict(DIRECTORY_STRUCTURE)
 
 ## Functions are defined from least dependent to most
+
+
+def getconfigsheet()->pd.DataFrame:
+    url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=configs'
+    return pd.read_csv(url).iloc[:,1:].dropna(how="all", axis=1)
+
+
+def update_globals():
+    '''Create/update the global variables defined at the top of file'''
+    global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
+
+    SHEET_CONFIGS = getconfigsheet().convert_dtypes()
+
+    SHORT_NAME = SHEET_CONFIGS.iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
+    LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
+
+    CERT_STATUS.clear()
+    cert_status_long_form = SHEET_CONFIGS[['name','1_star']].set_index('name')['1_star'].to_dict()
+    for key in list(cert_status_long_form):
+        if key in SHORT_NAME:
+            CERT_STATUS[SHORT_NAME[key]] = cert_status_long_form[key]
+        else:
+            CERT_STATUS[key] = cert_status_long_form[key]
+
+    EXCO_NAMES.clear()
+    EXCO_NAMES = SHEET_CONFIGS.loc[SHEET_CONFIGS['is_exco'] == 1]['name'].to_list()
+
+    BOAT_ALLOCATIONS = copy.deepcopy(
+        SHEET_CONFIGS.loc[:, ['name','boat_1','boat_2']]
+    )
+    for i in range(len(BOAT_ALLOCATIONS['name'])):
+        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME:
+            BOAT_ALLOCATIONS['name'][i] = SHORT_NAME[BOAT_ALLOCATIONS['name'][i]]
+
+    BOAT_ALLOCATIONS.replace({pd.NA: np.nan}, inplace=True)
+
+    return
+
 
 ## basic function for importing google sheet data as a dataframe
 ## First row taken to be col headers for dataframe
@@ -112,6 +166,64 @@ def trainingpm(str_in:str)->str:
     return df2str(prog)
 
 
+def weekly_breakdown(date_in:date = date.today())->pd.DataFrame:
+    '''Returns a dataframe containing the number of members and exco going for training each week.
+    Aligned to weekdays Mon-Sun.'''
+    start_date:date = date_in - timedelta(days=date_in.weekday()) ## always a monday
+    breakdown_df:pd.DataFrame = pd.DataFrame(columns=['date','total','exco']) ## DF to return
+    week_slice:pd.DataFrame ## 14-col slice of a week
+
+    raw_sheet = getsheet(start_date)
+    sheet_start_date = getsheetdate(start_date)
+
+    delta = (start_date - sheet_start_date).days ## delta to the first day
+    wekindex = delta // 7
+    dayindex = delta % 7
+    offset = 17*wekindex + 2*dayindex + 4
+
+    lg.functions.debug(f'delta in num days: {delta}')
+    lg.functions.debug(f'delta in num cols: {offset}')
+
+    ## get the 14 day slice (incl names), perform some formatting
+    week_slice = raw_sheet.iloc[3: findlowestname(raw_sheet)+1, [0, *[offset + i for i in range(14)]]]
+    week_slice.dropna(how='all', axis=0, inplace=True)
+    week_slice.columns = ['name', *[i for i in range(14)]]
+    week_slice.set_index('name', inplace=True)
+    week_slice = week_slice.fillna('N').convert_dtypes().applymap(str.upper)
+
+    exco_slice = week_slice.loc[EXCO_NAMES, :]
+
+    date_indexer: date
+    total_counts: pd.Series
+    exco_counts: pd.Series
+    total:int
+    exco:int
+
+    ## construct breakdown_df
+    for weekday in range(7):
+        date_indexer = start_date + timedelta(days=weekday)
+
+        total_counts = week_slice.iloc[:, 2*weekday].value_counts()
+        exco_counts = exco_slice.iloc[:, 2*weekday].value_counts()
+
+        if 'Y' not in total_counts:
+            total = 0
+        else:
+            total = total_counts['Y']
+
+        if 'Y' not in exco_counts:
+            exco = 0
+        else:
+            exco = exco_counts['Y']
+        # total = week_slice.iloc[:, 2*weekday].value_counts()['Y']
+        # exco = exco_slice.iloc[:, 2*weekday].value_counts()['Y']
+
+        breakdown_df.loc[len(breakdown_df)] = [date_indexer.strftime("%a %d %b"), total, exco]
+
+    breakdown_df.set_index('date', inplace=True)
+    return breakdown_df
+
+
 ## calculate the last sunday that is still within the month
 def getlastsun(date_in:date)->date: ## date_in is a date object
     '''Calculate last sunday that is still withihn the month.
@@ -177,50 +289,6 @@ def getsheet(date_in:date)->pd.DataFrame:
     return df_raw
 
 
-def getconfigsheet()->pd.DataFrame:
-    url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=configs'
-    return pd.read_csv(url).iloc[:,1:]
-
-
-## creates the dictionary to be used by the name shortener/lengthener
-def createnamesdict():
-    global SHORT_NAME
-    global LONG_NAME
-    df = pd.read_csv('./data/names.csv')
-    df = df.set_index('name')['shortname']
-    SHORT_NAME = df.dropna().to_dict()
-    LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
-
-
-## Fetch the latest boat config and namelist from Gsheets
-## shorten names (if applicable) in the boat df, then export
-def updateconfigs():
-    lg.functions.debug('updating boats.csv and names.csv in ./data')
-    df_raw = getconfigsheet()
-    df_raw.iloc[:,:2].to_csv('./data/names.csv',encoding='utf-8',index=False)
-
-    createnamesdict()
-
-    df_raw = df_raw.iloc[:,[0,2,3]]
-    for i in range(len(df_raw['name'])):
-        if df_raw['name'][i] in SHORT_NAME:
-            df_raw['name'][i] = SHORT_NAME[df_raw['name'][i]]
-    df_raw.to_csv('./data/boats.csv',encoding='utf-8',index=False)
-
-
-def create_1star_dict():
-    updateconfigs() ## get the latest information
-    global CERT_STATUS
-    df = getconfigsheet()[['name','1_star']]
-
-    for i in range(len(df['name'])):
-        if df.loc[i, 'name'] in SHORT_NAME:
-            df.loc[i, 'name'] = SHORT_NAME[df.loc[i, 'name']]
-
-    df = df.set_index('name')['1_star']
-    CERT_STATUS =  df.dropna().to_dict()
-
-
 ## Returns a formatted dataframe containing names, the date and session
 ## Names that can be shortened will be shortened
 ## Depreciated
@@ -276,8 +344,8 @@ def getnames(str_in:str, time:int)->pd.Series:
     ## return dataframe containing names
 
 ## Obtain the full names for a paddling session
-## No date and time information included in the Series
-def getonlynames(str_in:str, time:int)->pd.Series:
+def getonlynames(str_in:str, time:int)->"list[str]":
+    '''Returns a name list containing people going for a paddling session'''
 
     try:
         date_in = parse(str_in).date()
@@ -302,7 +370,6 @@ def getonlynames(str_in:str, time:int)->pd.Series:
     if time:
         offset += 1
 
-    df_session:pd.Series
     lg.functions.debug(f'looping in range of 3 to {len(raw_sheet)}')
     lg.functions.debug(f'offset col: {offset}')
 
@@ -314,12 +381,8 @@ def getonlynames(str_in:str, time:int)->pd.Series:
         if(str(raw_sheet.iloc[row, offset]).upper() == 'Y'):
             names.append(raw_sheet.iloc[row, 0])
 
-    ## add names if there are any
-    if len(names) != 0:
-        df_session = pd.concat([df_session, pd.Series(names)])
-
-    lg.functions.debug(f'names: {names}')
-    return df_session.reset_index(drop=True)
+    lg.functions.debug(f'count: {len(names)}')
+    return names
 
 
 def getnamesv2(str_in:str, time:int)->pd.Series:
@@ -386,7 +449,7 @@ def namelist(date_time_str:str='')->pd.Series:
     ## check if there are 2 elements in list
     try:
         date_time[1]
-    except:
+    except IndexError:
         if s.json.sheetscraper.getnames_ver == 2:
             return getnamesv2(date_time[0], 0)
         else:
@@ -411,7 +474,7 @@ def namelist(date_time_str:str='')->pd.Series:
 def match2boats(df_session:pd.Series)->pd.DataFrame:
 
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
-    boats = pd.read_csv('./data/boats.csv')
+    boats = BOAT_ALLOCATIONS
     session_list = df_session[3:].tolist()
 
     # lg.functions.debug(f'boats: {boats}')
@@ -542,7 +605,7 @@ def deconflict(df_in:pd.DataFrame)->pd.DataFrame:
 def __deconflict(df_in:pd.DataFrame, conflictboat)->pd.DataFrame:
     '''search and find a replacement for problem boat'''
 
-    boatlist:pd.DataFrame = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
+    boatlist:pd.DataFrame = BOAT_ALLOCATIONS ## retrieve the boat allo
 
     ## build list of conflict names for particular boat
     conflictnames = []
@@ -580,7 +643,7 @@ def __deconflictv2(df_in:pd.DataFrame, conflictboat)->pd.DataFrame:
     '''improved version of __deconflict\n
     Right now this can go on an infinite loop'''
 
-    boatdf:pd.DataFrame = pd.read_csv('./data/boats.csv') ## retrieve the boat allo
+    boatdf:pd.DataFrame = BOAT_ALLOCATIONS ## retrieve the boat allo
 
     ## build list of conflict names for particular boat
     ## use set logic to build list
@@ -793,4 +856,4 @@ def findlowestname(df_in:pd.DataFrame) -> int:
         index += 1
 
 ## run update on import/load
-updateconfigs()
+update_globals()

@@ -32,7 +32,7 @@ signal.signal(signal.SIGTERM, exit_handler)
 signal.signal(signal.SIGINT, exit_handler)
 
 
-def startup():
+def init():
     '''Runs non-blocking code on bot startup'''
 
     ## Fill all cache entries on startup
@@ -40,3 +40,4 @@ def startup():
         target=sc.fill_all_cache_sets_threaded()
     ).start()
 
+    # threading.Event()
