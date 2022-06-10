@@ -22,6 +22,17 @@ Install the numpy c-extensions by running:
 
 ## Installing
 This bot is designed to work on Linux-based systems E.g. Debian, Arch, WSL.
+
+### For developers
+Run the following commands in shell:
+
+`python3 -m venv .venv`
+
+`source .venv/.bin/activate`
+
+`pip3 install -r .scripts/requirements.txt`
+
+### For end-users
 1. Fork this repository
 
     [Create a personal access token.](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token#creating-a-token)
@@ -158,6 +169,7 @@ These are the current list of public commands available. Copy and paste these wh
     namelist - see who's going training
     training - view training program
     paddling - full paddling attendance
+    weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
 
 ---

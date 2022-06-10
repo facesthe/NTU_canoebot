@@ -10,7 +10,7 @@ import modules.settings as s
 
 logging.basicConfig(
     stream = sys.stdout,
-    level = s.json.logger.debug_level,
+    level = s.json.logger.log_level,
     format='%(levelname)-8s %(asctime)s %(message)s', #{%(module)s}:[%(funcName)s]
     datefmt='%Y-%m-%d %H:%M:%S'
     )

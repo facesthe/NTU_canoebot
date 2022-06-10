@@ -8,6 +8,6 @@ import lib.liblog as lg
 lg.functions.info('starting canoebot...')
 
 ## run any set events on startup
-bot_modules.events.startup()
+bot_modules.events.init()
 
 bot.infinity_polling()#timeout=10, long_polling_timeout=5)

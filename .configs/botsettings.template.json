@@ -1,6 +1,7 @@
 {
     "canoebot": {
         "apikey": "modify individual API keys in their respective files",
+        "exco_chat": "chat ID of the current EXCO chat group (numeric)",
         "known_chats" : {
         },
         "misc_handlers" : {
@@ -34,6 +35,16 @@
 
     "formfiller": {
         "form_id": "google forms formid",
+        "times": {
+            "AM": {
+                "start":    "07:30",
+                "end":      "10:00"
+            },
+            "PM": {
+                "start":    "1430",
+                "end":      "1730"
+            }
+        },
         "particulars" : {
         }
     },
@@ -43,6 +54,6 @@
     },
 
     "logger": {
-        "debug_level": "DEBUG"
+        "log_level": "DEBUG"
     }
 }

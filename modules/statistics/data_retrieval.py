@@ -54,6 +54,10 @@ def format_sheet_df(df_in: pd.DataFrame) -> pd.DataFrame:
     axis=1,
     inplace=True
     )
+
+    ## drop the empty row separating guys and gals
+    return_df.dropna(how="all", axis=0, inplace=True)
+
     ## replace dates with ISO date formats
     reset_df_indices(return_df)
     df_start_date: date = datetime.strptime(return_df.iloc[0,0], "%d-%b-%y").date()
@@ -88,9 +92,13 @@ def unweave_attendance_frames(df_in: pd.DataFrame) -> "tuple[pd.DataFrame, pd.Da
 
     return (df_am, df_pm)
 
-def fetch_format_store_month_frames():
-    '''Performs checks, updates stored database from Sheets. Main entry point into module'''
-    start_date:date = date.today()
+def fetch_format_store_month_frames() -> date:
+    '''Performs checks, updates stored database from Sheets. Main fetch function.
+    Returns the last valid month and year in date format (ignore day)'''
+    date_today = date.today()
+
+    ## to prevent months that do not have >28 days to return an error
+    start_date:date = date(date_today.year, date_today.month, 1)
 
     lg.functions.debug(start_date)
 
@@ -104,14 +112,18 @@ def fetch_format_store_month_frames():
             lg.functions.debug(f'get sheet successful')
         except:
             ## stop on error in fetching oldest sheet
-            break
+            return start_date + relativedelta(months=1)
 
-        formatted_df = format_sheet_df(month_df)
+        try:
+            formatted_df = format_sheet_df(month_df)
+        except:
+            return start_date + relativedelta(months=1)
+
         df_tuple = unweave_attendance_frames(formatted_df)
 
-        df_tuple[0].to_csv(f"./data/attendance/AM/{start_date.strftime('%Y-%m')}")
-        df_tuple[0].to_csv(f"./data/attendance/PM/{start_date.strftime('%Y-%m')}")
+        df_tuple[0].to_csv(f"./data/attendance/AM/{start_date.strftime('%Y-%m')}.csv")
+        df_tuple[1].to_csv(f"./data/attendance/PM/{start_date.strftime('%Y-%m')}.csv")
 
         start_date -= relativedelta(months=1)
 
-    return
+
