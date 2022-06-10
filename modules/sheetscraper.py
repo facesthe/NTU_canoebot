@@ -66,7 +66,7 @@ def update_globals():
     '''Create/update the global variables defined at the top of file'''
     global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
 
-    SHEET_CONFIGS = getconfigsheet().convert_dtypes()
+    SHEET_CONFIGS = getconfigsheet()
 
     SHORT_NAME = SHEET_CONFIGS.iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
     LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
@@ -472,7 +472,6 @@ def namelist(date_time_str:str='')->pd.Series:
 
 ## pair up the boats with names
 def match2boats(df_session:pd.Series)->pd.DataFrame:
-
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
     boats = BOAT_ALLOCATIONS
     session_list = df_session[3:].tolist()
