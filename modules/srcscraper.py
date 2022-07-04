@@ -323,9 +323,11 @@ def get_table_from_cache(date_in:date, facility_no:int)->dict:
                 cache_line = i
                 break
 
+    SRC_CACHE_MUTEX.acquire()
     FACILITY_CACHE[facility_no][cache_line]["old"] = False
     if FACILITY_CACHE[facility_no][1-cache_line]["date"] is not None:
         FACILITY_CACHE[facility_no][1-cache_line]["old"] = True     ## set other to old
+    SRC_CACHE_MUTEX.release()
 
     return FACILITY_CACHE[facility_no][cache_line]
 

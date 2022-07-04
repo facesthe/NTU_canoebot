@@ -37,7 +37,9 @@ def init():
 
     ## Fill all cache entries on startup
     threading.Thread(
-        target=sc.fill_all_cache_sets_threaded()
+        target=sc.fill_all_cache_sets_threaded
     ).start()
 
-    # threading.Event()
+def cleanup():
+    '''Runs code on exit. Supplements the exit handler.'''
+    return

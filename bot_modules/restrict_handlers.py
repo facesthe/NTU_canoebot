@@ -6,6 +6,7 @@ import random, time
 import json as jsn
 
 import telebot
+from telebot import util
 from telebot.callback_data import CallbackData
 
 from bot_modules.common_core import CanoeBot as bot
@@ -94,7 +95,12 @@ def callback_ping_cancel(call:telebot.types.CallbackQuery):
 def misc_botlog(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(text)
-    bot.send_message(message.chat.id, ss.codeit(bc.botlog()), parse_mode='Markdown')
+
+    reply = bc.botlog()
+    reply_split = util.smart_split(reply)
+
+    for sub_reply in reply_split:
+        bot.send_message(message.chat.id, ss.codeit(sub_reply), parse_mode='Markdown')
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
@@ -105,7 +111,12 @@ def misc_bash(message:telebot.types.Message):
 
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(f'bash input: {text}')
-    bot.send_message(message.chat.id, bc.bashout(text))
+
+    reply = bc.bashout(text)
+    reply_split = util.smart_split(reply)
+
+    for sub_reply in reply_split:
+        bot.send_message(message.chat.id, ss.codeit(sub_reply), parse_mode='Markdown')
 
 ## enable/disable some annoying handlers
 ## misc - enable

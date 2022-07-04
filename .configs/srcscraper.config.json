@@ -42,24 +42,6 @@
         "courts": 15
     },
     {
-        "name": "Swimming Pool slots 1 to 25",
-        "shortname": "Swim A",
-        "codename": "SP",
-        "courts": 25
-    },
-    {
-        "name": "Swimming Pool slots 26 to 40",
-        "shortname": "Swim B",
-        "codename": "BS",
-        "courts": 15
-    },
-    {
-        "name": "Wading Pool",
-        "shortname": "Wading Pool",
-        "codename": "WP",
-        "courts": 2
-    },
-    {
         "name": "Main Field @ SRC",
         "shortname": "Main Field",
         "codename": "MF",
