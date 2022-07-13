@@ -2,7 +2,7 @@
     "canoebot": {
         "apikey": "add the api key here",
         "known_chats" : {
-            "chat name to go by": "chat id (in number form"
+            "chat name to go by": "chat id (in number form)"
         }
     },
 

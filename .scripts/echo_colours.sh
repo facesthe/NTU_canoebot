@@ -18,25 +18,25 @@ echo_col() {
 }
 
 echo_black() {
-    echo_col $black $1
+    echo_col "$black" "$1"
 }
 
 echo_red() {
-    echo_col $red $1
+    echo_col "$red" "$1"
 }
 
 echo_green() {
-    echo_col $green $1
+    echo_col "$green" "$1"
 }
 
 echo_blue() {
-    echo_col $blue $1
+    echo_col "$blue" "$1"
 }
 
 echo_magenta() {
-    echo_col $magenta $1
+    echo_col "$magenta" "$1"
 }
 
 echo_cyan() {
-    echo_col $cyan $1
+    echo_col "$cyan" "$1"
 }
