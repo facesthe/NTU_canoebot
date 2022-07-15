@@ -6,10 +6,7 @@ repopath=$(realpath .)
 cd $currpath
 
 source $repopath/.scripts/functions.sh # import functions
-
-red=$(tput setaf 1)
-bold=$(tput bold)
-rst=$(tput sgr0)
+source $repopath/.script/echo_colours.sh # import colours
 
 ## update pip3 modules
 source $repopath/.venv/bin/activate
@@ -18,5 +15,5 @@ deactivate
 
 git_shallow_pull $repopath
 git_shallow_pull $repopath
-echo "$red""$bold""remember to switch to the correct telegram bot!""$rst"
-echo "$red""defaults to botsettings.template.debug.json""$rst"
+echo_bold_red "remember to switch to the correct telegram bot!"
+echo_red "defaults to botsettings.template.debug.json"

@@ -8,9 +8,9 @@ cd $repopath/modules
 
 source $repopath/.scripts/functions.sh
 source $repopath/.scripts/data.sh
+source $repopath/.scripts/echo_colours.sh
 
 green=$(tput setaf 2)
-bold=$(tput bold)
 rst=$(tput sgr0)
 
 for filepath in "${FILEPATHS[@]}"
@@ -23,4 +23,4 @@ append_to_top "_path = './.configs/botsettings.debug.json' ## debug version" \
 settings.py
 
 cd $currpath
-echo "$green""$bold""bot configured for debugging""$rst"
+echo_bold_green "bot configured for debugging"
