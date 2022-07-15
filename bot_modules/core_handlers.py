@@ -644,14 +644,30 @@ def handle_trainingpm(message:telebot.types.Message):
 ## re-writing logsheet
 @bot.message_handler(commands=['logsheet'])
 @lg.decorators.info()
-def handle_logsheet_new_start(message:telebot.types.Message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+def handle_logsheet_new_start(message:telebot.types.Message = None, chat_id:int = None):
+    '''Function can be called in events.py or through message handler.
+    For sending to a chat group without passing a message instance, leave the message parameter as None.'''
+
+    ## param validation
+    if message is None and chat_id is None:
+        raise ValueError("One parameter needs to passed")
+    elif message is not None and chat_id is not None:
+        raise ValueError("Only one parameter can be passed as not None")
+
+    if message is not None:
+        text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+        message_chat_id = message.chat.id
+    elif chat_id is not None:
+        text = ""
+        message_chat_id = chat_id
+
+    # text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     log_date = ut.parsedatetocurr(text)
 
     button_names = ['AM','PM']
     cdata = [{
         'name':'lgsht_data_start',
-        'date':str(log_date),
+        'date':log_date.isoformat(), ## str(log_date) and log_date.isoformat() produce the same result
         'time':str(i)
         } for i in range(2)
     ]
@@ -668,7 +684,7 @@ def handle_logsheet_new_start(message:telebot.types.Message):
     )
 
     bot.send_message(
-        message.chat.id,
+        message_chat_id,
         f'Logsheet: {log_date}',
         reply_markup=kb,
     )
@@ -695,16 +711,17 @@ def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
     lg.functions.debug(f'send data: {send_cdata}')
     kb = telebot.types.InlineKeyboardMarkup().add(
         telebot.types.InlineKeyboardButton('Send', callback_data=jsn.dumps(send_cdata)),
+        telebot.types.InlineKeyboardButton('\u27F3', callback_data=call.data),
         telebot.types.InlineKeyboardButton('Cancel', callback_data=jsn.dumps(canc_cdata))
     )
 
-    logsheet = ff.logSheet()
-    logsheet.settimeslot(int(cdata['time']))
-    logsheet.generateform(cdata['date'])
+    time_slot: int = int(cdata['time'])
+    date_str = cdata['date']
 
     reply = f'Logsheet: {cdata["date"]}\n'\
-            f'Time: {logsheet.starttime} to {logsheet.endtime}\n'\
-            f'Paddlers: {logsheet.star0 + logsheet.star1}'
+            f'Time: {ff.AM_START_TIME if time_slot == 0 else ff.PM_START_TIME} to '\
+            f'{ff.AM_END_TIME if time_slot == 0 else ff.PM_END_TIME}\n'\
+            f'Paddlers: {len(ss.getonlynames(date_str, time_slot))}'
 
     bot.edit_message_text(
         chat_id=message.chat.id,
@@ -760,106 +777,6 @@ def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
         text=reply,
     )
     return
-
-## part 1/4 of log sheet sending
-@bot.message_handler(commands=['logsheetold'])
-@lg.decorators.info()
-def handle_logsheet_old(message:telebot.types.Message):
-    global form, submit_date, logsheet
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    logsheet = ff.logSheet()
-    form = logsheet.generateform(text) ## generate the form here
-
-    reply = f'''Send log sheet as: {logsheet.name}
-Date: {logsheet.datestr}
-Time: {logsheet.starttime} to {logsheet.endtime}
-Total paddlers: {logsheet.star0+logsheet.star1}
-Do you want to continue? (Y/N)'''
-
-    ## warnings
-    if not logsheet.ispresent: ## not sending for present day, continue with warning
-        lg.functions.debug("logsheet attempting send on another day")
-        reply = 'WARNING: SEND DATE NOT TODAY\n\n' + reply
-    elif logsheet.date == submit_date: ## if sending for same day > once
-        lg.functions.debug("logsheet attempting send more than once")
-        reply = 'WARNING: LOG SHEET SENT BEFORE\n\n' + reply
-
-    msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
-    ## call the next function
-    bot.register_next_step_handler(msg, handle_logsheet_old_send)
-
-## part 2/4 of log sheet sending
-@lg.decorators.info()
-def handle_logsheet_old_send(message:telebot.types.Message):
-    global form, logsheet, submit_date
-    text = message.text
-
-    if text == 'Y':
-        val = ff.submitform(form)
-        if val:
-            bot.send_message(message.chat.id,'log sheet submitted')
-            ## perform assignment of submit_date
-            if logsheet.date == date.today(): ## only assign if submission date is present
-                submit_date = date.today()
-        else:
-            bot.send_message(message.chat.id,'submission unsuccessful')
-
-    ## cancel send
-    elif text == 'N':
-        bot.send_message(message.chat.id, 'cancelled')
-
-    ## modify count
-    elif text == 'modify-count':
-        msg = bot.send_message(message.chat.id, "enter new count:")
-        bot.register_next_step_handler(msg, handle_logsheet_old_modify_count)
-
-    ## modify name
-    elif text == 'modify-name':
-        msg = bot.send_message(message.chat.id, "enter new name:")
-        bot.register_next_step_handler(msg, handle_logsheet_modify_name)
-
-    ## go back to start
-    else:
-        msg = bot.reply_to(message, 'invalid response, try again.')
-        bot.register_next_step_handler(msg, handle_logsheet_old_send)
-
-## part 3/4 of log sheet sending (optional)
-@lg.decorators.info()
-def handle_logsheet_old_modify_count(message:telebot.types.Message):
-    global form, logsheet
-
-    try:
-        newcount = int(message.text)
-    except:
-        msg = bot.reply_to(message, 'invalid response, enter a number.')
-        bot.register_next_step_handler(msg, handle_logsheet_old_modify_count)
-
-    logsheet.changeattendance(newcount)
-
-    reply = f'''Send log sheet as: {logsheet.name}
-Date: {logsheet.datestr}
-Time: {logsheet.starttime} to {logsheet.endtime}
-Total paddlers: {logsheet.star0+logsheet.star1}
-Do you want to continue? (Y/N)'''
-
-    msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
-    bot.register_next_step_handler(msg, handle_logsheet_old_send)
-
-## part 4/4 of log sheet sending (optional)
-@lg.decorators.info()
-def handle_logsheet_modify_name(message:telebot.types.Message):
-    global form, logsheet
-
-    logsheet.changename(message.text)
-
-    reply = f'''Send log sheet as: {logsheet.name}
-Date: {logsheet.datestr}
-Time: {logsheet.starttime} to {logsheet.endtime}
-Total paddlers: {logsheet.star0+logsheet.star1}
-Do you want to continue? (Y/N)'''
-
-    msg = bot.send_message(message.chat.id, ss.codeit(reply), parse_mode='Markdown')
-    bot.register_next_step_handler(msg, handle_logsheet_old_send)
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])

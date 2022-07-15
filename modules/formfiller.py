@@ -16,14 +16,22 @@ lg.functions.debug("formfiller loaded")
 
 ## change the form id if needed (should be never)
 ## if SCF suddenly decides to change their form, then formfiller will need to be updated
-FORM_ID = s.json.formfiller.form_id
-url = f'https://docs.google.com/forms/d/e/{FORM_ID}/formResponse'
+FORM_ID:str = s.json.formfiller.form_id
 
 ## if the exco changes then pls fill in new details
 ## dictionary is in this format:
 ## key:     [str your_name]
 ## value:   [str your_8_digit_hp_number]
-PARTICULARS = s.json.formfiller.particulars
+PARTICULARS:dict = s.json.formfiller.particulars
+
+## start, end time constants
+## change these in the config file if necessary
+AM_START_TIME   :str = s.json.formfiller.times.am.start
+AM_END_TIME     :str = s.json.formfiller.times.am.end
+PM_START_TIME   :str = s.json.formfiller.times.pm.start
+PM_END_TIME     :str = s.json.formfiller.times.pm.end
+
+url = f'https://docs.google.com/forms/d/e/{FORM_ID}/formResponse'
 
 class logSheet():
     def __init__(self):
@@ -89,16 +97,12 @@ class logSheet():
     ## no logic added yet
     def gettimes(self):
         if self.timeslot == 0:
-            if self.isoday == 7:
-                self.starttime = '07:30'
-                self.endtime = '10:00'
-            else:
-                self.starttime = '07:30'
-                self.endtime = '09:30'
+            self.starttime = AM_START_TIME
+            self.endtime = AM_END_TIME
 
         elif self.timeslot == 1:
-            self.starttime = '16:00'
-            self.endtime = '18:00'
+            self.starttime = PM_START_TIME
+            self.endtime = PM_END_TIME
 
     ## Change the number of people present for a session
     def changeattendance(self, new_count):
@@ -128,43 +132,5 @@ class logSheet():
         self.gForm.fill_str(9, self.endtime)
         self.gForm.fill_option(10, 0)
 
-        sheetfields = {
-            ## Name
-            'entry.650249987':self.name,
-            ## Contact number
-            'entry.159891337':self.contact,
-            ## Org
-            'entry.1940228710':'Nanyang Technological University',
-            ## Activity type
-            'entry.1965888248':'Co-Curricular Activities (CCA)',
-            ## No. of 1 star people
-            'entry.1522705696':self.star1,
-            ## No. of 0 star people
-            'entry.923232455':self.star0,
-            ## Training location
-            'entry.1917318237':'The Paddle Lodge @ MacRitchie Reservoir',
-            ## Date of training
-            'entry.2082654990':self.datestr,
-            ## Start time
-            'entry.76258493':self.starttime,
-            ## End time
-            'entry.1960199521':self.endtime,
-            ## Disclaimer (checkbox)
-            'entry.1234664796':'I read and agree to the disclaimer note.'
-        }
-        self.form = sheetfields
-        return sheetfields
-
     def submitform(self):
         return self.gForm.submit()
-
-## DO NOT ANYHOW CALL THIS FUNCTION
-def submitform(data_dict):
-    global url
-
-    response = rq.post(url, data = data_dict)
-    lg.functions.debug(f"response {response.status_code}")
-    if (response.status_code == 200):
-        return 1
-    else:
-        return 0

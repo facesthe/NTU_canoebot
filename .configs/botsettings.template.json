@@ -36,13 +36,13 @@
     "formfiller": {
         "form_id": "google forms formid",
         "times": {
-            "AM": {
+            "am": {
                 "start":    "07:30",
                 "end":      "10:00"
             },
-            "PM": {
-                "start":    "1430",
-                "end":      "1730"
+            "pm": {
+                "start":    "14:30",
+                "end":      "17:30"
             }
         },
         "particulars" : {

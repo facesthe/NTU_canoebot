@@ -2,7 +2,7 @@
 
 from  datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-import json  as jsn
+import json as jsn
 import copy
 
 import telebot
@@ -10,8 +10,8 @@ import telebot
 from bot_modules.common_core import CanoeBot as bot
 
 NULL_STR = "None"
-RR_LINK = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-RR_LINK = "None"
+RR_LINK = "https://www.youtube.com/watch?v=dQw4w9WgXcQ?t=42"
+# RR_LINK = "None"
 REMOVE_MARKUP_KB = telebot.types.ReplyKeyboardRemove()
 
 import lib.liblog as lg
@@ -116,7 +116,7 @@ def calendar_keyboard_gen(
     )
 
     days = ["Mo","Tu","We","Th","Fr","Sa","Su"]
-    days_buttons = [telebot.types.InlineKeyboardButton(day, callback_data=RR_LINK) for day in days]
+    days_buttons = [telebot.types.InlineKeyboardButton(day, callback_data=NULL_STR) for day in days]
 
     ## add days using python's 'splat' operator
     kb.add(
@@ -139,7 +139,7 @@ def calendar_keyboard_gen(
     for i in range(month_pre_padding):
         month_buttons.append(
             telebot.types.InlineKeyboardButton(
-                " ", callback_data=RR_LINK
+                " ", callback_data=NULL_STR
             )
         )
 
@@ -177,7 +177,7 @@ def calendar_keyboard_gen(
     for i in range(month_post_padding):
         month_buttons.append(
             telebot.types.InlineKeyboardButton(
-                " ", callback_data=RR_LINK
+                " ", callback_data=NULL_STR
             )
     )
 
