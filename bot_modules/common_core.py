@@ -11,8 +11,8 @@ import modules.settings as s
 TOKEN = s.json.canoebot.apikey
 SYS_THREADS_AVAIL = multiprocessing.cpu_count()
 
-known_chats = s.json.canoebot.known_chats
-misc_handlers = s.json.canoebot.misc_handlers
+KNOWN_CHATS:dict = s.json.canoebot.known_chats
+MISC_HANDLERS:dict = s.json.canoebot.misc_handlers
 
 ## remove those pesky connection messages
 # telebot.logger.setLevel(telebot.logging.DEBUG)
