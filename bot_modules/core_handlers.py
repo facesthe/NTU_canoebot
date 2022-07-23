@@ -57,7 +57,7 @@ def handle_weekly_breakdown(message:telebot.types.Message):
                 callback_data=jsn.dumps(
                     {
                         "name":"breakdown_nav",
-                        "date":(date.today() - timedelta(days=day_delta)).isoformat()
+                        "date":(date.today() + timedelta(days=day_delta)).isoformat()
                     }
                 )
             )
@@ -111,9 +111,7 @@ def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
 def handle_srcbooking_new(message:telebot.types.Message):
     '''Displays buttons containing all available facilities'''
     reply = "Choose a SRC facility below:"
-
     src_facility_list = sc.return_facility_list_shortform()
-
     kb = telebot.types.InlineKeyboardMarkup().add(
         *[
             telebot.types.InlineKeyboardButton(
@@ -147,6 +145,7 @@ def handle_srcbooking_new(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_srcbook_restart(call:telebot.types.CallbackQuery):
     '''Displays buttons containing all available facilities'''
+
     message=call.message
     reply = "Choose a SRC facility below:"
 
@@ -198,6 +197,7 @@ def callback_srcbook_close(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
     '''shows calendar for picking date'''
+
     message=call.message
     cdata_call:dict = jsn.loads(call.data)
 
@@ -215,7 +215,8 @@ def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
         message_id=message.message_id,
         reply_markup=kb
     )
-
+    ## do a pre-fetch (if any)
+    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: 'srcbook_date' in c.data)
