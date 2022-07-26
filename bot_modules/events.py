@@ -4,6 +4,8 @@ import threading
 import signal
 import sys
 import time
+import json as jsn
+from datetime import date, timedelta
 
 import schedule
 import telebot.types as telebot_types
@@ -119,12 +121,19 @@ def event_daily_attendance_reminder():
         telebot_types.InlineKeyboardButton(
             "ok lol",
             url=bot_modules.keyboards.RR_LINK
+        ),
+        telebot_types.InlineKeyboardButton(
+            "no",
+            callback_data=jsn.dumps({
+                "name": "paddling",
+                "date": (date.today()+timedelta(days=1)).isoformat()
+            })
         )
     )
 
     bot.send_message(
         chat_id=EXCO_CHAT,
-        text="Reminder to do allo",
+        text="do allo",
         reply_markup=kb
     )
 

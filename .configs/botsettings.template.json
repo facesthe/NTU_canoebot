@@ -28,7 +28,7 @@
         "deconflict_ver": 2,
         "deconflict_recursion_limit": 5,
         "paddling": {
-            "format": "*Paddling {date_str}*\n\nTime: 0715\n{boatallo_no_date}\n\nBe at start line at 0800\n\n{trainingam_prog}\n\nPack up at 0915",
+            "format": "*Paddling {date_str}*\n\nTime: 0715\n{boatallo_no_date}\n\nBe at start line at *0750*\n\n{trainingam_prog}\n\nPack up at *0915*",
             "smm_measure": "(‼️Groups that have more than 5 people in same shed and time slot please be especially careful in abiding safe distancing measure‼️)"
         }
     },
