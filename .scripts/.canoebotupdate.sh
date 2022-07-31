@@ -10,7 +10,7 @@ source $repopath/.script/echo_colours.sh # import colours
 
 ## update pip3 modules
 source $repopath/.venv/bin/activate
-pip3 install -r $repopath/.scripts/requirements.txt
+pip3 install -r $repopath/.scripts/requirements.txt --upgrade
 deactivate
 
 git_shallow_pull $repopath
