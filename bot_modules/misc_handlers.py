@@ -5,25 +5,26 @@ import time, random
 from datetime import date
 
 from bot_modules.common_core import CanoeBot as bot
-from bot_modules.common_core import misc_handlers as misc_handlers
-from bot_modules.common_core import known_chats as known_chats
+from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
+from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
 import modules.utilities as ut
-import modules.settings as s
 
 import lib.liblog as lg
 
 ## add more commands and update the command list
 command_list = {
-    'wavegym': 'Fetch current gym availablilty.\nSee other days by using "DD MMM"\n',
-    'namelist':'Fetch names for a session. Use <date>, [pm if afternoon]\nDate = "DD MMM"\n',
-    'uptime': 'Rpi3 uptime\n'
+    'reload': 'sync configs sheet',
+    'src': 'Interactive SRC viewer',
+    'traininglog': 'Telegram frontend for google forms',
+    'namelist': 'Interactive name list',
+    'training': 'Interactive training programme, subject to availability',
+    'logsheet': 'Send daily paddling logsheet to SCF'
     }
 ## commands for exco only
 command_list_hidden = {
-    'reload': 'Sync with configs sheet\n',
-    'namelist': 'Fetch names for a session. Use <date>, [pm if afternoon]\nDate = "DD MMM"\n',
-    'boatallo': 'Fetch names and allocate boats\nUsage is the same as /namelist\n',
-    'logsheet': 'Send log sheet using a random name\n'
+    'reload': 'Sync with configs sheet',
+    'boatallo': 'Fetch names and allocate boats\nUsage is the same as /namelist',
+    'logsheet': 'Sends daily log sheet'
 }
 
 ## narc prayer para
@@ -49,13 +50,12 @@ def handle_start(message:telebot.types.Message):
 @bot.message_handler(commands=['help'])
 @lg.decorators.info()
 def handle_help(message:telebot.types.Message):
-    helptext = 'Commands:\n\n'
-    cid = message.chat.id
+    helptext:str = 'More about commands:\n\n'
 
     for key in command_list:
         helptext += "/" + key + ": "
-        helptext += command_list[key] + "\n"
-    bot.send_message(cid, helptext)
+        helptext += command_list[key] + "\n\n"
+    bot.send_message(message.chat.id, helptext)
 
 ## hidden help
 @bot.message_handler(commands=['xcohelp'])
@@ -87,63 +87,63 @@ def handle_countdown(message:telebot.types.Message):
 @bot.message_handler(regexp='ooga')
 @lg.decorators.debug()
 def misc_oogabooga(message:telebot.types.Message):
-    if misc_handlers['MISC_OOGABOOGA'] is False: return
+    if MISC_HANDLERS['MISC_OOGABOOGA'] is False: return
     bot.send_message(message.chat.id, 'booga')
 
 ## marco - polo
 @bot.message_handler(regexp='marco')
 @lg.decorators.debug()
 def misc_marcopolo(message:telebot.types.Message):
-    if misc_handlers['MISC_MARCOPOLO'] is False: return
+    if MISC_HANDLERS['MISC_MARCOPOLO'] is False: return
     bot.send_message(message.chat.id, 'polo')
 
 ## ping - pong (only if 'ping' as a word is inside)
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
 @lg.decorators.debug()
 def misc_pingpong(message:telebot.types.Message):
-    if misc_handlers['MISC_PINGPONG'] is False: return
+    if MISC_HANDLERS['MISC_PINGPONG'] is False: return
     bot.send_message(message.chat.id, 'pong')
 
 ## die - same tbh
 @bot.message_handler(regexp='die')
 @lg.decorators.debug()
 def misc_dietbh(message:telebot.types.Message):
-    if misc_handlers['MISC_DIETBH'] is False: return
+    if MISC_HANDLERS['MISC_DIETBH'] is False: return
     bot.reply_to(message, 'same tbh')
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
 @lg.decorators.debug()
 def misc_hellno(message:telebot.types.Message):
-    if misc_handlers['MISC_HELLNO'] is False: return
+    if MISC_HANDLERS['MISC_HELLNO'] is False: return
     bot.reply_to(message,'hell no')
 
 ## help - no
 @bot.message_handler(regexp='help')
 @lg.decorators.debug()
 def misc_helpno(message:telebot.types.Message):
-    if misc_handlers['MISC_HELPNO'] is False: return
+    if MISC_HANDLERS['MISC_HELPNO'] is False: return
     bot.reply_to(message, 'no')
 
 ## 69 - nice (see below for continuation)
 @bot.message_handler(regexp='69')
 @lg.decorators.debug()
 def misc_69nice(message:telebot.types.Message):
-    if misc_handlers['MISC_69NICE'] is False: return
+    if MISC_HANDLERS['MISC_69NICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## nice - nice (see above for previous)
 @bot.message_handler(func=lambda message: message.text.lower() == 'nice')
 @lg.decorators.debug()
 def misc_nicenice(message:telebot.types.Message):
-    if misc_handlers['MISC_NICENICE'] is False: return
+    if MISC_HANDLERS['MISC_NICENICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## OSAS
 @bot.message_handler(regexp='ovuvuevuevue')
 @lg.decorators.debug()
 def misc_osas_1(message:telebot.types.Message):
-    if misc_handlers['MISC_OSAS'] is False: return
+    if MISC_HANDLERS['MISC_OSAS'] is False: return
     msg = bot.reply_to(message, "...i'm listening")
     bot.register_next_step_handler(msg, misc_osas_2)
 
@@ -173,7 +173,7 @@ def misc_osas_4(message:telebot.types.Message):
     'bot' in message.text.lower() and 'who' in message.text.lower())
 @lg.decorators.debug()
 def misc_who_bot(message:telebot.types.Message):
-    if misc_handlers['MISC_WHOBOT'] is False: return
+    if MISC_HANDLERS['MISC_WHOBOT'] is False: return
 
     replies = [
         'good question', 'idk', 'you ask me i ask who?', 'quiet', 'dunno shaddup'
@@ -185,7 +185,7 @@ def misc_who_bot(message:telebot.types.Message):
 @lg.decorators.debug()
 def misc_longmsg(message:telebot.types.Message):
     # log.debug("misc long-msg triggered")
-    if misc_handlers['MISC_LONGMSG'] is False: return
+    if MISC_HANDLERS['MISC_LONGMSG'] is False: return
 
     ## exit if it's the paddling attendance message (list still building)
     keywords = ['paddling','warm']

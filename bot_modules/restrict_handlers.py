@@ -10,8 +10,8 @@ from telebot import util
 from telebot.callback_data import CallbackData
 
 from bot_modules.common_core import CanoeBot as bot
-from bot_modules.common_core import misc_handlers as misc_handlers
-from bot_modules.common_core import known_chats as known_chats
+from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
+from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
 import bot_modules.keyboards as keyboards
 import modules.sheetscraper as ss
 import modules.bashcmds as bc
@@ -105,7 +105,7 @@ def misc_botlog(message:telebot.types.Message):
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
 def misc_bash(message:telebot.types.Message):
-    if misc_handlers['MISC_BASH'] is False:
+    if MISC_HANDLERS['MISC_BASH'] is False:
         lg.functions.warning('command used but no input taken')
         return
 
@@ -124,8 +124,8 @@ def misc_bash(message:telebot.types.Message):
 @lg.decorators.info()
 def misc_enable(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        misc_handlers[text] = True
+    if text in MISC_HANDLERS.keys():
+        MISC_HANDLERS[text] = True
         bot.send_message(message.chat.id, f"{text} enabled")
     else:
         bot.send_message(message.chat.id, "handle not found")
@@ -135,8 +135,8 @@ def misc_enable(message:telebot.types.Message):
 @lg.decorators.info()
 def misc_disable(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        misc_handlers[text] = False
+    if text in MISC_HANDLERS.keys():
+        MISC_HANDLERS[text] = False
         bot.send_message(message.chat.id, f"{text} disabled")
     else:
         bot.send_message(message.chat.id, "handle not found")
@@ -147,8 +147,8 @@ def misc_disable(message:telebot.types.Message):
 @lg.decorators.info()
 def misc_handlerstatus(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).upper() ## new way of stripping command
-    if text in misc_handlers.keys():
-        bot.send_message(message.chat.id, misc_handlers[text.upper()])
+    if text in MISC_HANDLERS.keys():
+        bot.send_message(message.chat.id, MISC_HANDLERS[text.upper()])
     else:
         bot.send_message(message.chat.id, "handle not found")
 
@@ -161,12 +161,12 @@ def misc_send_msg(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]).rstrip() ## new way of stripping command
     lg.functions.debug(text)
     lg.functions.debug(text.split(','))
-    lg.functions.debug(known_chats[text.split(',')[0]])
+    lg.functions.debug(KNOWN_CHATS[text.split(',')[0]])
     try:
-        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
+        bot.send_chat_action(KNOWN_CHATS[text.split(',')[0]], 'typing')
         lg.functions.debug('chat action sent')
         time.sleep(random.randint(1,5)) ## make the bot look like there is some typing going on
-        bot.send_message(known_chats[text.split(',')[0]], text.split(',')[1])
+        bot.send_message(KNOWN_CHATS[text.split(',')[0]], text.split(',')[1])
         bot.send_message(message.chat.id, 'msg sent')
     except:
         bot.send_message(message.chat.id, 'send unsuccessful')
@@ -179,9 +179,9 @@ def misc_send_video(message:telebot.types.Message):
     try:
         path = './data/media/'+text.split(',')[1].strip(' ')+'.mp4'
         lg.functions.info(path)
-        bot.send_chat_action(known_chats[text.split(',')[0]], 'typing')
+        bot.send_chat_action(KNOWN_CHATS[text.split(',')[0]], 'typing')
         time.sleep(random.randint(1,5))
-        bot.send_video(known_chats[text.split(',')[0]], data=open(path,'rb'))
+        bot.send_video(KNOWN_CHATS[text.split(',')[0]], data=open(path,'rb'))
         bot.send_message(message.chat.id, 'video sent')
     except:
         bot.send_message(message.chat.id, 'send unsuccessful')

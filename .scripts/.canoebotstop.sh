@@ -6,7 +6,8 @@ repopath=$(realpath .)
 
 ## enter venv
 source $repopath/.venv/bin/activate
+source $repopath/.scripts/echo_colours.sh
 
 sudo kill -15 $(pgrep -f "python3 canoebot.py")
-echo "canoebot stopped"
+echo_bold_red "canoebot stopped"
 deactivate
