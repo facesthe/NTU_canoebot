@@ -67,6 +67,16 @@ def update_globals():
     global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
 
     SHEET_CONFIGS = getconfigsheet()
+    indices_to_drop: list = []
+    for i in range(len(SHEET_CONFIGS)):
+        # print(SHEET_CONFIGS.loc[i, "name"])
+        if SHEET_CONFIGS.loc[i, "name"] is np.nan or SHEET_CONFIGS.loc[i, "name"] is pd.NA:
+            indices_to_drop.append(i)
+
+    ## drop the empty rows
+    SHEET_CONFIGS.drop(indices_to_drop, axis=0, inplace=True)
+    SHEET_CONFIGS = SHEET_CONFIGS.reset_index(drop=True)
+
 
     SHORT_NAME = SHEET_CONFIGS.iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
     LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
@@ -85,8 +95,9 @@ def update_globals():
     BOAT_ALLOCATIONS = copy.deepcopy(
         SHEET_CONFIGS.loc[:, ['name','boat_1','boat_2']]
     )
-    for i in range(len(BOAT_ALLOCATIONS['name'])):
-        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME:
+
+    for i in range(len(BOAT_ALLOCATIONS)):
+        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME.keys():
             BOAT_ALLOCATIONS['name'][i] = SHORT_NAME[BOAT_ALLOCATIONS['name'][i]]
 
     BOAT_ALLOCATIONS.replace({pd.NA: np.nan}, inplace=True)

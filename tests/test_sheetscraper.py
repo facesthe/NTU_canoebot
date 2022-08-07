@@ -1,9 +1,12 @@
 import unittest
 from datetime import date
 
+import numpy as np
+import pandas as pd
+
 import modules.sheetscraper as ss
 
-class test_sheetscraper(unittest.TestCase):
+class test_sheetscraper_dates(unittest.TestCase):
     months = [date(2022,i,3) for i in range(1,13)]
 
     def test_getlastsun(self):
@@ -59,3 +62,20 @@ class test_sheetscraper(unittest.TestCase):
                 "Sheet date should be a monday right after the last sunday of previous month"
             )
         return
+
+class test_sheetscraper_globals(unittest.TestCase):
+    '''Tests the sheetscraper::update_globals() function'''
+
+    def test_no_nan_in_globals(self):
+        '''Test that there are no "nan" values in the name col'''
+        ss.update_globals()
+        names_list: list = ss.SHEET_CONFIGS.loc[:, "name"]
+        # print(names_list)
+        for name in names_list:
+            if name is np.nan:
+                self.fail("Name should not be none (numpy)")
+            if name is pd.NA:
+                self.fail("Name should not be none (pandas)")
+
+        return
+
