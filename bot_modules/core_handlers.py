@@ -88,6 +88,9 @@ def handle_weekly_breakdown(message:telebot.types.Message):
 def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
     '''Advances the breakdown query one week forwards or backwards'''
     message = call.message
+
+    update_with_filler_message(bot, message)
+
     cdata = jsn.loads(call.data)
     ref_date:date = date.fromisoformat(cdata["date"])
 
@@ -472,6 +475,8 @@ def callback_namelist_nav(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_namelist_time(call:telebot.types.CallbackQuery):
     message = call.message
+
+    update_with_filler_message(bot, message)
 
     bot.edit_message_text(
         text=ss.codeit(ut.replace_with_placeholder_random(message.text)),
