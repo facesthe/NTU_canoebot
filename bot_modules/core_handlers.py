@@ -789,6 +789,15 @@ def callback_logsheet_send(call:telebot.types.CallbackQuery):
     cdata =  jsn.loads(call.data)
     lg.functions.debug(f'callback data contents: {call.data}')
 
+    ## Do not submit twice
+    if ff.is_submitted_before(date.fromisoformat(cdata["date"]), int(cdata["time"])):
+        bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=f"Logsheet: {cdata['date']} slot {cdata['time']} submitted before"
+        )
+        return
+
     logsheet = ff.logSheet()
     logsheet.settimeslot(int(cdata['time']))
     logsheet.generateform(cdata['date'])
