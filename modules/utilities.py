@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import lib.liblog as lg
 
-FILLER_CHAR_ARR = [chr(uni_code) for uni_code in range(0x2591, 0x25A0)]
+FILLER_CHAR_ARR = [chr(uni_code) for uni_code in range(0x2580, 0x25A0)]
 
 def countdown()->int:
     '''

@@ -23,13 +23,26 @@ import modules.bashcmds as bc
 import lib.liblog as lg
 
 ## reloading placeholder
-def update_with_filler_message(tele_bot: telebot.TeleBot, message: telebot.types.Message):
-    '''Replaces the message with a filler placeholder'''
+def update_with_filler_message(tele_bot: telebot.TeleBot, message: telebot.types.Message, callback_rows: int=0):
+    '''Replaces the message with a filler placeholder.
+    Specify the number of callback lines (rows of callback buttons) to populate with blanks'''
+
+    kb = telebot.types.InlineKeyboardMarkup()
+    if callback_rows:
+        kb.add(
+            *[telebot.types.InlineKeyboardButton(
+                chr(0x2800),
+                callback_data=keyboards.NULL_STR
+            ) for i in range(callback_rows)],
+            row_width=1
+        )
+
     tele_bot.edit_message_text(
         text=ss.codeit(ut.replace_with_placeholder_random(message.text)),
         chat_id=message.chat.id,
         message_id=message.message_id,
-        parse_mode='Markdown'
+        parse_mode='Markdown',
+        reply_markup=kb
     )
     return
 
@@ -89,7 +102,7 @@ def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
     '''Advances the breakdown query one week forwards or backwards'''
     message = call.message
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 1)
 
     cdata = jsn.loads(call.data)
     ref_date:date = date.fromisoformat(cdata["date"])
@@ -303,7 +316,7 @@ def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
 
-    update_with_filler_message(bot, call.message)
+    update_with_filler_message(bot, call.message, 3)
 
     cdata = jsn.loads(call.data)
     sc.update_single_cache_entry(
@@ -451,7 +464,7 @@ def handle_namelist(message:telebot.types.Message):
 def callback_namelist_nav(call:telebot.types.CallbackQuery):
     message = call.message
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 2)
 
     cdata:dict = jsn.loads(call.data)
     namelist_date = date.fromisoformat(cdata['date'])
@@ -476,7 +489,7 @@ def callback_namelist_nav(call:telebot.types.CallbackQuery):
 def callback_namelist_time(call:telebot.types.CallbackQuery):
     message = call.message
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 2)
 
     bot.edit_message_text(
         text=ss.codeit(ut.replace_with_placeholder_random(message.text)),
@@ -561,7 +574,7 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
     paddling_date = cdata["date"]
     lg.functions.debug(f'date: {paddling_date}')
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 1)
 
     reply = ss.paddling(paddling_date)
     reply += datetime.now().strftime('\n\nLast updated at %X')
@@ -606,7 +619,7 @@ def handle_training_prog(message:telebot.types.Message):
 def callback_training_prog_nav(call:telebot.types.CallbackQuery):
     message = call.message
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 2)
 
     cdata:dict = jsn.loads(call.data)
     new_date = ut.parsedatetocurr(cdata['date'])
@@ -635,7 +648,7 @@ def callback_training_prog_nav(call:telebot.types.CallbackQuery):
 def callback_training_prog_time(call:telebot.types.CallbackQuery):
     message = call.message
 
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 2)
 
     cdata:dict = jsn.loads(call.data)
     new_date = ut.parsedatetocurr(cdata['date'])
@@ -742,7 +755,7 @@ def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
     message = call.message
 
     ## immediately change the message contents to prevent multiple button presses
-    update_with_filler_message(bot, message)
+    update_with_filler_message(bot, message, 1)
 
     lg.functions.debug(f'callback data: {call.data}')
     cdata:dict = jsn.loads(call.data)
