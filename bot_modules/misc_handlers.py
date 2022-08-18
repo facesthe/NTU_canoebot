@@ -218,6 +218,20 @@ def misc_bday(message:telebot.types.Message):
     bot.send_message(message.chat.id, random.choice(bday_responses))
 ##### bday
 
+## Women
+@bot.message_handler(regexp=r'(.*\s|^)women$')
+@lg.decorators.debug()
+def misc_women(message:telebot.types.Message):
+    bot.send_message(message.chat.id, f"women {chr(0x2615)}")
+    return
+
+## Men
+@bot.message_handler(regexp=r'(.*\s|^)men$')
+@lg.decorators.debug()
+def misc_men(message:telebot.types.Message):
+    bot.send_message(message.chat.id, f"men {chr(0x1F37A)}")
+    return
+
 ## narcissist's prayer levels - 6 in total
 ## sends reply to sender of message that was *replied to* with command
 @bot.message_handler(commands=['levelone'])
