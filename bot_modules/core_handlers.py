@@ -491,13 +491,6 @@ def callback_namelist_time(call:telebot.types.CallbackQuery):
 
     update_with_filler_message(bot, message, 2)
 
-    bot.edit_message_text(
-        text=ss.codeit(ut.replace_with_placeholder_random(message.text)),
-        chat_id=message.chat.id,
-        message_id=message.message_id,
-        parse_mode='Markdown'
-    )
-
     cdata:dict = jsn.loads(call.data)
     namelist_date = date.fromisoformat(cdata['date'])
     namelist_time = 1 - int(cdata['time'])
