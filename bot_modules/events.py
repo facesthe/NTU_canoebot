@@ -69,7 +69,8 @@ def enqueue_schedule():
     # schedule.every().day.at("07:00:00").do(event_daily_logsheet_am)
     EVENT_SCHEDULER.every().day.at("07:00:00").do(event_daily_logsheet_prompt)
     EVENT_SCHEDULER.every().day.at("19:00:00").do(event_daily_attendance_reminder)
-    EVENT_SCHEDULER.every().minute.do(event_srcscraper_cache_refresh)
+    EVENT_SCHEDULER.every().day.at("00:00:01").do(sc.fill_all_cache_sets_threaded)
+    EVENT_SCHEDULER.every().minute.do(sc.update_existing_cache_entries_threaded)
     return
 
 
@@ -121,12 +122,12 @@ def event_daily_attendance_reminder():
     '''Sends a reminder into the exco chat'''
 
     kb = telebot_types.InlineKeyboardMarkup().add(
+        # telebot_types.InlineKeyboardButton(
+        #     "ok lol",
+        #     url=bot_modules.keyboards.RR_LINK
+        # ),
         telebot_types.InlineKeyboardButton(
-            "ok lol",
-            url=bot_modules.keyboards.RR_LINK
-        ),
-        telebot_types.InlineKeyboardButton(
-            "no",
+            "attendance",
             callback_data=jsn.dumps({
                 "name": "paddling",
                 "date": (date.today()+timedelta(days=1)).isoformat()
@@ -141,7 +142,3 @@ def event_daily_attendance_reminder():
     )
 
     return
-
-@lg.decorators.info()
-def event_srcscraper_cache_refresh():
-    sc.update_existing_cache_entries_threaded()
