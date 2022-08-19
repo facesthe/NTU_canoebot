@@ -7,6 +7,7 @@ from datetime import date
 from bot_modules.common_core import CanoeBot as bot
 from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
 from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
+import modules.wikilookup as wik
 import modules.utilities as ut
 
 import lib.liblog as lg
@@ -82,6 +83,23 @@ def handle_whoami(message:telebot.types.Message):
 def handle_countdown(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_message(message.chat.id, f'{ut.countdown()} days to ITCC')
+
+## Wikipedia series
+@bot.message_handler(commands=["what"])
+def misc_wiki_search(message: telebot.types.Message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    top_resp_summary: str = wik.summary(text)
+    bot.send_message(message.chat.id, top_resp_summary)
+    return
+
+## Wikipedia series
+@bot.message_handler(commands=["whatdrunk"])
+def misc_wiki_search(message: telebot.types.Message):
+    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    random_summary: str = wik.summary_random(text)
+    bot.send_message(message.chat.id, random_summary)
+    return
+
 
 ## ooga - booga
 @bot.message_handler(regexp='ooga')
