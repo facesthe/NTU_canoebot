@@ -12,6 +12,7 @@ from telebot.callback_data import CallbackData
 from bot_modules.common_core import CanoeBot as bot
 from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
 from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
+from bot_modules.utilities import verify_exec as verify
 import bot_modules.keyboards as keyboards
 import modules.sheetscraper as ss
 import modules.bashcmds as bc
@@ -104,11 +105,8 @@ def misc_botlog(message:telebot.types.Message):
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
+@verify(MISC_HANDLERS, "MISC_BASH")
 def misc_bash(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_BASH'] is False:
-        lg.functions.warning('command used but no input taken')
-        return
-
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(f'bash input: {text}')
 

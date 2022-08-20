@@ -7,7 +7,8 @@ from datetime import date
 from bot_modules.common_core import CanoeBot as bot
 from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
 from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
-import modules.wikilookup as wik
+from bot_modules.utilities import verify_exec as verify
+import modules.dictionaries.wiki as wik
 import modules.utilities as ut
 
 import lib.liblog as lg
@@ -84,7 +85,7 @@ def handle_countdown(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_message(message.chat.id, f'{ut.countdown()} days to ITCC')
 
-## Wikipedia series
+## Wikipedia series: normal lookup
 @bot.message_handler(commands=["what"])
 def misc_wiki_search(message: telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
@@ -92,7 +93,7 @@ def misc_wiki_search(message: telebot.types.Message):
     bot.send_message(message.chat.id, top_resp_summary)
     return
 
-## Wikipedia series
+## Wikipedia series: drunk lookup
 @bot.message_handler(commands=["whatdrunk"])
 def misc_wiki_search(message: telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
@@ -103,65 +104,65 @@ def misc_wiki_search(message: telebot.types.Message):
 
 ## ooga - booga
 @bot.message_handler(regexp='ooga')
+@verify(MISC_HANDLERS, 'MISC_OOGABOOGA')
 @lg.decorators.debug()
 def misc_oogabooga(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_OOGABOOGA'] is False: return
     bot.send_message(message.chat.id, 'booga')
 
 ## marco - polo
 @bot.message_handler(regexp='marco')
+@verify(MISC_HANDLERS, 'MISC_MARCOPOLO')
 @lg.decorators.debug()
 def misc_marcopolo(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_MARCOPOLO'] is False: return
     bot.send_message(message.chat.id, 'polo')
 
 ## ping - pong (only if 'ping' as a word is inside)
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
+@verify(MISC_HANDLERS, 'MISC_PINGPONG')
 @lg.decorators.debug()
 def misc_pingpong(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_PINGPONG'] is False: return
     bot.send_message(message.chat.id, 'pong')
 
 ## die - same tbh
 @bot.message_handler(regexp='die')
+@verify(MISC_HANDLERS, 'MISC_DIETBH')
 @lg.decorators.debug()
 def misc_dietbh(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_DIETBH'] is False: return
     bot.reply_to(message, 'same tbh')
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
 @lg.decorators.debug()
+@verify(MISC_HANDLERS, 'MISC_HELLNO')
 def misc_hellno(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_HELLNO'] is False: return
     bot.reply_to(message,'hell no')
 
 ## help - no
 @bot.message_handler(regexp='help')
+@verify(MISC_HANDLERS, 'MISC_HELPNO')
 @lg.decorators.debug()
 def misc_helpno(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_HELPNO'] is False: return
     bot.reply_to(message, 'no')
 
 ## 69 - nice (see below for continuation)
 @bot.message_handler(regexp='69')
+@verify(MISC_HANDLERS, 'MISC_69NICE')
 @lg.decorators.debug()
 def misc_69nice(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_69NICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## nice - nice (see above for previous)
 @bot.message_handler(func=lambda message: message.text.lower() == 'nice')
+@verify(MISC_HANDLERS, 'MISC_NICENICE')
 @lg.decorators.debug()
 def misc_nicenice(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_NICENICE'] is False: return
     bot.reply_to(message, 'nice')
 
 ## OSAS
 @bot.message_handler(regexp='ovuvuevuevue')
+@verify(MISC_HANDLERS, 'MISC_OSAS')
 @lg.decorators.debug()
 def misc_osas_1(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_OSAS'] is False: return
     msg = bot.reply_to(message, "...i'm listening")
     bot.register_next_step_handler(msg, misc_osas_2)
 
@@ -189,9 +190,9 @@ def misc_osas_4(message:telebot.types.Message):
 ## reply if text contains 'bot' and 'who'
 @bot.message_handler(func=lambda message: \
     'bot' in message.text.lower() and 'who' in message.text.lower())
+@verify(MISC_HANDLERS, 'MISC_WHOBOT')
 @lg.decorators.debug()
 def misc_who_bot(message:telebot.types.Message):
-    if MISC_HANDLERS['MISC_WHOBOT'] is False: return
 
     replies = [
         'good question', 'idk', 'you ask me i ask who?', 'quiet', 'dunno shaddup'
@@ -200,10 +201,10 @@ def misc_who_bot(message:telebot.types.Message):
 
 ## reply if text message is too long
 @bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
+@verify(MISC_HANDLERS, 'MISC_LONGMSG')
 @lg.decorators.debug()
 def misc_longmsg(message:telebot.types.Message):
     # log.debug("misc long-msg triggered")
-    if MISC_HANDLERS['MISC_LONGMSG'] is False: return
 
     ## exit if it's the paddling attendance message (list still building)
     keywords = ['paddling','warm']
@@ -238,6 +239,7 @@ def misc_bday(message:telebot.types.Message):
 
 ## Women
 @bot.message_handler(regexp=r'(.*\s|^)women$')
+@verify(MISC_HANDLERS, 'MISC_WOMEN')
 @lg.decorators.debug()
 def misc_women(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"women {chr(0x2615)}")
@@ -245,6 +247,7 @@ def misc_women(message:telebot.types.Message):
 
 ## Men
 @bot.message_handler(regexp=r'(.*\s|^)men$')
+@verify(MISC_HANDLERS, 'MISC_MEN')
 @lg.decorators.debug()
 def misc_men(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"men {chr(0x1F37A)}")
