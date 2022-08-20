@@ -237,8 +237,14 @@ def misc_bday(message:telebot.types.Message):
     bot.send_message(message.chat.id, random.choice(bday_responses))
 ##### bday
 
+@bot.message_handler(regexp=r'\bfeel\b')
+@verify(MISC_HANDLERS, 'MISC_FEELDN')
+@lg.decorators.debug()
+def misc_feeldn(message:telebot.types.Message) :
+ bot.send_message(message, 'feel deez nuts')
+
 ## Women
-@bot.message_handler(regexp=r'(.*\s|^)women$')
+@bot.message_handler(regexp=r'\bwomen$')
 @verify(MISC_HANDLERS, 'MISC_WOMEN')
 @lg.decorators.debug()
 def misc_women(message:telebot.types.Message):
@@ -246,7 +252,7 @@ def misc_women(message:telebot.types.Message):
     return
 
 ## Men
-@bot.message_handler(regexp=r'(.*\s|^)men$')
+@bot.message_handler(regexp=r'\bmen$')
 @verify(MISC_HANDLERS, 'MISC_MEN')
 @lg.decorators.debug()
 def misc_men(message:telebot.types.Message):
