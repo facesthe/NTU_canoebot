@@ -2,7 +2,6 @@
 See more here: https://www.mediawiki.org/wiki/API:Main_page
 '''
 
-from ipaddress import summarize_address_range
 import requests as rq
 import json
 import random

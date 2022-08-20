@@ -8,7 +8,7 @@ from bot_modules.common_core import CanoeBot as bot
 from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
 from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
 from bot_modules.utilities import verify_exec as verify
-import modules.dictionaries.wiki as wik
+import modules.dictionaries as dictionaries
 import modules.utilities as ut
 
 import lib.liblog as lg
@@ -89,15 +89,15 @@ def handle_countdown(message:telebot.types.Message):
 @bot.message_handler(commands=["what"])
 def misc_wiki_search(message: telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    top_resp_summary: str = wik.summary(text)
+    top_resp_summary: str = dictionaries.wiki.summary(text)
     bot.send_message(message.chat.id, top_resp_summary)
     return
 
 ## Wikipedia series: drunk lookup
-@bot.message_handler(commands=["whatdrunk"])
+@bot.message_handler(commands=["whatactually"])
 def misc_wiki_search(message: telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-    random_summary: str = wik.summary_random(text)
+    random_summary: str = dictionaries.urbandictionary.summary(text)
     bot.send_message(message.chat.id, random_summary)
     return
 

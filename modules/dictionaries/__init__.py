@@ -1,2 +1,2 @@
-from . import wiki as wikilookup
-
+from . import wiki
+from . import urbandictionary
