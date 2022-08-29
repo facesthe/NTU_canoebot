@@ -4,6 +4,7 @@ import telebot
 import time, random
 from datetime import date
 
+from bot_modules import helptext as ht
 from bot_modules.common_core import CanoeBot as bot
 from bot_modules.common_core import MISC_HANDLERS as MISC_HANDLERS
 from bot_modules.common_core import KNOWN_CHATS as KNOWN_CHATS
@@ -14,7 +15,7 @@ import modules.utilities as ut
 import lib.liblog as lg
 
 ## add more commands and update the command list
-command_list = {
+COMMAND_LIST = {
     'reload': 'sync configs sheet',
     'src': 'Interactive SRC viewer',
     'traininglog': 'Telegram frontend for google forms',
@@ -40,7 +41,9 @@ narc_prayer = [
 ]
 
 @bot.message_handler(commands=['start'])
+@ht.register_help("/start", True, True)
 def handle_start(message:telebot.types.Message):
+    '''Receive gratings'''
     bot.send_message(
         message.chat.id,
         f'Hi {message.from_user.first_name}, this is NTU canoebot! '\
@@ -50,13 +53,15 @@ def handle_start(message:telebot.types.Message):
 
 ## general help
 @bot.message_handler(commands=['help'])
+@ht.register_help("/help", True, True)
 @lg.decorators.info()
 def handle_help(message:telebot.types.Message):
+    '''Show all functions/commands registered with helptext'''
     helptext:str = 'More about commands:\n\n'
 
-    for key in command_list:
-        helptext += "/" + key + ": "
-        helptext += command_list[key] + "\n\n"
+    for key in ht.HELP_TEXT_HANDLERS:
+        helptext += key + ": "
+        helptext += ht.HELP_TEXT_HANDLERS[key] + "\n\n"
     bot.send_message(message.chat.id, helptext)
 
 ## hidden help
@@ -73,8 +78,10 @@ def handle_xcohelp(message:telebot.types.Message):
 
 ## echo username - gets the first name of user
 @bot.message_handler(commands=['whoami'])
+@ht.register_help("/whoami", True, True)
 @lg.decorators.info()
 def handle_whoami(message:telebot.types.Message):
+    '''Returns your telegram username'''
     lg.functions.debug(f'chat name type: {type(message.from_user)}')
     lg.functions.debug(message.from_user)
     bot.send_message(message.chat.id, str(message.from_user.first_name))
@@ -87,7 +94,9 @@ def handle_countdown(message:telebot.types.Message):
 
 ## Wikipedia series: normal lookup
 @bot.message_handler(commands=["what"])
+@ht.register_help("/what", True, True)
 def misc_wiki_search(message: telebot.types.Message):
+    '''Wikipedia API through Telegram'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     top_resp_summary: str = dictionaries.wiki.summary(text)
     bot.send_message(message.chat.id, top_resp_summary)
@@ -95,7 +104,9 @@ def misc_wiki_search(message: telebot.types.Message):
 
 ## Wikipedia series: drunk lookup
 @bot.message_handler(commands=["whatactually"])
+@ht.register_help("/whatactually", True, True)
 def misc_wiki_search(message: telebot.types.Message):
+    '''Urban Dictionary API through Telegram'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     random_summary: str = dictionaries.urbandictionary.summary(text)
     bot.send_message(message.chat.id, random_summary)

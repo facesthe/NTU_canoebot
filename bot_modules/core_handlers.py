@@ -8,7 +8,7 @@ import copy
 from datetime import datetime, date, timedelta
 
 import telebot
-from bot_modules import keyboards
+from bot_modules import keyboards, helptext as ht
 
 from bot_modules.common_core import CanoeBot as bot
 import modules.sheetscraper as ss
@@ -48,14 +48,18 @@ def update_with_filler_message(tele_bot: telebot.TeleBot, message: telebot.types
 
 ## uptime of the host machine
 @bot.message_handler(commands=['uptime'])
+@ht.register_help("/uptime", True, True)
 @lg.decorators.info()
 def misc_uptime(message:telebot.types.Message):
+    '''Get the power-on time of the host machine'''
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
 ## sync with contents of the 'configs' sheet
 @bot.message_handler(commands=['reload'])
+@ht.register_help("/reload", True, True)
 @lg.decorators.info()
 def handle_reload(message:telebot.types.Message):
+    '''Reload configs from the online spreadsheet'''
     ss.update_globals()
     bot.send_message(message.chat.id,'Globals updated')
 
@@ -69,6 +73,7 @@ def handle_wavegym(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 @bot.message_handler(commands=['weeklybreakdown'])
+@ht.register_help("/weeklybreakdown", True, True)
 @lg.decorators.info()
 def handle_weekly_breakdown(message:telebot.types.Message):
     '''Returns a breakdown of people going to training for the current week, Mon-Sun.'''
@@ -134,9 +139,10 @@ def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
 
 ## new src command - navigation using callback buttons
 @bot.message_handler(commands=['src'])
+@ht.register_help("/src", True, True)
 @lg.decorators.info()
 def handle_srcbooking_new(message:telebot.types.Message):
-    '''Displays buttons containing all available facilities'''
+    '''Telegram frontend to the horrible SRC booking page'''
     reply = "Choose a SRC facility below:"
     src_facility_list = sc.return_facility_list_shortform()
     kb = telebot.types.InlineKeyboardMarkup().add(
@@ -440,8 +446,10 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
+@ht.register_help("/namelist", True, True)
 @lg.decorators.info()
 def handle_namelist(message:telebot.types.Message):
+    '''Telegram frontend for the attendance sheet'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
 
     kb = navigation_button_gen('namelist', ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
@@ -525,8 +533,10 @@ def callback_namelist_close(call:telebot.types.CallbackQuery):
 
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])
+@ht.register_help("/boatallo", True, True)
 @lg.decorators.info()
 def handle_boatallo(message:telebot.types.Message):
+    '''View assigned boats. Use /paddling, it's the new version'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
@@ -540,8 +550,10 @@ def handle_boatallo(message:telebot.types.Message):
 
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
+@ht.register_help("/paddling", True, True)
 @lg.decorators.info()
 def handle_paddling(message:telebot.types.Message):
+    '''See who's going for training, their auto-assigned boats, and the training programme'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.paddling(text)
     paddling_date = ut.parsedatetonext(text)
@@ -591,8 +603,10 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
 ## view program w/ callbacks to navigate
 ## replaces trainingam and trainingpm
 @bot.message_handler(commands=['training'])
+@ht.register_help("/training", True, True)
 @lg.decorators.info()
 def handle_training_prog(message:telebot.types.Message):
+    '''View the training programme. Usually sent a week in advance'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingam(text)
 
@@ -695,9 +709,11 @@ def handle_trainingpm(message:telebot.types.Message):
 
 ## re-writing logsheet
 @bot.message_handler(commands=['logsheet'])
+@ht.register_help("/logsheet", True, True)
 @lg.decorators.info()
 def handle_logsheet_new_start(message:telebot.types.Message = None, chat_id:int = None):
-    '''Function can be called in events.py or through message handler.
+    '''Automatically fill and send the SCF log sheet.
+    Function can be called in events.py or through message handler.
     For sending to a chat group without passing a message instance, leave the message parameter as None.'''
 
     ## param validation
@@ -837,8 +853,10 @@ def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])
+@ht.register_help("/trace", True, True)
 @lg.decorators.info()
 def handle_traceall_1(message:telebot.types.Message):
+    '''Simple contact tracing. Uses the attendance sheet'''
     trace = ct.tracer()
     trace.reset()
     msg = bot.send_message(message.chat.id, 'enter date')
@@ -861,8 +879,10 @@ def handle_traceall_2(message:telebot.types.Message, trace:ct.tracer):
 
 ## training log part 1
 @bot.message_handler(commands=['traininglog'])
+@ht.register_help("/traininglog", True, True)
 @lg.decorators.info()
 def handle_traininglog_1(message:telebot.types.Message):
+    '''Log your training here'''
     kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add('/exit')
 
