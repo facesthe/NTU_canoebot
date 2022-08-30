@@ -41,7 +41,7 @@ narc_prayer = [
 ]
 
 @bot.message_handler(commands=['start'])
-@ht.register_help("/start", True, True)
+@ht.register_function("/start", True, True)
 def handle_start(message:telebot.types.Message):
     '''Receive gratings'''
     bot.send_message(
@@ -53,7 +53,7 @@ def handle_start(message:telebot.types.Message):
 
 ## general help
 @bot.message_handler(commands=['help'])
-@ht.register_help("/help", True, True)
+@ht.register_function("/help", True, True)
 @lg.decorators.info()
 def handle_help(message:telebot.types.Message):
     '''Show all functions/commands registered with helptext'''
@@ -78,7 +78,7 @@ def handle_xcohelp(message:telebot.types.Message):
 
 ## echo username - gets the first name of user
 @bot.message_handler(commands=['whoami'])
-@ht.register_help("/whoami", True, True)
+@ht.register_function("/whoami", True, True)
 @lg.decorators.info()
 def handle_whoami(message:telebot.types.Message):
     '''Returns your telegram username'''
@@ -94,7 +94,7 @@ def handle_countdown(message:telebot.types.Message):
 
 ## Wikipedia series: normal lookup
 @bot.message_handler(commands=["what"])
-@ht.register_help("/what", True, True)
+@ht.register_function("/what", True, True)
 def misc_wiki_search(message: telebot.types.Message):
     '''Wikipedia API through Telegram'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
@@ -104,7 +104,7 @@ def misc_wiki_search(message: telebot.types.Message):
 
 ## Wikipedia series: drunk lookup
 @bot.message_handler(commands=["whatactually"])
-@ht.register_help("/whatactually", True, True)
+@ht.register_function("/whatactually", True, True)
 def misc_wiki_search(message: telebot.types.Message):
     '''Urban Dictionary API through Telegram'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command

@@ -11,6 +11,7 @@ import functools
 global HELP_TEXT_HANDLERS
 global PUBLIC_HANDLERS
 global PRIVATE_HANDLERS
+global KNOWN_HANDLERS
 
 HELP_TEXT_HANDLERS: dict = dict()
 '''Contains all registered message handlers/functions'''
@@ -21,8 +22,11 @@ PUBLIC_HANDLERS: dict = dict()
 PRIVATE_HANDLERS: dict = dict()
 '''Contains all private handlers'''
 
+KNOWN_HANDLERS: dict = dict()
+'''Placeholder, for future use'''
 
-def register_help(
+
+def register_function(
     name: str,
     help: bool = False,
     public: bool = False,
@@ -33,7 +37,11 @@ def register_help(
     '''
 
     def inner(_function):
-        global HELP_TEXT_HANDLERS, PUBLIC_HANDLERS, PRIVATE_HANDLERS
+        global \
+            HELP_TEXT_HANDLERS,\
+            PUBLIC_HANDLERS, \
+            PRIVATE_HANDLERS,\
+            KNOWN_HANDLERS
 
         if help:
             HELP_TEXT_HANDLERS[name] = _function.__doc__

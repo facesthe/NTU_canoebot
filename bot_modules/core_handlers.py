@@ -48,7 +48,7 @@ def update_with_filler_message(tele_bot: telebot.TeleBot, message: telebot.types
 
 ## uptime of the host machine
 @bot.message_handler(commands=['uptime'])
-@ht.register_help("/uptime", True, True)
+@ht.register_function("/uptime", True, True)
 @lg.decorators.info()
 def misc_uptime(message:telebot.types.Message):
     '''Get the power-on time of the host machine'''
@@ -56,7 +56,7 @@ def misc_uptime(message:telebot.types.Message):
 
 ## sync with contents of the 'configs' sheet
 @bot.message_handler(commands=['reload'])
-@ht.register_help("/reload", True, True)
+@ht.register_function("/reload", True, True)
 @lg.decorators.info()
 def handle_reload(message:telebot.types.Message):
     '''Reload configs from the online spreadsheet'''
@@ -73,7 +73,7 @@ def handle_wavegym(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 @bot.message_handler(commands=['weeklybreakdown'])
-@ht.register_help("/weeklybreakdown", True, True)
+@ht.register_function("/weeklybreakdown", True, True)
 @lg.decorators.info()
 def handle_weekly_breakdown(message:telebot.types.Message):
     '''Returns a breakdown of people going to training for the current week, Mon-Sun.'''
@@ -139,7 +139,7 @@ def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
 
 ## new src command - navigation using callback buttons
 @bot.message_handler(commands=['src'])
-@ht.register_help("/src", True, True)
+@ht.register_function("/src", True, True)
 @lg.decorators.info()
 def handle_srcbooking_new(message:telebot.types.Message):
     '''Telegram frontend to the horrible SRC booking page'''
@@ -446,7 +446,7 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
-@ht.register_help("/namelist", True, True)
+@ht.register_function("/namelist", True, True)
 @lg.decorators.info()
 def handle_namelist(message:telebot.types.Message):
     '''Telegram frontend for the attendance sheet'''
@@ -533,7 +533,7 @@ def callback_namelist_close(call:telebot.types.CallbackQuery):
 
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])
-@ht.register_help("/boatallo", True, True)
+@ht.register_function("/boatallo", True, True)
 @lg.decorators.info()
 def handle_boatallo(message:telebot.types.Message):
     '''View assigned boats. Use /paddling, it's the new version'''
@@ -550,7 +550,7 @@ def handle_boatallo(message:telebot.types.Message):
 
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
-@ht.register_help("/paddling", True, True)
+@ht.register_function("/paddling", True, True)
 @lg.decorators.info()
 def handle_paddling(message:telebot.types.Message):
     '''See who's going for training, their auto-assigned boats, and the training programme'''
@@ -603,7 +603,7 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
 ## view program w/ callbacks to navigate
 ## replaces trainingam and trainingpm
 @bot.message_handler(commands=['training'])
-@ht.register_help("/training", True, True)
+@ht.register_function("/training", True, True)
 @lg.decorators.info()
 def handle_training_prog(message:telebot.types.Message):
     '''View the training programme. Usually sent a week in advance'''
@@ -709,7 +709,7 @@ def handle_trainingpm(message:telebot.types.Message):
 
 ## re-writing logsheet
 @bot.message_handler(commands=['logsheet'])
-@ht.register_help("/logsheet", True, True)
+@ht.register_function("/logsheet", True, True)
 @lg.decorators.info()
 def handle_logsheet_new_start(message:telebot.types.Message = None, chat_id:int = None):
     '''Automatically fill and send the SCF log sheet.
@@ -853,7 +853,7 @@ def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])
-@ht.register_help("/trace", True, True)
+@ht.register_function("/trace", True, True)
 @lg.decorators.info()
 def handle_traceall_1(message:telebot.types.Message):
     '''Simple contact tracing. Uses the attendance sheet'''
@@ -879,7 +879,7 @@ def handle_traceall_2(message:telebot.types.Message, trace:ct.tracer):
 
 ## training log part 1
 @bot.message_handler(commands=['traininglog'])
-@ht.register_help("/traininglog", True, True)
+@ht.register_function("/traininglog", True, True)
 @lg.decorators.info()
 def handle_traininglog_1(message:telebot.types.Message):
     '''Log your training here'''

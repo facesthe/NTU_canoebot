@@ -16,6 +16,9 @@
             "MISC_OSAS"         : true,
             "MISC_WHOBOT"       : true,
             "MISC_LONGMSG"      : true,
+            "MISC_FEELDN"       : true,
+            "MISC_WOMEN"        : true,
+            "MISC_MEN"          : true,
             "MISC_BASH"         : false
         }
     },

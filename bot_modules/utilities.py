@@ -9,11 +9,14 @@ VERIFY_MISSING_BEHAVIOR: bool = True
 def verify_exec(lookup: dict, key: str):
     '''Function decorator.
     Checks for a corresponding entry in a dictionary,
-    executes the wrapped function if the condition is true.
+    key corresponds to the function's capitalized name.
+    Executes the wrapped function if the condition is true.
     Does not execute otherwise
     '''
 
     def inner(_function):
+        # func_name: str = _function.__name__
+        # func_name = func_name.upper()
         @functools.wraps(_function)
         def wrapper(*args, **kwargs):
             try:
