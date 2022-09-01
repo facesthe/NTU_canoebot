@@ -169,9 +169,6 @@ def handle_srcbooking_new(message:telebot.types.Message):
         reply,
         reply_markup=kb
     )
-
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data or "srcbook_cal_back" in c.data)
@@ -209,9 +206,6 @@ def callback_srcbook_restart(call:telebot.types.CallbackQuery):
         message_id=message.message_id,
         reply_markup=kb
     )
-
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: "srcbook_close" in c.data)
@@ -248,8 +242,6 @@ def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
         message_id=message.message_id,
         reply_markup=kb
     )
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: 'srcbook_date' in c.data)

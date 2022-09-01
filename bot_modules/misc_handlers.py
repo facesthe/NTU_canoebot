@@ -270,6 +270,9 @@ def misc_men(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"men {chr(0x1F37A)}")
     return
 
+## 5W 1H series
+
+
 ## narcissist's prayer levels - 6 in total
 ## sends reply to sender of message that was *replied to* with command
 @bot.message_handler(commands=['levelone'])
