@@ -292,17 +292,25 @@ sarcastic_replies_qn: "list(str)" = [
 ]
 
 ## 5W 1H series
-@bot.message_handler(regexp=r'(?:who|what|when|where|why|how)\b.*?$')
+@bot.message_handler(regexp=r'(?:who|what|when|where|why|how)\b.*\?$')
 @verify(MISC_HANDLERS, 'MISC_WWWWWH')
 @lg.decorators.debug()
 def misc_wwwwwh(message:telebot.types.Message):
-    switch = random.randint(0,9)
-    if switch: ## 10% chance of sending the same message back
+    if random.randint(0,9): ## 90% change of responding normally
         bot.send_message(message.chat.id, random.choice(sarcastic_replies_qn))
-    elif switch <= 2: ## 20% chance of not doing anything
-        pass
-    else:
-        bot.send_message(message.chat.id, message.text)
+
+    else: ## 10% chance of doing something else
+        if random.randint(0,1):
+            bot.send_message(message.chat.id, message.text)
+        else:
+            return
+    return
+
+## ayo
+@bot.message_handler(regexp=r'\bayo\b')
+@verify(MISC_HANDLERS, 'MISC_AYO')
+def misc_ayo(message:telebot.types.Message):
+    bot.send_message(message.chat.id, f"{chr(0x1F928)}{chr(0x1F4F8)}")
     return
 
 ## narcissist's prayer levels - 6 in total
