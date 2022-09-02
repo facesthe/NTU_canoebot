@@ -65,12 +65,13 @@ def enqueue_schedule():
     '''Queues up all events to be executed.
     Add any periodic events here.
     '''
-    # schedule.every().minute.at(":00").do(event_repeat_test)
-    # schedule.every().day.at("07:00:00").do(event_daily_logsheet_am)
+
     EVENT_SCHEDULER.every().day.at("07:00:00").do(event_daily_logsheet_prompt)
     EVENT_SCHEDULER.every().day.at("19:00:00").do(event_daily_attendance_reminder)
+    EVENT_SCHEDULER.every().week.saturday.at("22:30:00").do(event_weekly_breakdown)
     EVENT_SCHEDULER.every().day.at("00:00:01").do(sc.fill_all_cache_sets_threaded)
     EVENT_SCHEDULER.every().minute.do(sc.update_existing_cache_entries_threaded)
+
     return
 
 
@@ -142,3 +143,8 @@ def event_daily_attendance_reminder():
     )
 
     return
+
+@lg.decorators.info()
+def event_weekly_breakdown():
+    '''Sends the weekly breakdown to the exco chat '''
+    core.handle_weekly_breakdown(None, EXCO_CHAT)
