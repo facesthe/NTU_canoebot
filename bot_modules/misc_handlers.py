@@ -252,7 +252,7 @@ def misc_bday(message:telebot.types.Message):
 @verify(MISC_HANDLERS, 'MISC_FEELDN')
 @lg.decorators.debug()
 def misc_feeldn(message:telebot.types.Message) :
- bot.send_message(message, 'feel deez nuts')
+ bot.send_message(message, 'lol feel deez nuts')
 
 ## Women
 @bot.message_handler(regexp=r'\bwomen$')
@@ -270,8 +270,40 @@ def misc_men(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"men {chr(0x1F37A)}")
     return
 
-## 5W 1H series
+## f-pay respects
+@bot.message_handler(regexp=r'^f$')
+@verify(MISC_HANDLERS, 'MISC_F_PAY_RESPECTS')
+def misc_f_pay_respects(message:telebot.types.Message):
+    bot.send_message(message.chat.id, f"pay respects {chr(0x1F64F)}")
+    return
 
+## used by wwwwwh below
+sarcastic_replies_qn: "list(str)" = [
+    "dunno",
+    "how i know?",
+    "how i know sial",
+    "i know this, and i'm a bot",
+    "sounds like something a kid would know",
+    "what a waste of time",
+    "how about you go and google that before asking it here",
+    "is this some kind of joke?",
+    "are you actually looking for an answer or?",
+    "you would have figured it out by the time you asked"
+]
+
+## 5W 1H series
+@bot.message_handler(regexp=r'(?:who|what|when|where|why|how)\b.*?$')
+@verify(MISC_HANDLERS, 'MISC_WWWWWH')
+@lg.decorators.debug()
+def misc_wwwwwh(message:telebot.types.Message):
+    switch = random.randint(0,9)
+    if switch: ## 10% chance of sending the same message back
+        bot.send_message(message.chat.id, random.choice(sarcastic_replies_qn))
+    elif switch <= 2: ## 20% chance of not doing anything
+        pass
+    else:
+        bot.send_message(message.chat.id, message.text)
+    return
 
 ## narcissist's prayer levels - 6 in total
 ## sends reply to sender of message that was *replied to* with command
