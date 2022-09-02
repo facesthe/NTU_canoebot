@@ -482,7 +482,7 @@ def namelist(date_time_str:str='')->pd.Series:
 
 
 ## pair up the boats with names
-def match2boats(df_session:pd.Series)->pd.DataFrame:
+def match2boats(df_session:pd.Series, deconf=True)->pd.DataFrame:
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
     boats = BOAT_ALLOCATIONS
     session_list = df_session[3:].tolist()
@@ -517,8 +517,10 @@ def match2boats(df_session:pd.Series)->pd.DataFrame:
         'col2':boatlist
     })
 
-    ## perform recursive deconflict here (recursive part not fully implemented)
-    if DECONFLICT: ## enable by changing this to TRUE (top of file)
+    if deconf == False: ## this param has greater priority than the deconflict config
+        pass
+    ## perform recursive deconflict here
+    elif DECONFLICT: ## enable by changing this to TRUE (top of file)
         predeconflict() ## reset the recursion counter
         return_df = deconflict(return_df)
 
@@ -530,17 +532,17 @@ def match2boats(df_session:pd.Series)->pd.DataFrame:
     return return_df[1:].reset_index(drop=True)
 
 
-def boatallo(str_in:str='')->pd.DataFrame:
+def boatallo(str_in:str='', deconf = True)->pd.DataFrame:
     '''Boat allo function that is used by the canoebot\n
     No params -> next day used\n
     Input [date, time] as string\n
     [time] is 'pm' - ommit [time] if am session\n
     See other functions called in here for more details'''
     tempdf = namelist(str_in)
-    return match2boats(tempdf)
+    return match2boats(tempdf, deconf)
 
 
-def paddling(str_in:str='')->str:
+def paddling(str_in:str='', deconf = True)->str:
     '''Returns paddling attendance, mostly formatted'''
     try:
         date_in = parse(str_in).date()
@@ -553,7 +555,7 @@ def paddling(str_in:str='')->str:
     ## Thursday 04 Feb - display date
     date_str = date_in.strftime('%A %d %b')
 
-    boatallo_no_date:pd.DataFrame = boatallo(actual_date).iloc[1:]
+    boatallo_no_date:pd.DataFrame = boatallo(actual_date, deconf).iloc[1:]
     ## replace col headers with whitespaces of identical length
     boatallo_no_date.columns = [
         (' ' * len(boatallo_no_date.columns[i])) \

@@ -560,11 +560,27 @@ def handle_paddling(message:telebot.types.Message):
     reply = ss.paddling(text)
     paddling_date = ut.parsedatetonext(text)
 
-    kb = keyboards.generic_kb_gen(
-        'update',
-        'paddling',
-        {"date":paddling_date.isoformat()}
-    )
+    ## template, deconf should be overritten
+    cdata: dict = {
+        "name": "paddling",
+        "date": paddling_date.isoformat(),
+        "deconf": None
+    }
+
+    cdata_deconf_true = copy.deepcopy(cdata)
+    cdata_deconf_true.update({"deconf": True})
+    cdata_deconf_false = copy.deepcopy(cdata)
+    cdata_deconf_false.update({"deconf": False})
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+    telebot.types.InlineKeyboardButton(
+        "deconf",
+        callback_data=jsn.dumps(cdata_deconf_true)
+    ),
+    telebot.types.InlineKeyboardButton(
+        "no deconf",
+        callback_data=jsn.dumps(cdata_deconf_false)
+    ))
 
     bot.send_message(
         message.chat.id,
@@ -577,20 +593,30 @@ def handle_paddling(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_paddling_refresh(call:telebot.types.CallbackQuery):
     message=call.message
-    cdata = jsn.loads(call.data)
+    cdata: dict = jsn.loads(call.data)
     paddling_date = cdata["date"]
+    deconf: bool = cdata["deconf"]
     lg.functions.debug(f'date: {paddling_date}')
 
     update_with_filler_message(bot, message, 1)
 
-    reply = ss.paddling(paddling_date)
+    reply = ss.paddling(paddling_date, deconf)
     reply += datetime.now().strftime('\n\nLast updated at %X')
 
-    kb = keyboards.generic_kb_gen(
-        'update',
-        'paddling',
-        {"date":paddling_date}
-    )
+    cdata_deconf_true = copy.deepcopy(cdata)
+    cdata_deconf_true.update({"deconf": True})
+    cdata_deconf_false = copy.deepcopy(cdata)
+    cdata_deconf_false.update({"deconf": False})
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+    telebot.types.InlineKeyboardButton(
+        "deconf",
+        callback_data=jsn.dumps(cdata_deconf_true)
+    ),
+    telebot.types.InlineKeyboardButton(
+        "no deconf",
+        callback_data=jsn.dumps(cdata_deconf_false)
+    ))
 
     bot.edit_message_text(
         text=ss.codeit(reply),
