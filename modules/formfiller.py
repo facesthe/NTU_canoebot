@@ -38,7 +38,7 @@ SUBMITTED_TIMES: "list[date]" = [date.today() - timedelta(days=1) for i in range
 url = f'https://docs.google.com/forms/d/e/{FORM_ID}/formResponse'
 
 def is_submitted_before(date_in: date, time_slot: int) -> bool:
-    '''Checks if logsheet was submitted before. Updates global if not submitted before'''
+    '''Checks if logsheet was submitted before on the same day. Updates global if not submitted before'''
     global SUBMITTED_TIMES
 
     if SUBMITTED_TIMES[time_slot] != date_in:
