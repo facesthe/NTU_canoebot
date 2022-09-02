@@ -272,8 +272,8 @@ def misc_men(message:telebot.types.Message):
 
 ## f-pay respects
 @bot.message_handler(regexp=r'^f$')
-@verify(MISC_HANDLERS, 'MISC_F_PAY_RESPECTS')
-def misc_f_pay_respects(message:telebot.types.Message):
+@verify(MISC_HANDLERS, 'MISC_F_RESPECTS')
+def misc_f_respects(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"pay respects {chr(0x1F64F)}")
     return
 
