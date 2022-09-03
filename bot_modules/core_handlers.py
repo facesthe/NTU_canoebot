@@ -75,7 +75,11 @@ def handle_wavegym(message:telebot.types.Message):
 @bot.message_handler(commands=['weeklybreakdown'])
 @ht.register_function("/weeklybreakdown", True, True)
 @lg.decorators.info()
-def handle_weekly_breakdown(message:telebot.types.Message = None, chat_id:int = None):
+def handle_weekly_breakdown(
+    message:telebot.types.Message = None,
+    chat_id:int = None,
+    date_override:date = None
+):
     '''Returns a breakdown of people going to training for the current week, Mon-Sun.'''
 
     ## param validation
@@ -84,7 +88,11 @@ def handle_weekly_breakdown(message:telebot.types.Message = None, chat_id:int = 
     elif message is not None and chat_id is not None:
         raise ValueError("Only one parameter can be passed as not None")
 
-    reply = ss.weekly_breakdown()
+    if date_override:
+        reply = ss.weekly_breakdown(date_override)
+    else:
+        reply = ss.weekly_breakdown()
+
     kb = telebot.types.InlineKeyboardMarkup().add(
         *[
             telebot.types.InlineKeyboardButton(
