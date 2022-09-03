@@ -407,7 +407,7 @@ def update_existing_cache_entries_threaded(force=False):
         subthread.join()
 
     t_end = time.time()
-    lg.functions.info(
+    lg.functions.debug(
         f"update time for {len(thread_vector)} thread(s): ""{:5.4f}s".format(t_end - t_start)
     )
 
