@@ -67,6 +67,16 @@ def update_globals():
     global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
 
     SHEET_CONFIGS = getconfigsheet()
+    indices_to_drop: list = []
+    for i in range(len(SHEET_CONFIGS)):
+        # print(SHEET_CONFIGS.loc[i, "name"])
+        if SHEET_CONFIGS.loc[i, "name"] is np.nan or SHEET_CONFIGS.loc[i, "name"] is pd.NA:
+            indices_to_drop.append(i)
+
+    ## drop the empty rows
+    SHEET_CONFIGS.drop(indices_to_drop, axis=0, inplace=True)
+    SHEET_CONFIGS = SHEET_CONFIGS.reset_index(drop=True)
+
 
     SHORT_NAME = SHEET_CONFIGS.iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
     LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
@@ -85,8 +95,9 @@ def update_globals():
     BOAT_ALLOCATIONS = copy.deepcopy(
         SHEET_CONFIGS.loc[:, ['name','boat_1','boat_2']]
     )
-    for i in range(len(BOAT_ALLOCATIONS['name'])):
-        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME:
+
+    for i in range(len(BOAT_ALLOCATIONS)):
+        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME.keys():
             BOAT_ALLOCATIONS['name'][i] = SHORT_NAME[BOAT_ALLOCATIONS['name'][i]]
 
     BOAT_ALLOCATIONS.replace({pd.NA: np.nan}, inplace=True)
@@ -471,7 +482,7 @@ def namelist(date_time_str:str='')->pd.Series:
 
 
 ## pair up the boats with names
-def match2boats(df_session:pd.Series)->pd.DataFrame:
+def match2boats(df_session:pd.Series, deconf=True)->pd.DataFrame:
     boatlist = ['' for i in range(3)] ## 3 top rows used for description
     boats = BOAT_ALLOCATIONS
     session_list = df_session[3:].tolist()
@@ -506,8 +517,10 @@ def match2boats(df_session:pd.Series)->pd.DataFrame:
         'col2':boatlist
     })
 
-    ## perform recursive deconflict here (recursive part not fully implemented)
-    if DECONFLICT: ## enable by changing this to TRUE (top of file)
+    if deconf == False: ## this param has greater priority than the deconflict config
+        pass
+    ## perform recursive deconflict here
+    elif DECONFLICT: ## enable by changing this to TRUE (top of file)
         predeconflict() ## reset the recursion counter
         return_df = deconflict(return_df)
 
@@ -519,17 +532,17 @@ def match2boats(df_session:pd.Series)->pd.DataFrame:
     return return_df[1:].reset_index(drop=True)
 
 
-def boatallo(str_in:str='')->pd.DataFrame:
+def boatallo(str_in:str='', deconf = True)->pd.DataFrame:
     '''Boat allo function that is used by the canoebot\n
     No params -> next day used\n
     Input [date, time] as string\n
     [time] is 'pm' - ommit [time] if am session\n
     See other functions called in here for more details'''
     tempdf = namelist(str_in)
-    return match2boats(tempdf)
+    return match2boats(tempdf, deconf)
 
 
-def paddling(str_in:str='')->str:
+def paddling(str_in:str='', deconf = True)->str:
     '''Returns paddling attendance, mostly formatted'''
     try:
         date_in = parse(str_in).date()
@@ -542,7 +555,7 @@ def paddling(str_in:str='')->str:
     ## Thursday 04 Feb - display date
     date_str = date_in.strftime('%A %d %b')
 
-    boatallo_no_date:pd.DataFrame = boatallo(actual_date).iloc[1:]
+    boatallo_no_date:pd.DataFrame = boatallo(actual_date, deconf).iloc[1:]
     ## replace col headers with whitespaces of identical length
     boatallo_no_date.columns = [
         (' ' * len(boatallo_no_date.columns[i])) \

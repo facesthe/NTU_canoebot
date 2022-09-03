@@ -1,7 +1,7 @@
 '''Interface to SCF for submitting daily log sheet'''
 
 import requests as rq
-from datetime import date
+from datetime import date, timedelta
 from dateutil.parser import parse
 import random
 
@@ -31,7 +31,21 @@ AM_END_TIME     :str = s.json.formfiller.times.am.end
 PM_START_TIME   :str = s.json.formfiller.times.pm.start
 PM_END_TIME     :str = s.json.formfiller.times.pm.end
 
+## previously submitted dates for each timeslot (curr 2)
+SUBMITTED_TIMES: "list[date]" = [date.today() - timedelta(days=1) for i in range(2)]
+'''previously submitted dates for each timeslot (curr 2)'''
+
 url = f'https://docs.google.com/forms/d/e/{FORM_ID}/formResponse'
+
+def is_submitted_before(date_in: date, time_slot: int) -> bool:
+    '''Checks if logsheet was submitted before on the same day. Updates global if not submitted before'''
+    global SUBMITTED_TIMES
+
+    if SUBMITTED_TIMES[time_slot] != date_in:
+        SUBMITTED_TIMES[time_slot] = date_in
+        return False
+    else:
+        return True
 
 class logSheet():
     def __init__(self):

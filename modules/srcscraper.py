@@ -30,7 +30,7 @@ for i in range(len(FACILITY_TABLE)):
 TIME_TO_LIVE_LONG:int = 60 * 60
 '''60 minutes cache lifetime'''
 
-TIME_TO_LIVE_SHORT:int = 60 * 5
+TIME_TO_LIVE_SHORT:int = 60 * 10
 '''cache refresh interval when entering main menu'''
 
 FACILITY_CACHE:list = [
@@ -254,7 +254,10 @@ def fill_cache(date_in:date, facility_no:int, cache_line:int):
 
 
 def fill_all_cache_sets_threaded():
-    '''Fills one cache line in every set, taking the current day as reference.'''
+    '''Fills the cache lines in both sets, taking the current day as reference.
+    The first cache line covers the present day to next 7
+    The other cache line covers the past day - prev 7
+    '''
 
     current_day = date.today()
     thread_vector:list[threading.Thread] = [
@@ -267,7 +270,18 @@ def fill_all_cache_sets_threaded():
             )
         )
         for facility_no in range(len(FACILITY_TABLE))
+    ] + [
+        threading.Thread(
+            target=fill_cache,
+            args=(
+                current_day-timedelta(days=8),
+                facility_no,
+                1
+            )
+        )
+        for facility_no in range(len(FACILITY_TABLE))
     ]
+
     t_start = time.time()
     for subthread in thread_vector:
         subthread.start()
@@ -364,8 +378,12 @@ def update_single_cache_entry(facility_no:int, cache_line:int, force=False):#->b
     return ## True
 
 
-def update_existing_cache_entries_threaded():
-    '''Multithreaded update to all existing cache entries.'''
+def update_existing_cache_entries_threaded(force=False):
+    '''Multithreaded update to all existing cache entries.
+    Checks the time-to-live-short and the elapsed time in order to determine
+    if a cache line should be updated. Set force=True for an existing cache line
+    to be updated regardless of the time in cache.
+    '''
     thread_vector:list[threading.Thread] = []
 
     ## create thread array
@@ -375,7 +393,7 @@ def update_existing_cache_entries_threaded():
                 thread_vector.append(
                     threading.Thread(
                         target=update_single_cache_entry,
-                        args=(facility_no, cache_line)
+                        args=(facility_no, cache_line, force)
                     )
                 )
 

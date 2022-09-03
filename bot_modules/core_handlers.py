@@ -8,7 +8,7 @@ import copy
 from datetime import datetime, date, timedelta
 
 import telebot
-from bot_modules import keyboards
+from bot_modules import keyboards, helptext as ht
 
 from bot_modules.common_core import CanoeBot as bot
 import modules.sheetscraper as ss
@@ -22,16 +22,44 @@ import modules.bashcmds as bc
 
 import lib.liblog as lg
 
+## reloading placeholder
+def update_with_filler_message(tele_bot: telebot.TeleBot, message: telebot.types.Message, callback_rows: int=0):
+    '''Replaces the message with a filler placeholder.
+    Specify the number of callback lines (rows of callback buttons) to populate with blanks'''
+
+    kb = telebot.types.InlineKeyboardMarkup()
+    if callback_rows:
+        kb.add(
+            *[telebot.types.InlineKeyboardButton(
+                chr(0x2800),
+                callback_data=keyboards.NULL_STR
+            ) for i in range(callback_rows)],
+            row_width=1
+        )
+
+    tele_bot.edit_message_text(
+        text=ss.codeit(ut.replace_with_placeholder_random(message.text)),
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        parse_mode='Markdown',
+        reply_markup=kb
+    )
+    return
+
 ## uptime of the host machine
 @bot.message_handler(commands=['uptime'])
+@ht.register_function("/uptime", True, True)
 @lg.decorators.info()
 def misc_uptime(message:telebot.types.Message):
+    '''Get the power-on time of the host machine'''
     bot.send_message(message.chat.id, ss.codeit(bc.uptime()), parse_mode='Markdown')
 
 ## sync with contents of the 'configs' sheet
 @bot.message_handler(commands=['reload'])
+@ht.register_function("/reload", True, True)
 @lg.decorators.info()
 def handle_reload(message:telebot.types.Message):
+    '''Reload configs from the online spreadsheet'''
     ss.update_globals()
     bot.send_message(message.chat.id,'Globals updated')
 
@@ -45,9 +73,16 @@ def handle_wavegym(message:telebot.types.Message):
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
 
 @bot.message_handler(commands=['weeklybreakdown'])
+@ht.register_function("/weeklybreakdown", True, True)
 @lg.decorators.info()
-def handle_weekly_breakdown(message:telebot.types.Message):
+def handle_weekly_breakdown(message:telebot.types.Message = None, chat_id:int = None):
     '''Returns a breakdown of people going to training for the current week, Mon-Sun.'''
+
+    ## param validation
+    if message is None and chat_id is None:
+        raise ValueError("One parameter needs to passed")
+    elif message is not None and chat_id is not None:
+        raise ValueError("Only one parameter can be passed as not None")
 
     reply = ss.weekly_breakdown()
     kb = telebot.types.InlineKeyboardMarkup().add(
@@ -63,12 +98,16 @@ def handle_weekly_breakdown(message:telebot.types.Message):
             )
         for day_delta in range(-7,8,14)]
     )
+    if message is not None:
+        _chat_id = message.chat.id
+    elif chat_id is not None:
+        _chat_id = chat_id
 
     bot.send_message(
-        message.chat.id,
-        ss.codeit(reply.to_string()),
-        parse_mode="Markdown",
-        reply_markup=kb)
+    _chat_id,
+    ss.codeit(reply.to_string()),
+    parse_mode="Markdown",
+    reply_markup=kb)
 
     return
 
@@ -77,6 +116,9 @@ def handle_weekly_breakdown(message:telebot.types.Message):
 def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
     '''Advances the breakdown query one week forwards or backwards'''
     message = call.message
+
+    update_with_filler_message(bot, message, 1)
+
     cdata = jsn.loads(call.data)
     ref_date:date = date.fromisoformat(cdata["date"])
 
@@ -107,9 +149,10 @@ def callback_weekly_breakdown_nav(call: telebot.types.CallbackQuery):
 
 ## new src command - navigation using callback buttons
 @bot.message_handler(commands=['src'])
+@ht.register_function("/src", True, True)
 @lg.decorators.info()
 def handle_srcbooking_new(message:telebot.types.Message):
-    '''Displays buttons containing all available facilities'''
+    '''Telegram frontend to the horrible SRC booking page'''
     reply = "Choose a SRC facility below:"
     src_facility_list = sc.return_facility_list_shortform()
     kb = telebot.types.InlineKeyboardMarkup().add(
@@ -136,9 +179,6 @@ def handle_srcbooking_new(message:telebot.types.Message):
         reply,
         reply_markup=kb
     )
-
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: "srcbook_restart" in c.data or "srcbook_cal_back" in c.data)
@@ -176,9 +216,6 @@ def callback_srcbook_restart(call:telebot.types.CallbackQuery):
         message_id=message.message_id,
         reply_markup=kb
     )
-
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: "srcbook_close" in c.data)
@@ -215,8 +252,6 @@ def callback_srcbook_facility_select(call:telebot.types.CallbackQuery):
         message_id=message.message_id,
         reply_markup=kb
     )
-    ## do a pre-fetch (if any)
-    sc.update_existing_cache_entries_threaded()
     return
 
 @bot.callback_query_handler(func=lambda c: 'srcbook_date' in c.data)
@@ -288,6 +323,9 @@ def callback_srcbook_date_select(call:telebot.types.CallbackQuery):
 @bot.callback_query_handler(func=lambda c: "srcbook_refresh" in c.data)
 @lg.decorators.info()
 def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
+
+    update_with_filler_message(bot, call.message, 3)
+
     cdata = jsn.loads(call.data)
     sc.update_single_cache_entry(
         int(cdata["index"]),
@@ -300,7 +338,7 @@ def callback_srcbook_refresh(call:telebot.types.CallbackQuery):
     callback_srcbook_date_select(call)
     return
 
-## src command part 1
+## src command part 1 - depreceated
 @bot.message_handler(commands=['srcbookings'])
 @lg.decorators.info()
 def handle_srcbooking_1(message:telebot.types.Message):
@@ -362,11 +400,16 @@ def handle_srcbooking_4(message:telebot.types.Message, tablecol):
 ## Creates a 2 by 2 matrix of buttons that can navigate by day, timeslot, and close
 @lg.decorators.debug()
 def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->telebot.types.InlineKeyboardMarkup:
-    button_names = ['<<', '>>', 'time', 'close']
+    button_names = ['<<','\u27F3', '>>', 'time', 'close']
     cdata_navigation:dict = [
         {
             'name':f'{button_keyword}_nav',
             'date':(date_in+timedelta(days=-1)).isoformat(),
+            'time':time_slot
+        },
+        {
+            'name':f'{button_keyword}_nav',
+            'date':date_in.isoformat(),
             'time':time_slot
         },
         {
@@ -390,11 +433,14 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
                     button_names[i],
                     callback_data=jsn.dumps(cdata_navigation[i])
                 )
-                for i in range(4)
+                for i in range(5)
             ]
 
     kb = telebot.types.InlineKeyboardMarkup().add(
-        buttons[0], buttons[1], buttons[2], buttons[3],
+        *buttons[0:3],
+        row_width=3
+    ).add(
+        *buttons[3:],
         row_width=2
     )
 
@@ -402,8 +448,10 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
 
 ## fetch attendance, names only
 @bot.message_handler(commands=['namelist'])
+@ht.register_function("/namelist", True, True)
 @lg.decorators.info()
 def handle_namelist(message:telebot.types.Message):
+    '''Telegram frontend for the attendance sheet'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
 
     kb = navigation_button_gen('namelist', ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
@@ -425,6 +473,8 @@ def handle_namelist(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_namelist_nav(call:telebot.types.CallbackQuery):
     message = call.message
+
+    update_with_filler_message(bot, message, 2)
 
     cdata:dict = jsn.loads(call.data)
     namelist_date = date.fromisoformat(cdata['date'])
@@ -448,6 +498,9 @@ def callback_namelist_nav(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_namelist_time(call:telebot.types.CallbackQuery):
     message = call.message
+
+    update_with_filler_message(bot, message, 2)
+
     cdata:dict = jsn.loads(call.data)
     namelist_date = date.fromisoformat(cdata['date'])
     namelist_time = 1 - int(cdata['time'])
@@ -482,8 +535,10 @@ def callback_namelist_close(call:telebot.types.CallbackQuery):
 
 ## fetch attendance, with boats
 @bot.message_handler(commands=['boatallo'])
+@ht.register_function("/boatallo", True, True)
 @lg.decorators.info()
 def handle_boatallo(message:telebot.types.Message):
+    '''View assigned boats. Use /paddling, it's the new version'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
@@ -497,17 +552,35 @@ def handle_boatallo(message:telebot.types.Message):
 
 ## boatallo and trainingprog with formatting
 @bot.message_handler(commands=['paddling'])
+@ht.register_function("/paddling", True, True)
 @lg.decorators.info()
 def handle_paddling(message:telebot.types.Message):
+    '''See who's going for training, their auto-assigned boats, and the training programme'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.paddling(text)
     paddling_date = ut.parsedatetonext(text)
 
-    kb = keyboards.generic_kb_gen(
-        'update',
-        'paddling',
-        {"date":paddling_date.isoformat()}
-    )
+    ## template, deconf should be overritten
+    cdata: dict = {
+        "name": "paddling",
+        "date": paddling_date.isoformat(),
+        "deconf": None
+    }
+
+    cdata_deconf_true = copy.deepcopy(cdata)
+    cdata_deconf_true.update({"deconf": True})
+    cdata_deconf_false = copy.deepcopy(cdata)
+    cdata_deconf_false.update({"deconf": False})
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+    telebot.types.InlineKeyboardButton(
+        "deconf",
+        callback_data=jsn.dumps(cdata_deconf_true)
+    ),
+    telebot.types.InlineKeyboardButton(
+        "no deconf",
+        callback_data=jsn.dumps(cdata_deconf_false)
+    ))
 
     bot.send_message(
         message.chat.id,
@@ -520,18 +593,30 @@ def handle_paddling(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_paddling_refresh(call:telebot.types.CallbackQuery):
     message=call.message
-    cdata = jsn.loads(call.data)
+    cdata: dict = jsn.loads(call.data)
     paddling_date = cdata["date"]
+    deconf: bool = cdata["deconf"]
     lg.functions.debug(f'date: {paddling_date}')
 
-    reply = ss.paddling(paddling_date)
+    update_with_filler_message(bot, message, 1)
+
+    reply = ss.paddling(paddling_date, deconf)
     reply += datetime.now().strftime('\n\nLast updated at %X')
 
-    kb = keyboards.generic_kb_gen(
-        'update',
-        'paddling',
-        {"date":paddling_date}
-    )
+    cdata_deconf_true = copy.deepcopy(cdata)
+    cdata_deconf_true.update({"deconf": True})
+    cdata_deconf_false = copy.deepcopy(cdata)
+    cdata_deconf_false.update({"deconf": False})
+
+    kb = telebot.types.InlineKeyboardMarkup().add(
+    telebot.types.InlineKeyboardButton(
+        "deconf",
+        callback_data=jsn.dumps(cdata_deconf_true)
+    ),
+    telebot.types.InlineKeyboardButton(
+        "no deconf",
+        callback_data=jsn.dumps(cdata_deconf_false)
+    ))
 
     bot.edit_message_text(
         text=ss.codeit(reply),
@@ -546,8 +631,10 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
 ## view program w/ callbacks to navigate
 ## replaces trainingam and trainingpm
 @bot.message_handler(commands=['training'])
+@ht.register_function("/training", True, True)
 @lg.decorators.info()
 def handle_training_prog(message:telebot.types.Message):
+    '''View the training programme. Usually sent a week in advance'''
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     reply = ss.trainingam(text)
 
@@ -566,6 +653,9 @@ def handle_training_prog(message:telebot.types.Message):
 @lg.decorators.info()
 def callback_training_prog_nav(call:telebot.types.CallbackQuery):
     message = call.message
+
+    update_with_filler_message(bot, message, 2)
+
     cdata:dict = jsn.loads(call.data)
     new_date = ut.parsedatetocurr(cdata['date'])
     new_time = int(cdata['time'])
@@ -592,6 +682,9 @@ def callback_training_prog_nav(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def callback_training_prog_time(call:telebot.types.CallbackQuery):
     message = call.message
+
+    update_with_filler_message(bot, message, 2)
+
     cdata:dict = jsn.loads(call.data)
     new_date = ut.parsedatetocurr(cdata['date'])
     new_time = 1 - int(cdata['time'])
@@ -644,9 +737,11 @@ def handle_trainingpm(message:telebot.types.Message):
 
 ## re-writing logsheet
 @bot.message_handler(commands=['logsheet'])
+@ht.register_function("/logsheet", True, True)
 @lg.decorators.info()
 def handle_logsheet_new_start(message:telebot.types.Message = None, chat_id:int = None):
-    '''Function can be called in events.py or through message handler.
+    '''Automatically fill and send the SCF log sheet.
+    Function can be called in events.py or through message handler.
     For sending to a chat group without passing a message instance, leave the message parameter as None.'''
 
     ## param validation
@@ -697,11 +792,7 @@ def callback_logsheet_confirm(call:telebot.types.CallbackQuery):
     message = call.message
 
     ## immediately change the message contents to prevent multiple button presses
-    bot.edit_message_text(
-        chat_id=message.chat.id,
-        message_id=message.message_id,
-        text="generating logsheet data..."
-    )
+    update_with_filler_message(bot, message, 1)
 
     lg.functions.debug(f'callback data: {call.data}')
     cdata:dict = jsn.loads(call.data)
@@ -748,6 +839,15 @@ def callback_logsheet_send(call:telebot.types.CallbackQuery):
     cdata =  jsn.loads(call.data)
     lg.functions.debug(f'callback data contents: {call.data}')
 
+    ## Do not submit twice
+    if ff.is_submitted_before(date.fromisoformat(cdata["date"]), int(cdata["time"])):
+        bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=f"Logsheet: {cdata['date']} slot {cdata['time']} submitted before"
+        )
+        return
+
     logsheet = ff.logSheet()
     logsheet.settimeslot(int(cdata['time']))
     logsheet.generateform(cdata['date'])
@@ -781,8 +881,10 @@ def callback_logsheet_cancel(call:telebot.types.CallbackQuery):
 
 ## contact tracing part 1
 @bot.message_handler(commands=['trace'])
+@ht.register_function("/trace", True, True)
 @lg.decorators.info()
 def handle_traceall_1(message:telebot.types.Message):
+    '''Simple contact tracing. Uses the attendance sheet'''
     trace = ct.tracer()
     trace.reset()
     msg = bot.send_message(message.chat.id, 'enter date')
@@ -805,8 +907,10 @@ def handle_traceall_2(message:telebot.types.Message, trace:ct.tracer):
 
 ## training log part 1
 @bot.message_handler(commands=['traininglog'])
+@ht.register_function("/traininglog", True, True)
 @lg.decorators.info()
 def handle_traininglog_1(message:telebot.types.Message):
+    '''Log your training here'''
     kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add('/exit')
 

@@ -1,10 +1,14 @@
 '''Miscellaneous helper functions, used primarily in message handlers'''
 import os
+import re
+import random
 
 from dateutil.parser import parse
 from datetime import date, timedelta
 
 import lib.liblog as lg
+
+FILLER_CHAR_ARR = [chr(uni_code) for uni_code in range(0x2580, 0x25A0)]
 
 def countdown()->int:
     '''
@@ -21,6 +25,12 @@ def printsomething():
     reply = 'asd\n'\
             'asdf'
     print(reply)
+
+def replace_with_placeholder(target: str, filler: str)->str:
+    return re.sub(r"[^\s]", filler, target)
+
+def replace_with_placeholder_random(target: str)->str:
+    return replace_with_placeholder(target, random.choice(FILLER_CHAR_ARR))
 
 def parsedatetocurr(str_in='')->date:
     try:

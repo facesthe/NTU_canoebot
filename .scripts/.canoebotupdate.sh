@@ -6,7 +6,7 @@ repopath=$(realpath .)
 cd $currpath
 
 source $repopath/.scripts/functions.sh # import functions
-source $repopath/.script/echo_colours.sh # import colours
+source $repopath/.scripts/echo_colours.sh # import colours
 
 ## update pip3 modules
 source $repopath/.venv/bin/activate

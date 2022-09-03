@@ -16,6 +16,11 @@
             "MISC_OSAS"         : true,
             "MISC_WHOBOT"       : true,
             "MISC_LONGMSG"      : true,
+            "MISC_FEELDN"       : true,
+            "MISC_WOMEN"        : true,
+            "MISC_MEN"          : true,
+            "MISC_F_RESPECTS"   : true,
+            "MISC_WWWWWF"       : true,
             "MISC_BASH"         : false
         }
     },
@@ -28,7 +33,7 @@
         "deconflict_ver": 2,
         "deconflict_recursion_limit": 5,
         "paddling": {
-            "format": "*Paddling {date_str}*\n\nTime: 0715\n{boatallo_no_date}\n\nBe at start line at *0750*\n\n{trainingam_prog}\n\nPack up at *0915*",
+            "format": "*Paddling {date_str}*\n\nTime: 0720\n{boatallo_no_date}\n\nBe at start line at *0755*\n\n{trainingam_prog}\n\nPack up at *0915*\n\nnot coming (name, reason, makeup):",
             "smm_measure": "(‼️Groups that have more than 5 people in same shed and time slot please be especially careful in abiding safe distancing measure‼️)"
         }
     },
