@@ -252,7 +252,7 @@ def misc_bday(message:telebot.types.Message):
 @verify(MISC_HANDLERS, 'MISC_FEELDN')
 @lg.decorators.debug()
 def misc_feeldn(message:telebot.types.Message) :
- bot.send_message(message, 'lol feel deez nuts')
+ bot.send_message(message.chat.id, 'lol feel deez nuts')
 
 ## Women
 @bot.message_handler(regexp=r'\bwomen$')
