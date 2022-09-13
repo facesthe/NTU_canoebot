@@ -105,7 +105,7 @@ def misc_botlog(message:telebot.types.Message):
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
-@verify(MISC_HANDLERS, "MISC_BASH")
+@verify(MISC_HANDLERS)
 def misc_bash(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(f'bash input: {text}')

@@ -14,13 +14,14 @@
             "MISC_69NICE"       : true,
             "MISC_NICENICE"     : true,
             "MISC_OSAS"         : true,
-            "MISC_WHOBOT"       : true,
+            "MISC_WHO_BOT"      : true,
             "MISC_LONGMSG"      : true,
             "MISC_FEELDN"       : true,
             "MISC_WOMEN"        : true,
             "MISC_MEN"          : true,
             "MISC_F_RESPECTS"   : true,
             "MISC_WWWWWH"       : true,
+            "MISC_AYO"          : true,
             "MISC_BASH"         : false
         }
     },
