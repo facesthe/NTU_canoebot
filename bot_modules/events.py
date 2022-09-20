@@ -69,7 +69,7 @@ def enqueue_schedule():
     EVENT_SCHEDULER.every().day.at("07:00:00").do(event_daily_logsheet_prompt)
     EVENT_SCHEDULER.every().day.at("19:00:00").do(event_daily_attendance_reminder)
     EVENT_SCHEDULER.every().week.saturday.at("22:30:00").do(event_weekly_breakdown)
-    EVENT_SCHEDULER.every().day.at("00:00:01").do(sc.fill_all_cache_sets_threaded)
+    EVENT_SCHEDULER.every().day.at("00:05:00").do(sc.fill_all_cache_sets_threaded)
     EVENT_SCHEDULER.every().minute.do(sc.update_existing_cache_entries_threaded)
 
     return
