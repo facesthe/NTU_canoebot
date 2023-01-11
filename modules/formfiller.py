@@ -140,7 +140,7 @@ class logSheet():
         self.gForm.fill_option(3, 1)
         self.gForm.fill_int(4, self.star1)
         self.gForm.fill_int(5, self.star0)
-        self.gForm.fill_option(6, 1)
+        self.gForm.fill_option(6, 0 if date.today() >= date(2023, 1, 8) and date.today() <= date(2023, 1, 15) else 1) ## 0 is Kallang, 1 is Macritchie. Temp change.
         self.gForm.fill_date(7, self.date)
         self.gForm.fill_str(8, self.starttime)
         self.gForm.fill_str(9, self.endtime)
