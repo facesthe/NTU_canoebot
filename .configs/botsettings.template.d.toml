@@ -1,0 +1,42 @@
+# Keys defined here MUST be assigned a valid value.
+# Make a copy of this file, and rename it to:
+# - botsettings.template.debug.toml (if you want to test with alternate settings)
+# - botsettings.template.deploy.toml (must exist when deploying)
+
+# set to true to use this config
+use = false
+
+
+[canoebot]
+apikey = "change this to your api key"
+exco_chat = "change to exco chat id (numeric)"
+
+# not strictly required
+[canoebot.known_chats]
+# chat_alias = "chat_alias' chat id (numeric)"
+
+
+[sheetscraper]
+attendance_sheet = "attendance google sheet id"
+program_sheet = "program google sheet id"
+
+
+
+[formfiller]
+form_id = "SCF google forms id"
+
+# At least one required
+[formfiller.particulars]
+# full_name = 987654321
+
+
+
+# don't think this is used anymore
+[traininglog]
+form_id = ""
+
+
+# NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
+[logger]
+debug_level = "INFO"
+

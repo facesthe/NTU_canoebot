@@ -1,0 +1,13 @@
+# json files will be removed soon
+
+*.json
+*.toml
+
+!*.template.json
+!*.template.toml
+
+!*.template.d.json
+!*.template.d.toml
+
+!*.config.json
+!*.config.toml
