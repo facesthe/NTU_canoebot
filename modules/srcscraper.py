@@ -1,6 +1,6 @@
 '''SRC module for fetching facility availiability from NTU's Sports and Recreation Center'''
 
-import json as jsn
+import tomllib
 import pandas as pd
 import time
 import threading
@@ -13,13 +13,14 @@ import lib.Dotionary as Dot
 
 lg.functions.debug("srcscraper loaded")
 
-_path = './.configs/srcscraper.config.json' ## path to srcscraper.config
+_path = './.configs/srcscraper.config.toml' ## path to srcscraper.config
 
 SRC_LINK = 'https://sso.wis.ntu.edu.sg/webexe88/owa/sso_login1.asp?t=1&p2=https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.Notice_O&extra=&pg='
 
 ## creating config variable in Dotionary form
-with open(_path) as jsonfile:
-    json = jsn.load(jsonfile)
+with open(_path, "rb") as tomlfile:
+    # toml file has the array under the key "facilities"
+    json = tomllib.load(tomlfile)["facilities"]
 
 FACILITY_TABLE = [Dot for i in range(len(json))]
 '''Contains SRC facility info in an array of dot-notation accessible dictionaries.'''
@@ -48,7 +49,7 @@ FACILITY_CACHE:list = [
 For nerds, this implements a modified 2-way set associative cache.'''
 
 SRC_CACHE_MUTEX = threading.Lock()
-'''Cache mutex. Don't want to have corrupted data'''
+'''Cache mutex'''
 
 
 def parse_date(date_str:str) -> date:
