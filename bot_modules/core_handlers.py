@@ -8,7 +8,7 @@ import copy
 from datetime import datetime, date, timedelta
 
 import telebot
-from bot_modules import keyboards, helptext as ht
+from bot_modules import keyboards, helptext as ht, util
 
 from bot_modules.common_core import CanoeBot as bot
 import modules.sheetscraper as ss
@@ -67,7 +67,7 @@ def handle_reload(message:telebot.types.Message):
 @bot.message_handler(commands=['wavegym'])
 @lg.decorators.info()
 def handle_wavegym(message:telebot.types.Message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     bot.send_chat_action(message.chat.id, "typing")
     bot.send_message(message.chat.id, "The /wavegym command is depreceated! Use /src instead.")
     bot.send_message(message.chat.id, ss.codeit(gs.response(text)), parse_mode='Markdown')
@@ -460,8 +460,7 @@ def navigation_button_gen(button_keyword:str, date_in:date, time_slot:int)->tele
 @lg.decorators.info()
 def handle_namelist(message:telebot.types.Message):
     '''Telegram frontend for the attendance sheet'''
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
-
+    text = util.strip_message_command(message) ## new way of stripping command
     kb = navigation_button_gen('namelist', ut.parsenamelistdate(text), ut.parsenamelisttimeslot(text))
 
     try:
@@ -547,7 +546,7 @@ def callback_namelist_close(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def handle_boatallo(message:telebot.types.Message):
     '''View assigned boats. Use /paddling, it's the new version'''
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     bot.send_chat_action(message.chat.id, 'typing')
     try:
         reply = ss.boatallo(text)
@@ -564,7 +563,7 @@ def handle_boatallo(message:telebot.types.Message):
 @lg.decorators.info()
 def handle_paddling(message:telebot.types.Message):
     '''See who's going for training, their auto-assigned boats, and the training programme'''
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     reply = ss.paddling(text)
     paddling_date = ut.parsedatetonext(text)
 
@@ -643,7 +642,7 @@ def callback_paddling_refresh(call:telebot.types.CallbackQuery):
 @lg.decorators.info()
 def handle_training_prog(message:telebot.types.Message):
     '''View the training programme. Usually sent a week in advance'''
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     reply = ss.trainingam(text)
 
     kb = navigation_button_gen('training_prog', ut.parsedatetocurr(text), 0)
@@ -732,14 +731,14 @@ def callback_training_prog_close(call:telebot.types.CallbackQuery):
 @bot.message_handler(commands=['trainingam'])
 @lg.decorators.info()
 def handle_trainingam(message:telebot.types.Message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     reply = ss.trainingam(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
 @bot.message_handler(commands=['trainingpm'])
 @lg.decorators.info()
 def handle_trainingpm(message:telebot.types.Message):
-    text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    text = util.strip_message_command(message) ## new way of stripping command
     reply = ss.trainingpm(text)
     bot.send_message(message.chat.id, reply, parse_mode='Markdown')
 
@@ -759,13 +758,13 @@ def handle_logsheet_new_start(message:telebot.types.Message = None, chat_id:int 
         raise ValueError("Only one parameter can be passed as not None")
 
     if message is not None:
-        text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+        text = util.strip_message_command(message) ## new way of stripping command
         message_chat_id = message.chat.id
     elif chat_id is not None:
         text = ""
         message_chat_id = chat_id
 
-    # text = ' '.join(message.text.split()[1:]) ## new way of stripping command
+    # text = util.strip_message_command(message) ## new way of stripping command
     log_date = ut.parsedatetocurr(text)
 
     button_names = ['AM','PM']

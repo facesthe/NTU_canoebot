@@ -5,7 +5,8 @@ version: "3"
 
 services:
   bot:
-    image: ntu_canoebot:latest
+    image: ntu_canoebot
+    container_name: ntucanoebot
 
     build:
       context: .
