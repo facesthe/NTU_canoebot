@@ -1,4 +1,4 @@
-# This config file contains defaults.
+# This config file contains defaults. Do not modify.
 # Matching keys in deploy/debug file will override values in this file.
 # These override files should be named:
 # - botsettings.template.debug.toml (if you want to test with alternate settings)
@@ -30,6 +30,7 @@ MISC_WWWWWH       = true
 MISC_AYO          = true
 MISC_BASH         = false
 
+
 [sheetscraper]
 attendance_sheet = "google sheets sheetid"
 program_sheet = "google sheets sheetid"
@@ -38,14 +39,23 @@ use_deconflict = true
 deconflict_ver = 2
 deconflict_recursion_limit = 5
 
-[sheetscraper.paddling]
-# these are the variables that require substitution:
-# - date_str
-# - boatallo_no_date
-# - trainingam_prog
-format = "*Paddling {date_str}*\n\nTime: 0720\n{boatallo_no_date}\n\nBe at start line at *0755*\n\n{trainingam_prog}\n\nPack up at *0915*\n\nnot coming (name, reason, makeup):"
-smm_measure = "" # obselete
+# switch from old -> new ON this date
+# it defaults to sheetscraper.new if this is not overriden
+changeover_date = 1970-01-01
 
+# previous AY configuration
+[sheetscraper.old]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
+
+# new AY configuration
+[sheetscraper.new]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
+
+[sheetscraper.paddling]
+format = "Paddling {date_str}\n\n{boatallo_no_date}\n\n{trainingam_prog}"
+smm_measure = "" # no longer used
 
 [formfiller]
 form_id = "SCF logsheet form id"
@@ -65,6 +75,6 @@ end     = "17:30"
 [traininglog]
 form_id = ""
 
-
+########
 [logger]
 log_level = "DEBUG"

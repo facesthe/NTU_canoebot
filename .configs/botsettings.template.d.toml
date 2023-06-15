@@ -4,6 +4,7 @@
 # - botsettings.template.deploy.toml (must exist when deploying)
 
 # set to true to use this config
+# if debug and deploy both have this set to `true`, debug is used.
 use = false
 
 
@@ -17,9 +18,26 @@ exco_chat = "change to exco chat id (numeric)"
 
 
 [sheetscraper]
-attendance_sheet = "attendance google sheet id"
-program_sheet = "program google sheet id"
+# if this field is not defined, it will default to 1970-01-01
+# as specified in `botsettings.template.toml`.
+changeover_date = 1970-01-01
 
+# these are the variables that require substitution:
+# - date_str
+# - boatallo_no_date
+# - trainingam_prog
+paddling.format = "your paddling format"
+
+
+# previous AY configuration
+[sheetscraper.old]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
+
+# new AY configuration
+[sheetscraper.new]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
 
 
 [formfiller]
@@ -38,5 +56,5 @@ form_id = ""
 
 # NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 [logger]
-debug_level = "INFO"
+log_level = "INFO"
 
