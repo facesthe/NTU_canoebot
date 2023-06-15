@@ -41,8 +41,3 @@ def verify_exec(lookup: dict, key: str = None):
 
         return wrapper
     return inner
-
-def strip_message_command(msg: telebot.types.Message) -> str:
-    '''Removes first word (the command) from message'''
-
-    return ' '.join(msg.text.split()[1:])
