@@ -10,7 +10,7 @@ from datetime import date, timedelta
 import schedule
 import telebot.types as telebot_types
 
-import bot_modules
+# import bot_modules
 from bot_modules.common_core import CanoeBot as bot
 import bot_modules.core_handlers as core
 import modules.srcscraper as sc
