@@ -130,10 +130,8 @@ def misc_wiki_search(message: telebot.types.Message):
 
 ## ooga - booga
 ooga_booga = regex_handler("misc_oogabooga", "ooga", "booga")
-ooga_booga = regex_handler("misc_oogabooga", "ooga", "booga")
 
 ## marco - polo
-marco_polo = regex_handler("misc_marcopolo", "marco", "polo")
 marco_polo = regex_handler("misc_marcopolo", "marco", "polo")
 
 ## ping - pong (only if 'ping' as a word is inside)
@@ -145,7 +143,6 @@ def misc_pingpong(message:telebot.types.Message):
 
 ## die - same tbh
 die_tbh = regex_handler("misc_dietbh", "die", "same tbh")
-die_tbh = regex_handler("misc_dietbh", "die", "same tbh")
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
@@ -156,14 +153,11 @@ def misc_hellno(message:telebot.types.Message):
 
 ## help - no
 help_no = regex_handler("misc_helpno", "help", "no")
-help_no = regex_handler("misc_helpno", "help", "no")
 
 ## 69 - nice (see below for continuation)
 nice = regex_handler("misc_69nice", "69", "nice")
-nice = regex_handler("misc_69nice", "69", "nice")
 
 ## nice - nice (see above for previous)
-nice_nice = regex_handler("misc_nicenice", "nice", "nice")
 nice_nice = regex_handler("misc_nicenice", "nice", "nice")
 
 ## OSAS
@@ -247,19 +241,14 @@ def misc_bday(message:telebot.types.Message):
 
 ## deez
 feel_deez_nuts = regex_handler("misc_feeldn", r"\bfeel\b", "lol feel deez nuts")
-## deez
-feel_deez_nuts = regex_handler("misc_feeldn", r"\bfeel\b", "lol feel deez nuts")
 
 ## Women
-women = regex_handler("misc_women", r"\bwomen$", f"women {chr(0x2615)}")
 women = regex_handler("misc_women", r"\bwomen$", f"women {chr(0x2615)}")
 
 ## Men
 men = regex_handler("misc_men", r"\bmen$", f"men {chr(0x1F37A)}")
-men = regex_handler("misc_men", r"\bmen$", f"men {chr(0x1F37A)}")
 
 ## f-pay respects
-f_respects = regex_handler("misc_f_respects", r"^f$", f"pay respects {chr(0x1F64F)}")
 f_respects = regex_handler("misc_f_respects", r"^f$", f"pay respects {chr(0x1F64F)}")
 
 ## used by wwwwwh below
