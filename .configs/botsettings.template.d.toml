@@ -14,12 +14,13 @@ exco_chat = "change to exco chat id (numeric)"
 
 # not strictly required
 [canoebot.known_chats]
-# chat_alias = "chat_alias' chat id (numeric)"
+# chat_1 = 1234567890
 
 
 [sheetscraper]
 # if this field is not defined, it will default to 1970-01-01
 # as specified in `botsettings.template.toml`.
+# change to first day of 'new' attendance and program sheet.
 changeover_date = 1970-01-01
 
 # these are the variables that require substitution:
@@ -46,7 +47,7 @@ form_id = "SCF google forms id"
 # At least one required
 [formfiller.particulars]
 # full_name = 987654321
-
+# "full name in quotes" = 987654321
 
 
 # don't think this is used anymore
@@ -57,4 +58,3 @@ form_id = ""
 # NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 [logger]
 log_level = "INFO"
-

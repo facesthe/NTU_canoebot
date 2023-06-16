@@ -32,8 +32,6 @@ MISC_BASH         = false
 
 
 [sheetscraper]
-attendance_sheet = "google sheets sheetid"
-program_sheet = "google sheets sheetid"
 getnames_ver = 2
 use_deconflict = true
 deconflict_ver = 2
