@@ -55,6 +55,19 @@ form_id = "SCF google forms id"
 form_id = ""
 
 
+[events.daily.logsheet_prompt]
+enable = false
+time = 07:00:00
+
+[events.daily.attendance_reminder]
+enable = false
+time = 19:00:00
+
+[events.weekly.breakdown] # saturdays
+enable = true
+time = 22:30:00
+
+
 # NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 [logger]
 log_level = "INFO"

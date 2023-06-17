@@ -65,10 +65,18 @@ def enqueue_schedule():
     '''Queues up all events to be executed.
     Add any periodic events here.
     '''
+    if s.json.events.daily.logsheet_prompt.enable:
+        event_time = s.json.events.daily.logsheet_prompt.time
+        EVENT_SCHEDULER.every().day.at(str(event_time)).do(event_daily_logsheet_prompt)
 
-    EVENT_SCHEDULER.every().day.at("07:00:00").do(event_daily_logsheet_prompt)
-    EVENT_SCHEDULER.every().day.at("19:00:00").do(event_daily_attendance_reminder)
-    EVENT_SCHEDULER.every().week.saturday.at("22:30:00").do(event_weekly_breakdown)
+    if s.json.events.daily.attendance_reminder.enable:
+        event_time = s.json.events.daily.attendance_reminder.time
+        EVENT_SCHEDULER.every().day.at(str(event_time)).do(event_daily_attendance_reminder)
+
+    if s.json.events.weekly.breakdown.enable:
+        event_time = s.json.events.weekly.breakdown.time
+        EVENT_SCHEDULER.every().week.saturday.at(str(event_time)).do(event_weekly_breakdown)
+
     EVENT_SCHEDULER.every().day.at("00:05:00").do(sc.fill_all_cache_sets_threaded)
     EVENT_SCHEDULER.every().minute.do(sc.update_existing_cache_entries_threaded)
 
