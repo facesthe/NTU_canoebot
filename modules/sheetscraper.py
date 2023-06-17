@@ -6,7 +6,6 @@ import copy
 from datetime import date, timedelta
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
-import os
 
 import lib.liblog as lg ## new logging extension
 import modules.settings as s ## bot settings
@@ -30,16 +29,36 @@ CERT_STATUS:dict = {}
 EXCO_NAMES:"list[str]" = []
 '''List of exco members'''
 
+_SHEET_CONFIGS: list[pd.DataFrame] = [pd.DataFrame() for _ in range(2)]
+'''Holds a frame containing the current configuration sheet in the paddling attendance.
+Sheet name is 'configs'.'''
+_BOAT_ALLOCATIONS:   list[pd.DataFrame] =    [pd.DataFrame() for _ in range(2)]
+'''Contains boat allocations taken from sheet configs.'''
+_SHORT_NAME:         list[dict] =            [{} for _ in range(2)]
+'''dictionary to convert short -> long names'''
+_LONG_NAME:          list[dict] =            [{} for _ in range(2)]
+'''dictionary to convert long -> short names'''
+_CERT_STATUS:        list[dict] =            [{} for _ in range(2)]
+'''dictionary that contains key-val pairs of each person and their 1-star status'''
+_EXCO_NAMES:         list[list[str]] =       [[] for _ in range(2)]
+'''List of exco members'''
 
-## Update this if needed, or sheetscraper won't work!
-## change the settings in botsettings.json
-SHEET_ID:str =              s.json.sheetscraper.attendance_sheet
-SHEET_PROG:str =            s.json.sheetscraper.program_sheet
+
+CURR_CONFIG: bool = True
+'''Current config type for sheetscraper. new == True, old == False.
+As False evaluates to 0 and True to 1, this is used to index an array.
+'''
+
+
+## change these settings in toml file
+SHEET_ID:str =              s.json.sheetscraper.new.attendance_sheet
+SHEET_PROG:str =            s.json.sheetscraper.new.program_sheet
 DECONFLICT:int =            s.json.sheetscraper.use_deconflict
 DECONFLICT_VERSION:int =    s.json.sheetscraper.deconflict_ver
 RECURSION_LIMIT:int =       s.json.sheetscraper.deconflict_recursion_limit
 PADDLING_FMT:str =          s.json.sheetscraper.paddling.format
 SMM_MEASURE:str =           s.json.sheetscraper.paddling.smm_measure
+CHANGEOVER_DATE:date =      s.json.sheetscraper.changeover_date
 
 
 DIRECTORY_STRUCTURE :dict = {
@@ -54,55 +73,103 @@ DIRECTORY_STRUCTURE :dict = {
 
 ut.mkdirs_from_dict(DIRECTORY_STRUCTURE)
 
-## Functions are defined from least dependent to most
+
+def update_sheeet_ids(date_in: date):
+    '''Update the sheet ids depending on the query date.
+    New implementation has old/new sheet ids, so this is now required.
+    '''
+
+    global SHEET_ID, SHEET_PROG, CHANGEOVER_DATE, CURR_CONFIG
+
+    if date_in >= CHANGEOVER_DATE:
+        SHEET_ID = s.json.sheetscraper.new.attendance_sheet
+        SHEET_PROG = s.json.sheetscraper.new.program_sheet
+        CURR_CONFIG = True
+    else:
+        SHEET_ID = s.json.sheetscraper.old.attendance_sheet
+        SHEET_PROG = s.json.sheetscraper.old.program_sheet
+        CURR_CONFIG = False
+
+    return
+
+
+def update_globals():
+    '''Create/update the global variables defined at the top of file'''
+    global _SHEET_CONFIGS, _BOAT_ALLOCATIONS, _SHORT_NAME, _LONG_NAME, _CERT_STATUS, _EXCO_NAMES
+
+
+    _SHEET_CONFIGS[CURR_CONFIG] = getconfigsheet()
+    indices_to_drop: list = []
+    for i in range(len(_SHEET_CONFIGS[CURR_CONFIG])):
+        # print(_SHEET_CONFIGS[CURR_CONFIG].loc[i, "name"])
+        if _SHEET_CONFIGS[CURR_CONFIG].loc[i, "name"] is np.nan or _SHEET_CONFIGS[CURR_CONFIG].loc[i, "name"] is pd.NA:
+            indices_to_drop.append(i)
+
+    ## drop the empty rows
+    _SHEET_CONFIGS[CURR_CONFIG].drop(indices_to_drop, axis=0, inplace=True)
+    _SHEET_CONFIGS[CURR_CONFIG] = _SHEET_CONFIGS[CURR_CONFIG].reset_index(drop=True)
+
+
+    _SHORT_NAME[CURR_CONFIG] = _SHEET_CONFIGS[CURR_CONFIG].iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
+    _LONG_NAME[CURR_CONFIG] = {value:key for (key,value) in _SHORT_NAME[CURR_CONFIG].items()}
+
+    _CERT_STATUS[CURR_CONFIG].clear()
+    cert_status_long_form = _SHEET_CONFIGS[CURR_CONFIG][['name','1_star']].set_index('name')['1_star'].to_dict()
+    for key in list(cert_status_long_form):
+        if key in _SHORT_NAME[CURR_CONFIG]:
+            _CERT_STATUS[CURR_CONFIG][_SHORT_NAME[CURR_CONFIG][key]] = cert_status_long_form[key]
+        else:
+            _CERT_STATUS[CURR_CONFIG][key] = cert_status_long_form[key]
+
+    _EXCO_NAMES[CURR_CONFIG].clear()
+    _EXCO_NAMES[CURR_CONFIG] = _SHEET_CONFIGS[CURR_CONFIG].loc[_SHEET_CONFIGS[CURR_CONFIG]['is_exco'] == 1]['name'].to_list()
+
+    _BOAT_ALLOCATIONS[CURR_CONFIG] = copy.deepcopy(
+        _SHEET_CONFIGS[CURR_CONFIG].loc[:, ['name','boat_1','boat_2']]
+    )
+
+    for i in range(len(_BOAT_ALLOCATIONS[CURR_CONFIG])):
+        if _BOAT_ALLOCATIONS[CURR_CONFIG]['name'][i] in _SHORT_NAME[CURR_CONFIG].keys():
+            _BOAT_ALLOCATIONS[CURR_CONFIG]['name'][i] = _SHORT_NAME[CURR_CONFIG][_BOAT_ALLOCATIONS[CURR_CONFIG]['name'][i]]
+
+    _BOAT_ALLOCATIONS[CURR_CONFIG].replace({pd.NA: np.nan}, inplace=True)
+
+    return
+
+
+def update_both_global_sets():
+    '''Update both the new and old configs'''
+
+    # old
+    update_sheeet_ids(CHANGEOVER_DATE - timedelta(days=1))
+    update_globals()
+
+    # new
+    update_sheeet_ids(CHANGEOVER_DATE)
+    update_globals()
+
+    update_sheeet_ids(date.today())
+    switch_to_global_set()
+    return
+
+
+def switch_to_global_set():
+    global _SHEET_CONFIGS, _BOAT_ALLOCATIONS, _SHORT_NAME, _LONG_NAME, _CERT_STATUS, _EXCO_NAMES
+    global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
+
+    SHEET_CONFIGS = _SHEET_CONFIGS[CURR_CONFIG]
+    BOAT_ALLOCATIONS = _BOAT_ALLOCATIONS[CURR_CONFIG]
+    SHORT_NAME = _SHORT_NAME[CURR_CONFIG]
+    LONG_NAME = _LONG_NAME[CURR_CONFIG]
+    CERT_STATUS = _CERT_STATUS[CURR_CONFIG]
+    EXCO_NAMES = _EXCO_NAMES[CURR_CONFIG]
+
+    return
 
 
 def getconfigsheet()->pd.DataFrame:
     url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=configs'
     return pd.read_csv(url).iloc[:,1:].dropna(how="all", axis=1)
-
-
-def update_globals():
-    '''Create/update the global variables defined at the top of file'''
-    global SHEET_CONFIGS, BOAT_ALLOCATIONS, SHORT_NAME, LONG_NAME, CERT_STATUS, EXCO_NAMES
-
-    SHEET_CONFIGS = getconfigsheet()
-    indices_to_drop: list = []
-    for i in range(len(SHEET_CONFIGS)):
-        # print(SHEET_CONFIGS.loc[i, "name"])
-        if SHEET_CONFIGS.loc[i, "name"] is np.nan or SHEET_CONFIGS.loc[i, "name"] is pd.NA:
-            indices_to_drop.append(i)
-
-    ## drop the empty rows
-    SHEET_CONFIGS.drop(indices_to_drop, axis=0, inplace=True)
-    SHEET_CONFIGS = SHEET_CONFIGS.reset_index(drop=True)
-
-
-    SHORT_NAME = SHEET_CONFIGS.iloc[:, :2].dropna().set_index('name')['shortname'].to_dict()
-    LONG_NAME = {value:key for (key,value) in SHORT_NAME.items()}
-
-    CERT_STATUS.clear()
-    cert_status_long_form = SHEET_CONFIGS[['name','1_star']].set_index('name')['1_star'].to_dict()
-    for key in list(cert_status_long_form):
-        if key in SHORT_NAME:
-            CERT_STATUS[SHORT_NAME[key]] = cert_status_long_form[key]
-        else:
-            CERT_STATUS[key] = cert_status_long_form[key]
-
-    EXCO_NAMES.clear()
-    EXCO_NAMES = SHEET_CONFIGS.loc[SHEET_CONFIGS['is_exco'] == 1]['name'].to_list()
-
-    BOAT_ALLOCATIONS = copy.deepcopy(
-        SHEET_CONFIGS.loc[:, ['name','boat_1','boat_2']]
-    )
-
-    for i in range(len(BOAT_ALLOCATIONS)):
-        if BOAT_ALLOCATIONS['name'][i] in SHORT_NAME.keys():
-            BOAT_ALLOCATIONS['name'][i] = SHORT_NAME[BOAT_ALLOCATIONS['name'][i]]
-
-    BOAT_ALLOCATIONS.replace({pd.NA: np.nan}, inplace=True)
-
-    return
 
 
 ## basic function for importing google sheet data as a dataframe
@@ -121,6 +188,9 @@ def getgooglesheet(sheet_id, sheet_name='')->pd.DataFrame:
 
 ## For training program sheet (separate from paddling attendance)
 def gettrainingprog(date_in:date)->pd.DataFrame:
+    update_sheeet_ids(date_in) # modifier for program sheet
+    update_globals()
+    switch_to_global_set()
     prog_table = getgooglesheet(SHEET_PROG)
     prog_day = prog_table[prog_table['Date'].str.match(date_in.strftime('%Y-%m-%d'))]
     prog_day = prog_day.iloc[:,[2,3]].reset_index(drop=True)
@@ -132,7 +202,7 @@ def gettrainingprog(date_in:date)->pd.DataFrame:
 def trainingam_no_date(str_in:str)->str:
     '''Same as trainingam but without a date header'''
     try:
-        date_in = parse(str_in)
+        date_in = parse(str_in).date()
     except:
         date_in = date.today()
 
@@ -148,7 +218,7 @@ def trainingam_no_date(str_in:str)->str:
 ## am version
 def trainingam(str_in:str)->str:
     try:
-        date_in = parse(str_in)
+        date_in = parse(str_in).date()
     except:
         date_in = date.today()
 
@@ -165,7 +235,7 @@ def trainingam(str_in:str)->str:
 ## pm version
 def trainingpm(str_in:str)->str:
     try:
-        date_in = parse(str_in)
+        date_in = parse(str_in).date()
     except:
         date_in = date.today()
 
@@ -290,6 +360,10 @@ def getsheet(date_in:date)->pd.DataFrame:
     '''Returns the chosen month as a dataframe.
 
     Note that the start and end of the month are not consistent.'''
+
+    update_sheeet_ids(date_in) # modifier for attendance sheet
+    update_globals()
+    switch_to_global_set()
     url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={getsheetname(date_in)}'
     df_raw = pd.read_csv(url, header=None)
     df_raw.drop(columns=[0],inplace=True)
@@ -322,7 +396,7 @@ def getnames(str_in:str, time:int)->pd.Series:
     ## no longer require the count for males and females
     vertoffset = findlowestname(raw_sheet) + 2 ## dynamic, changes based on how many names are in excel
 
-    sheet_start_date = parse(raw_sheet.iloc[1,0]) ## make sure that sheet start date is input correctly in Gsheets
+    sheet_start_date = parse(raw_sheet.iloc[1,0]).date() ## make sure that sheet start date is input correctly in Gsheets
     raw_sheet = raw_sheet.iloc[:,1:]
     lg.functions.debug(sheet_start_date) ## for debugging
     ## get the relative location of the col corresponding to date
@@ -880,4 +954,4 @@ def findlowestname(df_in:pd.DataFrame) -> int:
         index += 1
 
 ## run update on import/load
-update_globals()
+update_both_global_sets()

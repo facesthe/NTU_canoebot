@@ -3,10 +3,8 @@
 import multiprocessing
 import telebot
 
-import modules.json_update
-modules.json_update.run()
-
 import modules.settings as s
+s.run()
 
 TOKEN = s.json.canoebot.apikey
 SYS_THREADS_AVAIL = multiprocessing.cpu_count()

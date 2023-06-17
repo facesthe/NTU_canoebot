@@ -27,11 +27,11 @@ def misc_ping(message:telebot.types.Message):
     kb = telebot.types.InlineKeyboardMarkup().add(
         telebot.types.InlineKeyboardButton(
             "continue",
-            callback_data="ping_continue"
+            callback_data=f"ping_continue:{message.message_id}"
         ),
         telebot.types.InlineKeyboardButton(
             "cancel",
-            callback_data="ping_cancel"
+            callback_data=f"ping_cancel:{message.message_id}"
         )
     )
 
@@ -64,9 +64,16 @@ def callback_ping_send(call:telebot.types.CallbackQuery):
 
     time.sleep(10)
 
+    # delete self
     bot.delete_message(
         chat_id=message.chat.id,
         message_id=message.message_id
+    )
+    time.sleep(1)
+    # delete command
+    bot.delete_message(
+        chat_id=message.chat.id,
+        message_id=int(call.data.split(":")[1])
     )
 
     return
@@ -88,6 +95,12 @@ def callback_ping_cancel(call:telebot.types.CallbackQuery):
         chat_id=message.chat.id,
         message_id=message.message_id
     )
+    time.sleep(1)
+    # delete command
+    bot.delete_message(
+        chat_id=message.chat.id,
+        message_id=int(call.data.split(":")[1])
+    )
 
     return
 
@@ -105,7 +118,7 @@ def misc_botlog(message:telebot.types.Message):
 
 ## bash - DISABLE THIS AFTER TESTING
 @bot.message_handler(commands=['bash'])
-@verify(MISC_HANDLERS, "MISC_BASH")
+@verify(MISC_HANDLERS)
 def misc_bash(message:telebot.types.Message):
     text = ' '.join(message.text.split()[1:]) ## new way of stripping command
     lg.functions.warning(f'bash input: {text}')

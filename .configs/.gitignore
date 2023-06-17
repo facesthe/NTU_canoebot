@@ -1,0 +1,5 @@
+*.toml
+
+!*.template.toml
+!*.template.d.toml
+!*.config.toml

@@ -5,28 +5,28 @@ If you are able to access this repo, you are able to download and host your own 
 
 ## Prerequisites
 
-### For Debian/Ubuntu-based systems:
-Install the venv package for python3 by running:
+```sh
+# For Debian/Ubuntu
+sudo apt install python3-venv
 
-`sudo apt install python3-venv`
+# lxml dependency
+sudo apt install libxslt-dev
 
-Install the dependency for lxml by running:
+# For Raspberry Pis (3B and up, zero 2)
+sudo apt install libatlas-base-dev
+```
 
-`sudo apt install libxslt-dev`
-
-### For Raspberry Pi (3B and up, zero 2)
-Install the numpy c-extensions by running:
-
-`sudo apt install libatlas-base-dev`
+### Docker
+[Install docker engine](https://docs.docker.com/engine/install/)
 
 ---
 
 ## Installing
 This bot is designed to work on Linux-based systems E.g. Debian, Arch, WSL.
 
-### For developers
+### For dev
 
-Install dependencies in a python virtual environment by running:
+Install if you are running the bot locally without a container:
 
 `bash .scripts/install_venv.sh`
 
@@ -41,20 +41,17 @@ Install dependencies in a python virtual environment by running:
 
     `cd /path/to/this/repo`
 
-3. Run the install script:
+3. Create config file
 
-    `bash .scripts/install.sh`
+    Copy the file `.configs/botsettings.template.d.toml` to
+    `.configs/botsettings.template.deploy.toml` and follow the instructions inside.
+    [More info here.](#configuring-settings)
 
-    This script installs the necessary python modules in a virtual environment,
-    adds bash aliases to start/stop/view logs, and sets up crontabs.
+4. Build and run container
 
-4. Set your host machine's timezone
+    `docker compose build`
 
-    **This is important!**
-    If timezones are set up incorrectly, scheduled events will not trigger at the correct time.
-    Set the timezone by running:
-
-    `sudo timedatectl set-timezone <your-timezone>`
+    `docker compose up -d`
 
 ---
 
@@ -68,46 +65,32 @@ This removes all installed bash aliases, crontabs and the python virtual environ
 ---
 
 ## Configuring settings
-Now that the bot has been installed, it needs to be set up to point to all the necessary Google resource IDs in order to function properly.
-Navigate to the following directory:
+Before starting the bot, it needs to be set up to point to all the necessary Google resource IDs in order to function properly.
 
-`cd .configs && ls -al`
+Create 2 copies of `botsettings.template.d.toml`:
+- `botsettings.template.deploy.toml` (mandatory)
+- `botsettings.template.debug.toml` (optional)
 
-Note the files that contain "template" in them.
-These will be the only files that require modification.
-<!-- Let's go over what needs to be modified for each file. -->
-
-### botsettings.template.json
-This file contains common settings shared between the debug and deployed versions of the bot.
-For the most part, this file does not need to be modified.
-
-### botsettings.template.deploy.json
-This file contains private parameters (API keys, google sheet IDs).
-The example file for reference is `botsettings.template.d.json`.
-Create a copy of this file and rename it to `botsettings.template.deploy.json`.
-Add the API key for the deployed version of the bot, google forms resource IDs, and set the logging level to "INFO" to show informational logs and above.
-
-### botsettings.template.debug.json
-This file also takes reference to `botsettings.template.d.json`.
-Follow the same procedure as above, but name the file `botsettings.template.debug.json` instead.
-Change the API key to a different bot, and change the log level to "DEBUG".
+Fill in all keys except those marked optional
 
 ### Review
-Altogether there should now be 4 'template' JSON files inside `.configs`:
-- `botsettings.template.json`
-- `botsettings.template.d.json`
-- `botsettings.template.deploy.json`
-- `botsettings.template.debug.json`
+Altogether there should now be 4 'template' TOML files inside `.configs`:
+- `botsettings.template.toml`
+- `botsettings.template.d.toml`
+- `botsettings.template.deploy.toml` (mandatory)
+- `botsettings.template.debug.toml` (optional)
 
-During startup, these files will be read and merged, creatiing 2 more files:
-- `botsettings.json`: Actual deployed configuration file read in by canoebot
-- `botsettings.debug.json`: Debug configuration file
+To use either `debug` or `deploy` configuration, set the "use" key to true:
+```toml
+# set to true to use this config
+use = true
 
-Do not modifiy these two files, they are regenerated every startup.
+# ... the rest
+```
 
 ---
 
-## Usage: command line
+<!-- ## Usage: command line
 After running the install script there should be 8 new bash aliases added to your `~/.bash_aliases` file:
 
 You will need to run `source ~/.bash_aliases` once in order for these to show up.
@@ -121,7 +104,7 @@ You will need to run `source ~/.bash_aliases` once in order for these to show up
 | `canoebotdeploy` | Switches the bot to deploy settings, API keys, etc. |
 | `canoebotdebug` | Switches the bot to debug settings, API keys, etc. **Default setting.** |
 | `canoebotvenventer` | Enter the bot's python virtual environment |
-| `canoebotvenvexit` | Exit the python virtual environment. |
+| `canoebotvenvexit` | Exit the python virtual environment. | -->
 
 ---
 
@@ -131,12 +114,10 @@ These are the current list of public commands available. Copy and paste these wh
     help - help
     reload - refresh sheet data
     whoami - who u
-    uptime - power on time
     what - what is it?
     whatactually - what is it actually?
     src - view SRC facilities
     countdown - days left to ITCC
-    traininglog - daily training log
     namelist - see who's going training
     training - view training program
     paddling - full paddling attendance

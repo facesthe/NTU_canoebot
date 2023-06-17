@@ -40,6 +40,21 @@ narc_prayer = [
     "And if I did, you deserved it."
 ]
 
+def regex_handler(func_name: str, regex: str, reply: str):
+    '''For simple regex-reply handlers. Func name should exist inside
+    MISC_HANDLERS if doing conditional execution.'''
+
+    @bot.message_handler(regexp=regex)
+    @verify(MISC_HANDLERS, func_name)
+    @lg.decorators.debug(func_name)
+    def regex_replier(message: telebot.types.Message) -> None:
+        bot.reply_to(message, reply)
+        return
+
+    regex_replier.__name__ = func_name
+
+    return regex_replier
+
 @bot.message_handler(commands=['start'])
 @ht.register_function("/start", True, True)
 def handle_start(message:telebot.types.Message):
@@ -114,60 +129,36 @@ def misc_wiki_search(message: telebot.types.Message):
 
 
 ## ooga - booga
-@bot.message_handler(regexp='ooga')
-@verify(MISC_HANDLERS, 'MISC_OOGABOOGA')
-@lg.decorators.debug()
-def misc_oogabooga(message:telebot.types.Message):
-    bot.send_message(message.chat.id, 'booga')
+ooga_booga = regex_handler("misc_oogabooga", "ooga", "booga")
 
 ## marco - polo
-@bot.message_handler(regexp='marco')
-@verify(MISC_HANDLERS, 'MISC_MARCOPOLO')
-@lg.decorators.debug()
-def misc_marcopolo(message:telebot.types.Message):
-    bot.send_message(message.chat.id, 'polo')
+marco_polo = regex_handler("misc_marcopolo", "marco", "polo")
 
 ## ping - pong (only if 'ping' as a word is inside)
 @bot.message_handler(func=lambda message: 'ping' in message.text.lower().split())
-@verify(MISC_HANDLERS, 'MISC_PINGPONG')
+@verify(MISC_HANDLERS)
 @lg.decorators.debug()
 def misc_pingpong(message:telebot.types.Message):
     bot.send_message(message.chat.id, 'pong')
 
 ## die - same tbh
-@bot.message_handler(regexp='die')
-@verify(MISC_HANDLERS, 'MISC_DIETBH')
-@lg.decorators.debug()
-def misc_dietbh(message:telebot.types.Message):
-    bot.reply_to(message, 'same tbh')
+die_tbh = regex_handler("misc_dietbh", "die", "same tbh")
 
 ## plshelp - hell no
 @bot.message_handler(func=lambda message: ('please' in message.text.lower()) and 'help' in message.text.lower())
 @lg.decorators.debug()
-@verify(MISC_HANDLERS, 'MISC_HELLNO')
+@verify(MISC_HANDLERS)
 def misc_hellno(message:telebot.types.Message):
     bot.reply_to(message,'hell no')
 
 ## help - no
-@bot.message_handler(regexp='help')
-@verify(MISC_HANDLERS, 'MISC_HELPNO')
-@lg.decorators.debug()
-def misc_helpno(message:telebot.types.Message):
-    bot.reply_to(message, 'no')
+help_no = regex_handler("misc_helpno", "help", "no")
 
 ## 69 - nice (see below for continuation)
-@bot.message_handler(regexp='69')
-@verify(MISC_HANDLERS, 'MISC_69NICE')
-@lg.decorators.debug()
-def misc_69nice(message:telebot.types.Message):
-    bot.reply_to(message, 'nice')
+nice = regex_handler("misc_69nice", "69", "nice")
 
 ## nice - nice (see above for previous)
-@bot.message_handler(func=lambda message: message.text.lower() == 'nice')
-@verify(MISC_HANDLERS, 'MISC_NICENICE')
-@lg.decorators.debug()
-def misc_nicenice(message:telebot.types.Message):
-    bot.reply_to(message, 'nice')
+nice_nice = regex_handler("misc_nicenice", "nice", "nice")
 
 ## OSAS
 @bot.message_handler(regexp='ovuvuevuevue')
@@ -201,7 +192,7 @@ def misc_osas_4(message:telebot.types.Message):
 ## reply if text contains 'bot' and 'who'
 @bot.message_handler(func=lambda message: \
     'bot' in message.text.lower() and 'who' in message.text.lower())
-@verify(MISC_HANDLERS, 'MISC_WHOBOT')
+@verify(MISC_HANDLERS)
 @lg.decorators.debug()
 def misc_who_bot(message:telebot.types.Message):
 
@@ -212,7 +203,7 @@ def misc_who_bot(message:telebot.types.Message):
 
 ## reply if text message is too long
 @bot.message_handler(func=lambda message: len(message.text) >= 250)# and len(message.text) <= 550)
-@verify(MISC_HANDLERS, 'MISC_LONGMSG')
+@verify(MISC_HANDLERS)
 @lg.decorators.debug()
 def misc_longmsg(message:telebot.types.Message):
     # log.debug("misc long-msg triggered")
@@ -248,34 +239,17 @@ def misc_bday(message:telebot.types.Message):
     bot.send_message(message.chat.id, random.choice(bday_responses))
 ##### bday
 
-@bot.message_handler(regexp=r'\bfeel\b')
-@verify(MISC_HANDLERS, 'MISC_FEELDN')
-@lg.decorators.debug()
-def misc_feeldn(message:telebot.types.Message) :
- bot.send_message(message.chat.id, 'lol feel deez nuts')
+## deez
+feel_deez_nuts = regex_handler("misc_feeldn", r"\bfeel\b", "lol feel deez nuts")
 
 ## Women
-@bot.message_handler(regexp=r'\bwomen$')
-@verify(MISC_HANDLERS, 'MISC_WOMEN')
-@lg.decorators.debug()
-def misc_women(message:telebot.types.Message):
-    bot.send_message(message.chat.id, f"women {chr(0x2615)}")
-    return
+women = regex_handler("misc_women", r"\bwomen$", f"women {chr(0x2615)}")
 
 ## Men
-@bot.message_handler(regexp=r'\bmen$')
-@verify(MISC_HANDLERS, 'MISC_MEN')
-@lg.decorators.debug()
-def misc_men(message:telebot.types.Message):
-    bot.send_message(message.chat.id, f"men {chr(0x1F37A)}")
-    return
+men = regex_handler("misc_men", r"\bmen$", f"men {chr(0x1F37A)}")
 
 ## f-pay respects
-@bot.message_handler(regexp=r'^f$')
-@verify(MISC_HANDLERS, 'MISC_F_RESPECTS')
-def misc_f_respects(message:telebot.types.Message):
-    bot.send_message(message.chat.id, f"pay respects {chr(0x1F64F)}")
-    return
+f_respects = regex_handler("misc_f_respects", r"^f$", f"pay respects {chr(0x1F64F)}")
 
 ## used by wwwwwh below
 sarcastic_replies_qn: "list(str)" = [
@@ -293,7 +267,7 @@ sarcastic_replies_qn: "list(str)" = [
 
 ## 5W 1H series
 @bot.message_handler(regexp=r'(?:who|what|when|where|why|how)\b.*\?$')
-@verify(MISC_HANDLERS, 'MISC_WWWWWH')
+@verify(MISC_HANDLERS)
 @lg.decorators.debug()
 def misc_wwwwwh(message:telebot.types.Message):
     if random.randint(0,9): ## 90% change of responding normally
@@ -308,7 +282,7 @@ def misc_wwwwwh(message:telebot.types.Message):
 
 ## ayo
 @bot.message_handler(regexp=r'\bayo\b')
-@verify(MISC_HANDLERS, 'MISC_AYO')
+@verify(MISC_HANDLERS)
 def misc_ayo(message:telebot.types.Message):
     bot.send_message(message.chat.id, f"{chr(0x1F928)}{chr(0x1F4F8)}")
     return

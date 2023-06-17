@@ -1,0 +1,78 @@
+# This config file contains defaults. Do not modify.
+# Matching keys in deploy/debug file will override values in this file.
+# These override files should be named:
+# - botsettings.template.debug.toml (if you want to test with alternate settings)
+# - botsettings.template.deploy.toml (must exist)
+[canoebot]
+apikey = ""
+exco_chat = 0 # chat id, numeric
+
+# key-value pair of "alias" = chat_id
+[canoebot.known_chats]
+
+[canoebot.misc_handlers]
+MISC_OOGABOOGA    = true
+MISC_MARCOPOLO    = true
+MISC_PINGPONG     = true
+MISC_DIETBH       = true
+MISC_HELLNO       = true
+MISC_HELPNO       = true
+MISC_69NICE       = true
+MISC_NICENICE     = true
+MISC_OSAS         = true
+MISC_WHO_BOT      = true
+MISC_LONGMSG      = true
+MISC_FEELDN       = true
+MISC_WOMEN        = true
+MISC_MEN          = true
+MISC_F_RESPECTS   = true
+MISC_WWWWWH       = true
+MISC_AYO          = true
+MISC_BASH         = false
+
+
+[sheetscraper]
+getnames_ver = 2
+use_deconflict = true
+deconflict_ver = 2
+deconflict_recursion_limit = 5
+
+# switch from old -> new ON this date
+# it defaults to sheetscraper.new if this is not overriden
+changeover_date = 1970-01-01
+
+# previous AY configuration
+[sheetscraper.old]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
+
+# new AY configuration
+[sheetscraper.new]
+attendance_sheet = "google sheets sheetid"
+program_sheet = "google sheets sheetid"
+
+[sheetscraper.paddling]
+format = "Paddling {date_str}\n\n{boatallo_no_date}\n\n{trainingam_prog}"
+smm_measure = "" # no longer used
+
+[formfiller]
+form_id = "SCF logsheet form id"
+
+[formfiller.times.am]
+start   = "07:30"
+end     = "10:00"
+[formfiller.times.pm]
+start   = "14:30"
+end     = "17:30"
+
+# key-value pairs of "name": "mobile number, string"
+[formfiller.particulars]
+
+
+# don't think this is used anymore
+[traininglog]
+form_id = ""
+
+########
+[logger]
+log_level = "DEBUG"
