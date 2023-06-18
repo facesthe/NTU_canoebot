@@ -8,3 +8,8 @@
 .scripts/canoebot.log
 
 *.test.py
+
+
+# Added by cargo
+
+/target
