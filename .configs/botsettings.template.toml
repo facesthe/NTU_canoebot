@@ -73,6 +73,20 @@ end     = "17:30"
 [traininglog]
 form_id = ""
 
+
+[events.daily.logsheet_prompt]
+enable = true
+time = 07:00:00
+
+[events.daily.attendance_reminder]
+enable = true
+time = 19:00:00
+
+[events.weekly.breakdown] # saturdays
+enable = true
+time = 22:30:00
+
+
 ########
 [logger]
 log_level = "DEBUG"
