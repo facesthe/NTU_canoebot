@@ -97,9 +97,7 @@ fn read_append_to_vec(vec: &mut Vec<String>, file_path: &str) -> bool {
 
 /// Convert a toml table to a hashmap by flattening
 fn table_to_hashmap(table: toml::Table) -> HashMap<String, String> {
-    for (key, val) in table.iter() {
-
-    }
+    for (key, val) in table.iter() {}
 
     todo!()
 }
