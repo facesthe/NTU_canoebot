@@ -17,6 +17,7 @@ deflate = '1.0.0'
 base64 = '0.21.0'
 lazy_static = '1.4.0'
 async-trait = '0.1.68'
+dotenv = "0.15.0"
 
 [dependencies.teloxide]
 version = '0.12'

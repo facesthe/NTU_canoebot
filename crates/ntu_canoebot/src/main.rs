@@ -9,6 +9,7 @@ use crate::command::message_handler;
 
 #[tokio::main]
 async fn main() {
+    dotenv::from_filename(".env_gen").ok();
     pretty_env_logger::init();
 
     let bot = Bot::from_env();

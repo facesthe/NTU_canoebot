@@ -5,3 +5,5 @@ data/
 
 Dockerfile
 docker-compose.yml
+
+/target
