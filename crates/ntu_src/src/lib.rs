@@ -1,11 +1,11 @@
 //! SRC booking interface
-#![allow(unused)]
+// #![allow(unused)]
 
 use std::{
     collections::HashMap, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc, time::Instant,
 };
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, NaiveTime};
 use lazy_static::__Deref;
 
 use serde_derive::Deserialize;
@@ -36,16 +36,10 @@ lazy_static::lazy_static! {
     };
 }
 
-pub struct Cache {}
-
-impl Cache {
-    pub fn fill_all() {}
-}
-
 /// Internal cache struct
 /// 2 way set associative -> 2 separate copies at each entry
 #[derive(Clone, Debug)]
-struct SrcCache {
+pub struct SrcCache {
     inner: Arc<Mutex<Vec<[SrcBookingEntry; 2]>>>,
 }
 
@@ -65,13 +59,15 @@ impl DerefMut for SrcCache {
 
 /// Contains an 8-day block of booking info
 #[derive(Clone, Debug)]
-struct SrcBookingEntry {
+pub struct SrcBookingEntry {
+    /// Same as code_name in [SrcFacility]
+    facility_code: String,
     /// Date of entry
     date: NaiveDate,
     /// Time at which table was fetched
-    fetch_time: Instant,
-    /// Time taken to fetch table in seconds
-    latency: f32,
+    fetch_time: NaiveTime,
+    /// Time taken to fetch table in milliseconds
+    latency: i64,
     /// Marks if cache line is the older one (out of 2 cache lines)
     old: bool,
     /// Booking data
@@ -81,8 +77,9 @@ struct SrcBookingEntry {
 impl Default for SrcBookingEntry {
     fn default() -> Self {
         Self {
+            facility_code: Default::default(),
             date: Default::default(),
-            fetch_time: Instant::now(),
+            fetch_time: chrono::Local::now().naive_local().time(),
             latency: Default::default(),
             old: Default::default(),
             data: Default::default(),
@@ -112,12 +109,12 @@ impl From<table_extract::Table> for SrcBookingData {
         for row in value.iter() {
             let _row = row.as_slice();
 
-            /// get time data
+            // get time data
             if _row.len() > WINDOW_DAYS + 1 {
                 time_col.push(_row[0].clone())
             }
 
-            /// take the last 8 elements
+            // take the last 8 elements
             let actual: Vec<String> = _row
                 .iter()
                 .rev()
@@ -165,7 +162,7 @@ impl From<SrcBookingData> for SrcSquashedBookingData {
 
         let mut squashed_matrix: Vec<Vec<SrcSqashedBookingAvailability>> = Vec::new();
 
-        /// iterate over columns
+        // iterate over columns
         for col_idx in 0..WINDOW_DAYS {
             let col: Vec<SrcBookingAvailability> = value
                 .data
@@ -280,6 +277,33 @@ impl Default for SrcCache {
 }
 
 impl SrcCache {
+    /// Refreshes the data inside all cache lines
+    pub async fn refresh_all(&self) {
+        let mut lock = self.lock().await;
+
+        let mut src_handles = Vec::new();
+
+        for (idx, facil) in SRC_FACILITIES.iter().enumerate() {
+            let date_a = lock[idx][0].date;
+            let date_b = lock[idx][1].date;
+
+            src_handles.push(vec![
+                tokio::spawn(async move {SrcBookingEntry::get_entry(facil, date_a).await}),
+                tokio::spawn(async move {SrcBookingEntry::get_entry(facil, date_b).await})
+            ]);
+        }
+
+        for (set, set_handle) in src_handles.into_iter().enumerate() {
+            for (line, entry) in set_handle.into_iter().enumerate() {
+                let booking_entry = entry.await;
+                match booking_entry {
+                    Ok(_entry) => lock[set][line] = _entry,
+                    Err(_) => (),
+                }
+            }
+        }
+    }
+
     /// Repopulate the cache with fresh data.
     /// Overwrites all data previously inside.
     /// References the current day.
@@ -326,7 +350,7 @@ impl SrcCache {
     /// Populate a single cache line with fresh data.
     /// The date param represents the start date of a consecutive 8-day block.
     /// Changes the age of other cache entry in line to "old"
-    pub async fn fill(
+    async fn fill(
         &self,
         date: NaiveDate,
         facility_num: u8,
@@ -352,23 +376,81 @@ impl SrcCache {
 
         Ok(())
     }
+
+    /// Retrieves facility booking data for a particular facility.
+    /// Fetches from SRC if date does not exist.
+    pub async fn get_facility(&self, facility_num: u8, date: NaiveDate) -> SrcBookingEntry {
+        let mut lock = self.lock().await;
+        let cache_line = &mut lock[facility_num as usize];
+
+        // used for cache replacement
+        let mut old_line: usize = 0;
+        let mut newer_date: NaiveDate = date;
+
+        let mut hit: Option<usize> = None;
+
+        for (idx, entry) in cache_line.iter().enumerate() {
+            if entry.old {
+                old_line = idx;
+            } else {
+                newer_date = entry.date;
+            }
+
+            if (date - entry.date).num_days() < WINDOW_DAYS as i64 {
+                hit = Some(idx)
+            } else {
+                continue;
+            }
+        }
+
+        match hit {
+            Some(idx) => return cache_line[idx].clone(),
+            None => {
+                // find a non-overlapping block
+                // is the new date smaller than the date in other cache line
+                let is_negative: bool = !(newer_date > date);
+                let diff = (newer_date - date).num_days().abs();
+
+                // date adjustment necessary
+                if diff < WINDOW_DAYS as i64 {
+                    let fetch_date = newer_date
+                        + Duration::days( // some quick math so that I save on branches
+                            WINDOW_DAYS as i64 * !is_negative as i64
+                                - WINDOW_DAYS as i64 * is_negative as i64,
+                        );
+                    match self.fill(fetch_date, facility_num, old_line != 0).await {
+                        Ok(_) => (),
+                        Err(_) => (),
+                    }
+                } else {
+                    match self.fill(date, facility_num, old_line != 0).await {
+                        Ok(_) => (),
+                        Err(_) => (),
+                    }
+                }
+
+                return cache_line[old_line].clone();
+            }
+        }
+    }
 }
 
 impl SrcBookingEntry {
     /// Retrieve data given a facility and date
     pub async fn get_entry(facility: &SrcFacility, date: NaiveDate) -> Self {
         println!("facility: {}, date: {}", facility.code_name, date.day());
-        let start_time = Instant::now();
+        let start_time = chrono::Local::now().naive_local().time();
         let table = facility.get_table(date).await;
-        let end_time = Instant::now();
+        let end_time = chrono::Local::now().naive_local().time();
 
         let data = SrcBookingData::from(table);
         let squashed = SrcSquashedBookingData::from(data);
 
         Self {
+            facility_code: facility.code_name.clone(),
             date,
             fetch_time: end_time,
-            latency: (end_time - start_time).as_secs_f32(),
+            latency: (end_time - start_time).num_milliseconds(),
             old: false,
             data: squashed,
         }
@@ -416,7 +498,20 @@ impl SrcBookingEntry {
             ))
         }
 
-        display_str
+        let facility_name = match SRC_FACILITIES.get_code(&self.facility_code) {
+            Some(facil) => facil.name,
+            None => "".to_string(),
+        };
+
+
+        format!(
+            "{}\n{}\n\n{}\nfetched on: {}\nfetch time:    {:.2}s",
+            date.format("%d %b %y, %A"),
+            facility_name,
+            display_str,
+            self.fetch_time.format("%H:%M:%S"),
+            self.latency as f32 / 1000 as f32
+        )
     }
 }
 
@@ -424,10 +519,10 @@ impl SrcBookingEntry {
 #[derive(Clone, Debug, Deserialize)]
 pub struct SrcFacility {
     /// Full name as listed on SRC website
-    name: String,
+    pub name: String,
     /// Short form for display
     #[serde(rename = "shortname")]
-    short_name: String,
+    pub short_name: String,
     /// Code name for querying SRC
     #[serde(rename = "codename")]
     code_name: String,
@@ -499,11 +594,15 @@ impl SrcFacilities {
     pub fn get_index(&self, idx: usize) -> Option<SrcFacility> {
         self.inner.get(idx).cloned()
     }
-}
 
-/// Returns the booking table for a particular day, along with the next 7 days.
-/// This returns the raw table direct from the page
-async fn get_booking_table() {}
+    /// Returns the src facility given its code name
+    pub fn get_code(&self, code: &str) -> Option<SrcFacility> {
+
+        let res = self.inner.iter().find(|elem| elem.code_name == code);
+
+        res.cloned()
+    }
+}
 
 mod errors {
 
@@ -632,14 +731,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_fill() {
-        // let mut cache_lock = SRC_CACHE.lock().await;
-
         let date = chrono::Local::now().naive_local().date();
         SRC_CACHE.fill_all().await;
-        // cache_lock.fill_all().await;
 
-        SRC_CACHE.fill(date, 0, false);
+        let facil = SRC_CACHE.get_facility(0, date).await;
+        println!("{}", facil.get_display_table(date));
+
+        let facil = SRC_CACHE.get_facility(0, date + Duration::days(7)).await;
+        println!("{}", facil.get_display_table(date));
     }
 }
-
-// const x: &str = "https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode=WG&fcourt=20&ftype=2&p_date=03-JUL-2023&p_mode=2";
