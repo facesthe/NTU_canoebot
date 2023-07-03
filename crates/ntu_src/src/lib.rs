@@ -2,16 +2,14 @@
 #![allow(unused)]
 
 use std::{
-    any, collections::HashMap, default, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc,
-    time::Instant,
+    collections::HashMap, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc, time::Instant,
 };
 
-use chrono::{Datelike, Duration, Local, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate};
 use lazy_static::__Deref;
-use serde::{__private::de, de::Error};
-use serde_derive::{Deserialize, Serialize};
-use tokio::{runtime::Handle, sync::Mutex};
-use toml::Table;
+
+use serde_derive::Deserialize;
+use tokio::sync::Mutex;
 
 const WINDOW_DAYS: usize = 8;
 
@@ -21,11 +19,11 @@ lazy_static::lazy_static! {
 
     /// Lookup table for src facilities, fixed at runtime
     static ref SRC_FACILITIES: SrcFacilities = {
-        let tomlfile: String;
-        match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
-            Some(_file) => {tomlfile = _file},
+
+        let tomlfile: String = match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
+            Some(_file) => {_file},
             None => panic!()
-        }
+        };
 
         let toml_val: HashMap<String, Vec<SrcFacility>> = toml::from_str(&tomlfile).expect("failed to parse toml");
 
@@ -168,7 +166,7 @@ impl From<SrcBookingData> for SrcSquashedBookingData {
         let mut squashed_matrix: Vec<Vec<SrcSqashedBookingAvailability>> = Vec::new();
 
         /// iterate over columns
-        for col_idx in (0..WINDOW_DAYS) {
+        for col_idx in 0..WINDOW_DAYS {
             let col: Vec<SrcBookingAvailability> = value
                 .data
                 .iter()
@@ -213,8 +211,6 @@ impl From<SrcBookingData> for SrcSquashedBookingData {
                         available: avail,
                         unavailable: unavail,
                     });
-
-                    ()
                 })
                 .collect();
 
@@ -273,7 +269,7 @@ impl Default for SrcCache {
 
         let num_entries = SRC_FACILITIES.len();
 
-        for idx in 0..num_entries {
+        for _idx in 0..num_entries {
             inner.push([Default::default(), Default::default()]);
         }
         println!("created SrcCache instance");
@@ -301,15 +297,13 @@ impl SrcCache {
 
         let mut src_handles = Vec::new();
 
-        let self_ref = Arc::new(self);
+        let _self_ref = Arc::new(self);
         for facil in SRC_FACILITIES.iter() {
-            let handle_a = tokio::spawn(async move {
-                SrcBookingEntry::get_entry(facil, line_1_date).await
-            });
+            let handle_a =
+                tokio::spawn(async move { SrcBookingEntry::get_entry(facil, line_1_date).await });
 
-            let handle_b = tokio::spawn(async move {
-                SrcBookingEntry::get_entry(facil, line_2_date).await
-            });
+            let handle_b =
+                tokio::spawn(async move { SrcBookingEntry::get_entry(facil, line_2_date).await });
 
             src_handles.push(vec![handle_a, handle_b]);
         }
@@ -322,11 +316,10 @@ impl SrcCache {
                         lock[idx][cache_line] = data;
                         // flip the other entry to old
                         lock[idx][1 - cache_line].old = !lock[idx][1 - cache_line].old;
-                    },
+                    }
                     Err(_) => (), // do not update on error
                 }
             }
-
         }
     }
 
@@ -396,15 +389,13 @@ impl SrcBookingEntry {
         let tup_vec: Vec<(String, String)> =
             col.iter().map(|elem| elem.to_string_tuple()).collect();
 
-        let max = tup_vec
-            .clone()
+        let max = *tup_vec
             .iter()
             .map(|(a, b)| (a.len(), b.len()))
             .collect::<Vec<(usize, usize)>>()
             .iter()
             .max()
-            .expect("unable to iterate to find max values")
-            .clone();
+            .expect("unable to iterate to find max values");
 
         // header
         display_str.push_str(&format!(
@@ -627,16 +618,16 @@ mod tests {
 
     #[test]
     fn test_read_srcscraper_config() {
-        let tomlfile: String;
         // THIS IS TEMP THE PATH SHOULD CHANGE
-        match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
-            Some(_file) => tomlfile = _file,
-            None => panic!(),
-        }
+        let tomlfile: String =
+            match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
+                Some(_file) => _file,
+                None => panic!(),
+            };
 
         let toml_val: HashMap<String, Vec<SrcFacility>> =
             toml::from_str(&tomlfile).expect("failed to read toml file");
-        let x = toml_val.values().next().unwrap();
+        let _x = toml_val.values().next().unwrap();
     }
 
     #[tokio::test]
