@@ -2,32 +2,67 @@
 #![allow(unused)]
 
 use std::{
-    any,
-    str::FromStr,
-    sync::{Arc, Mutex},
+    any, collections::HashMap, default, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc,
     time::Instant,
 };
 
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, Duration, Local, NaiveDate};
+use lazy_static::__Deref;
 use serde::{__private::de, de::Error};
 use serde_derive::{Deserialize, Serialize};
+use tokio::{runtime::Handle, sync::Mutex};
 use toml::Table;
+
+const WINDOW_DAYS: usize = 8;
 
 lazy_static::lazy_static! {
     /// Cache for SRC booking slots. 2 - way set associative
-    static ref SRC_CACHE: Arc<Mutex<SrcCache>> = Arc::new(Mutex::new(SrcCache::default()));
+    static ref SRC_CACHE: SrcCache = SrcCache::default();
 
     /// Lookup table for src facilities, fixed at runtime
     static ref SRC_FACILITIES: SrcFacilities = {
-        todo!()
+        let tomlfile: String;
+        match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
+            Some(_file) => {tomlfile = _file},
+            None => panic!()
+        }
+
+        let toml_val: HashMap<String, Vec<SrcFacility>> = toml::from_str(&tomlfile).expect("failed to parse toml");
+
+        let inner_vec = toml_val.values().next().expect("map should have one entry");
+
+        println!("constructed global static SRC_FACILITIES");
+        SrcFacilities {
+            inner: inner_vec.to_owned()
+        }
     };
+}
+
+pub struct Cache {}
+
+impl Cache {
+    pub fn fill_all() {}
 }
 
 /// Internal cache struct
 /// 2 way set associative -> 2 separate copies at each entry
 #[derive(Clone, Debug)]
 struct SrcCache {
-    inner: Vec<[SrcBookingEntry; 2]>,
+    inner: Arc<Mutex<Vec<[SrcBookingEntry; 2]>>>,
+}
+
+impl __Deref for SrcCache {
+    type Target = Arc<Mutex<Vec<[SrcBookingEntry; 2]>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for SrcCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 /// Contains an 8-day block of booking info
@@ -43,6 +78,18 @@ struct SrcBookingEntry {
     old: bool,
     /// Booking data
     data: SrcSquashedBookingData,
+}
+
+impl Default for SrcBookingEntry {
+    fn default() -> Self {
+        Self {
+            date: Default::default(),
+            fetch_time: Instant::now(),
+            latency: Default::default(),
+            old: Default::default(),
+            data: Default::default(),
+        }
+    }
 }
 
 /// Contains the 8-day consecutive block of booking data
@@ -68,7 +115,7 @@ impl From<table_extract::Table> for SrcBookingData {
             let _row = row.as_slice();
 
             /// get time data
-            if _row.len() > 8 + 1 {
+            if _row.len() > WINDOW_DAYS + 1 {
                 time_col.push(_row[0].clone())
             }
 
@@ -76,7 +123,7 @@ impl From<table_extract::Table> for SrcBookingData {
             let actual: Vec<String> = _row
                 .iter()
                 .rev()
-                .take(8)
+                .take(WINDOW_DAYS)
                 .rev()
                 .map(|elem| elem.to_owned())
                 .collect();
@@ -93,7 +140,7 @@ impl From<table_extract::Table> for SrcBookingData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct SrcSquashedBookingData {
     time_col: Vec<String>,
     /// Matrix of **columns** that contain **rows**
@@ -121,7 +168,7 @@ impl From<SrcBookingData> for SrcSquashedBookingData {
         let mut squashed_matrix: Vec<Vec<SrcSqashedBookingAvailability>> = Vec::new();
 
         /// iterate over columns
-        for col_idx in (0..8) {
+        for col_idx in (0..WINDOW_DAYS) {
             let col: Vec<SrcBookingAvailability> = value
                 .data
                 .iter()
@@ -222,23 +269,78 @@ impl FromStr for SrcBookingAvailability {
 
 impl Default for SrcCache {
     fn default() -> Self {
-        Self { inner: Vec::new() }
+        let mut inner: Vec<[SrcBookingEntry; 2]> = Vec::new();
+
+        let num_entries = SRC_FACILITIES.len();
+
+        for idx in 0..num_entries {
+            inner.push([Default::default(), Default::default()]);
+        }
+        println!("created SrcCache instance");
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
     }
 }
 
 impl SrcCache {
-    /// Populate/repopulate the cache with fresh data.
+    /// Repopulate the cache with fresh data.
     /// Overwrites all data previously inside.
-    pub async fn fill_all(&mut self) {}
+    /// References the current day.
+    ///
+    /// One 8-day block is populated starting from the current day,
+    /// the other 8-day block is populated with the previous 8 days.
+    ///
+    /// NTU might change the number of days returned for each table,
+    /// but that's a problem for future me hoho
+    pub async fn fill_all(&self) {
+        let line_2_date = chrono::Local::now().naive_local().date();
+        let line_1_date = line_2_date - Duration::days(WINDOW_DAYS as i64);
+
+        // self.inner.lock().await.clear();
+
+        let mut src_handles = Vec::new();
+
+        let self_ref = Arc::new(self);
+        for facil in SRC_FACILITIES.iter() {
+            let handle_a = tokio::spawn(async move {
+                SrcBookingEntry::get_entry(facil, line_1_date).await
+            });
+
+            let handle_b = tokio::spawn(async move {
+                SrcBookingEntry::get_entry(facil, line_2_date).await
+            });
+
+            src_handles.push(vec![handle_a, handle_b]);
+        }
+
+        let mut lock = self.lock().await;
+        for (idx, handles) in src_handles.into_iter().enumerate() {
+            for (cache_line, handle) in handles.into_iter().enumerate() {
+                match handle.await {
+                    Ok(data) => {
+                        lock[idx][cache_line] = data;
+                        // flip the other entry to old
+                        lock[idx][1 - cache_line].old = !lock[idx][1 - cache_line].old;
+                    },
+                    Err(_) => (), // do not update on error
+                }
+            }
+
+        }
+    }
 
     /// Populate a single cache line with fresh data.
     /// The date param represents the start date of a consecutive 8-day block.
+    /// Changes the age of other cache entry in line to "old"
     pub async fn fill(
-        &mut self,
+        &self,
         date: NaiveDate,
         facility_num: u8,
-        cache_line: u8,
+        cache_line: bool,
     ) -> Result<(), errors::FacilityError> {
+        println!("cache line {}:{}", facility_num, cache_line as u8);
+
         let facility = {
             let res = SRC_FACILITIES.get_index(facility_num as usize);
             match res {
@@ -247,6 +349,14 @@ impl SrcCache {
             }
         };
 
+        let entry = SrcBookingEntry::get_entry(&facility, date).await;
+        let mut lock = self.lock().await;
+        lock[facility_num as usize][cache_line as usize] = entry;
+
+        // set other as old
+        let other = &mut lock[facility_num as usize][!cache_line as usize];
+        other.old = true;
+
         Ok(())
     }
 }
@@ -254,6 +364,7 @@ impl SrcCache {
 impl SrcBookingEntry {
     /// Retrieve data given a facility and date
     pub async fn get_entry(facility: &SrcFacility, date: NaiveDate) -> Self {
+        println!("facility: {}, date: {}", facility.code_name, date.day());
         let start_time = Instant::now();
         let table = facility.get_table(date).await;
         let end_time = Instant::now();
@@ -324,8 +435,10 @@ pub struct SrcFacility {
     /// Full name as listed on SRC website
     name: String,
     /// Short form for display
+    #[serde(rename = "shortname")]
     short_name: String,
     /// Code name for querying SRC
+    #[serde(rename = "codename")]
     code_name: String,
     /// Number of courts, also for querying SRC
     courts: u8,
@@ -334,6 +447,14 @@ pub struct SrcFacility {
 /// Wrapper around a vector of [SrcFacility]
 pub struct SrcFacilities {
     inner: Vec<SrcFacility>,
+}
+
+impl __Deref for SrcFacilities {
+    type Target = Vec<SrcFacility>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl SrcFacility {
@@ -352,6 +473,31 @@ impl SrcFacility {
 }
 
 impl SrcFacilities {
+    /// Attempts to find a file and read it.
+    /// If it is unable to find the file, it goes up one parent
+    /// and continues.
+    fn find_and_read_file(path: &str) -> Option<String> {
+        let path = PathBuf::from(path);
+
+        let mut curdir = std::env::current_dir().expect("failed to get current dir");
+
+        loop {
+            println!("curdir: {:?}", &curdir);
+
+            if curdir.join(&path).exists() {
+                break;
+            } else {
+                match curdir.parent() {
+                    Some(_path) => curdir = PathBuf::from(_path),
+                    None => return None,
+                }
+            }
+        }
+
+        fs::read_to_string(curdir.join(path)).ok()
+        // todo!()
+    }
+
     /// Create facility table
     pub fn from_string(string: &str) -> Result<Self, toml::de::Error> {
         let res: Vec<SrcFacility> = toml::de::from_str(string)?;
@@ -376,6 +522,8 @@ mod errors {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     #[tokio::test]
@@ -475,6 +623,31 @@ mod tests {
 
         // println!("{:#?}", booking_entry.data.avail_col);
         println!("{}", pretty);
+    }
+
+    #[test]
+    fn test_read_srcscraper_config() {
+        let tomlfile: String;
+        // THIS IS TEMP THE PATH SHOULD CHANGE
+        match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
+            Some(_file) => tomlfile = _file,
+            None => panic!(),
+        }
+
+        let toml_val: HashMap<String, Vec<SrcFacility>> =
+            toml::from_str(&tomlfile).expect("failed to read toml file");
+        let x = toml_val.values().next().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cache_fill() {
+        // let mut cache_lock = SRC_CACHE.lock().await;
+
+        let date = chrono::Local::now().naive_local().date();
+        SRC_CACHE.fill_all().await;
+        // cache_lock.fill_all().await;
+
+        SRC_CACHE.fill(date, 0, false);
     }
 }
 
