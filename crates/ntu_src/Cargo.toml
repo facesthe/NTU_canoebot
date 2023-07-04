@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+
 lazy_static = "1.4.0"
 chrono = "0.4.26"
 toml = "0"

@@ -1004,11 +1004,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntu_canoebot_util"
+version = "0.1.0"
+
+[[package]]
 name = "ntu_src"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "lazy_static",
+ "ntu_canoebot_util",
  "reqwest",
  "serde",
  "serde_derive",

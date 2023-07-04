@@ -1,9 +1,16 @@
 //! SRC booking interface
-// #![allow(unused)]
+//!
+//! ```
+//! use ntu_src::{SRC_CACHE, SRC_FACILITIES};
+//!
+//! let num_facilities = SRC_FACILITIES.len();
+//! for facility_id in 0..num_facilities {
+//!     let facility = SRC_FACILITIES.get_index(facility_id);
+//! }
+//! ```
+//!
 
-use std::{
-    collections::HashMap, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc, time::Instant,
-};
+use std::{collections::HashMap, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime};
 use lazy_static::__Deref;
@@ -11,14 +18,16 @@ use lazy_static::__Deref;
 use serde_derive::Deserialize;
 use tokio::sync::Mutex;
 
+use ntu_canoebot_util::debug_println;
+
 const WINDOW_DAYS: usize = 8;
 
 lazy_static::lazy_static! {
     /// Cache for SRC booking slots. 2 - way set associative
-    static ref SRC_CACHE: SrcCache = SrcCache::default();
+    pub static ref SRC_CACHE: SrcCache = SrcCache::default();
 
     /// Lookup table for src facilities, fixed at runtime
-    static ref SRC_FACILITIES: SrcFacilities = {
+    pub static ref SRC_FACILITIES: SrcFacilities = {
 
         let tomlfile: String = match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
             Some(_file) => {_file},
@@ -29,7 +38,7 @@ lazy_static::lazy_static! {
 
         let inner_vec = toml_val.values().next().expect("map should have one entry");
 
-        println!("constructed global static SRC_FACILITIES");
+        debug_println!("constructed global static SRC_FACILITIES");
         SrcFacilities {
             inner: inner_vec.to_owned()
         }
@@ -269,7 +278,7 @@ impl Default for SrcCache {
         for _idx in 0..num_entries {
             inner.push([Default::default(), Default::default()]);
         }
-        println!("created SrcCache instance");
+        debug_println!("created SrcCache instance");
         Self {
             inner: Arc::new(Mutex::new(inner)),
         }
@@ -288,8 +297,8 @@ impl SrcCache {
             let date_b = lock[idx][1].date;
 
             src_handles.push(vec![
-                tokio::spawn(async move {SrcBookingEntry::get_entry(facil, date_a).await}),
-                tokio::spawn(async move {SrcBookingEntry::get_entry(facil, date_b).await})
+                tokio::spawn(async move { SrcBookingEntry::get_entry(facil, date_a).await }),
+                tokio::spawn(async move { SrcBookingEntry::get_entry(facil, date_b).await }),
             ]);
         }
 
@@ -356,7 +365,7 @@ impl SrcCache {
         facility_num: u8,
         cache_line: bool,
     ) -> Result<(), errors::FacilityError> {
-        println!("cache line {}:{}", facility_num, cache_line as u8);
+        debug_println!("cache line {}:{}", facility_num, cache_line as u8);
 
         let facility = {
             let res = SRC_FACILITIES.get_index(facility_num as usize);
@@ -379,13 +388,23 @@ impl SrcCache {
 
     /// Retrieves facility booking data for a particular facility.
     /// Fetches from SRC if date does not exist.
-    pub async fn get_facility(&self, facility_num: u8, date: NaiveDate) -> SrcBookingEntry {
+    pub async fn get_facility(&self, facility_num: u8, date: NaiveDate) -> Option<SrcBookingEntry> {
         let mut lock = self.lock().await;
         let cache_line = &mut lock[facility_num as usize];
 
         // used for cache replacement
         let mut old_line: usize = 0;
         let mut newer_date: NaiveDate = date;
+        debug_println!("fetch date: {}", &date);
+        debug_println!(
+            "0: {} - {} old: {}\n1: {} - {} old: {}",
+            cache_line[0].date,
+            cache_line[0].date + Duration::days(WINDOW_DAYS as i64 - 1),
+            cache_line[0].old,
+            cache_line[1].date,
+            cache_line[1].date + Duration::days(WINDOW_DAYS as i64 - 1),
+            cache_line[1].old
+        );
 
         let mut hit: Option<usize> = None;
 
@@ -396,40 +415,72 @@ impl SrcCache {
                 newer_date = entry.date;
             }
 
-            if (date - entry.date).num_days() < WINDOW_DAYS as i64 {
-                hit = Some(idx)
-            } else {
-                continue;
+            if let None = hit {
+                // can't combine if let with another condition
+                if (date - entry.date).num_days() < WINDOW_DAYS as i64 && date >= entry.date {
+                    hit = Some(idx);
+                } else {
+                    continue;
+                }
             }
         }
 
         match hit {
-            Some(idx) => return cache_line[idx].clone(),
+            Some(idx) => {
+                debug_println!("cache hit: {}", idx);
+                return Some(cache_line[idx].clone());
+            }
             None => {
-                // find a non-overlapping block
-                // is the new date smaller than the date in other cache line
-                let is_negative: bool = !(newer_date > date);
-                let diff = (newer_date - date).num_days().abs();
+                debug_println!("cache miss, evicting: {}", old_line);
+                drop(cache_line);
+                drop(lock);
 
-                // date adjustment necessary
-                if diff < WINDOW_DAYS as i64 {
-                    let fetch_date = newer_date
-                        + Duration::days( // some quick math so that I save on branches
-                            WINDOW_DAYS as i64 * !is_negative as i64
-                                - WINDOW_DAYS as i64 * is_negative as i64,
-                        );
-                    match self.fill(fetch_date, facility_num, old_line != 0).await {
-                        Ok(_) => (),
-                        Err(_) => (),
-                    }
-                } else {
-                    match self.fill(date, facility_num, old_line != 0).await {
-                        Ok(_) => (),
-                        Err(_) => (),
-                    }
+                let date_to_fetch = Self::calculate_date_block(newer_date, date);
+
+                match self.fill(date_to_fetch, facility_num, old_line != 0).await {
+                    Ok(_) => (),
+                    Err(_) => return None,
                 }
 
-                return cache_line[old_line].clone();
+                return Some(self.lock().await[facility_num as usize][old_line].clone());
+            }
+        }
+    }
+
+    /// Determine the date to fetch,
+    /// by referencing the date in existing cache line.
+    /// Other cache line will be overwritten.
+    fn calculate_date_block(existing_line: NaiveDate, replacement: NaiveDate) -> NaiveDate {
+        let diff = (existing_line - replacement).num_days().abs() as usize;
+
+        let next_block_ahead = WINDOW_DAYS;
+        let next_block_end = next_block_ahead + WINDOW_DAYS - 1;
+
+        // let block_behind = WINDOW_DAYS;
+
+        match replacement >= existing_line {
+            true => {
+                // inside existing block
+                if diff < next_block_ahead {
+                    // return existing
+                    // this branch should never be taken
+                    return existing_line;
+                // ahead and within one block
+                } else if diff <= next_block_end {
+                    return existing_line + Duration::days(next_block_ahead as i64);
+                // ahead and past one block
+                } else {
+                    return replacement;
+                }
+            }
+            false => {
+                // inside existing block
+                if diff <= next_block_ahead {
+                    return existing_line - Duration::days(next_block_ahead as i64);
+                // ahead and past one block
+                } else {
+                    return replacement;
+                }
             }
         }
     }
@@ -438,7 +489,7 @@ impl SrcCache {
 impl SrcBookingEntry {
     /// Retrieve data given a facility and date
     pub async fn get_entry(facility: &SrcFacility, date: NaiveDate) -> Self {
-        println!("facility: {}, date: {}", facility.code_name, date.day());
+        debug_println!("facility: {}, date: {}", facility.code_name, date.day());
         let start_time = chrono::Local::now().naive_local().time();
         let table = facility.get_table(date).await;
         let end_time = chrono::Local::now().naive_local().time();
@@ -458,13 +509,16 @@ impl SrcBookingEntry {
 
     /// Returns a formatted string to be sent to a user,
     /// given a date
-    pub fn get_display_table(&self, date: NaiveDate) -> String {
-        let col_no = (date - self.date).num_days();
+    pub fn get_display_table(&self, date: NaiveDate) -> Option<String> {
+        let diff = (date - self.date).num_days();
+        if diff >= WINDOW_DAYS as i64 {
+            return None;
+        } else if diff < 0 {
+            return None;
+        }
 
         let col: &Vec<SrcSqashedBookingAvailability> =
-            self.data.avail_col.get(col_no as usize).unwrap();
-
-        // println!("{:#?}", col);
+            self.data.avail_col.get(diff as usize).unwrap();
 
         let mut display_str = String::new();
 
@@ -503,15 +557,14 @@ impl SrcBookingEntry {
             None => "".to_string(),
         };
 
-
-        format!(
+        Some(format!(
             "{}\n{}\n\n{}\nfetched on: {}\nfetch time:    {:.2}s",
             date.format("%d %b %y, %A"),
             facility_name,
             display_str,
             self.fetch_time.format("%H:%M:%S"),
             self.latency as f32 / 1000 as f32
-        )
+        ))
     }
 }
 
@@ -568,7 +621,7 @@ impl SrcFacilities {
         let mut curdir = std::env::current_dir().expect("failed to get current dir");
 
         loop {
-            println!("curdir: {:?}", &curdir);
+            debug_println!("curdir: {:?}", &curdir);
 
             if curdir.join(&path).exists() {
                 break;
@@ -597,7 +650,6 @@ impl SrcFacilities {
 
     /// Returns the src facility given its code name
     pub fn get_code(&self, code: &str) -> Option<SrcFacility> {
-
         let res = self.inner.iter().find(|elem| elem.code_name == code);
 
         res.cloned()
@@ -709,7 +761,7 @@ mod tests {
 
         let booking_entry = SrcBookingEntry::get_entry(&facility, date).await;
 
-        let pretty = booking_entry.get_display_table(date);
+        let pretty = booking_entry.get_display_table(date).unwrap();
 
         // println!("{:#?}", booking_entry.data.avail_col);
         println!("{}", pretty);
@@ -731,13 +783,94 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_fill() {
-        let date = chrono::Local::now().naive_local().date();
+        let original_date = chrono::Local::now().naive_local().date();
         SRC_CACHE.fill_all().await;
 
-        let facil = SRC_CACHE.get_facility(0, date).await;
-        println!("{}", facil.get_display_table(date));
+        let facil = SRC_CACHE.get_facility(0, original_date).await.unwrap();
+        println!("{}", facil.get_display_table(original_date).unwrap());
 
-        let facil = SRC_CACHE.get_facility(0, date + Duration::days(7)).await;
-        println!("{}", facil.get_display_table(date));
+        let date = original_date + Duration::days(7);
+        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        println!("{}", facil.get_display_table(date).unwrap());
+
+        let date = original_date + Duration::days(9);
+        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        println!("{}", facil.get_display_table(date).unwrap());
+
+        let date = original_date + Duration::days(-7);
+        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        println!("{}", facil.get_display_table(date).unwrap());
+
+        let date = original_date + Duration::days(-9);
+        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        println!("{}", facil.get_display_table(date).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_cache_fill_refresh() {
+        // let original_date = chrono::Local::now().naive_local().date();
+        SRC_CACHE.fill_all().await;
+
+        SRC_CACHE.refresh_all().await;
+    }
+
+    #[test]
+    fn test_date_calculation() {
+        let base_date = chrono::Local::now().naive_local().date();
+
+        println!("base date: {}", &base_date);
+        // check block calculation for
+        // dates that fall behind existing line date
+        // within 1 block away from existing block
+        let base_date_before = base_date - Duration::days(WINDOW_DAYS as i64);
+
+        println!("date before: {}", &base_date_before);
+
+        for offset in 0..WINDOW_DAYS {
+            let res = SrcCache::calculate_date_block(
+                base_date,
+                base_date_before + Duration::days(offset as i64),
+            );
+
+            println!(
+                "date {} -> {}",
+                base_date_before + Duration::days(offset as i64),
+                res
+            );
+
+            assert_eq!(
+                (base_date - res).num_days(),
+                WINDOW_DAYS as i64,
+                "dates falling within one block ({} days) before existing cache line\
+                should be shifted to that block",
+                WINDOW_DAYS
+            );
+        }
+
+        // check for dates that fall after existing line date
+        // within 1 block away from existing block
+        let base_date_after = base_date + Duration::days(WINDOW_DAYS as i64);
+        println!("date after: {}", &base_date_after);
+
+        for offset in 0..WINDOW_DAYS {
+            let res = SrcCache::calculate_date_block(
+                base_date,
+                base_date_after + Duration::days(offset as i64),
+            );
+
+            println!(
+                "date {} -> {}",
+                base_date_after + Duration::days(offset as i64),
+                res
+            );
+
+            assert_eq!(
+                (res - base_date).num_days(),
+                WINDOW_DAYS as i64,
+                "dates falling within one block ({} days) after existing cache line\
+                should be shifted to that block",
+                WINDOW_DAYS
+            );
+        }
     }
 }
