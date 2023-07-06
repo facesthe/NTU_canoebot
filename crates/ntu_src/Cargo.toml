@@ -8,11 +8,13 @@ edition = "2021"
 [dependencies]
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
 
+tokio = {workspace = true}
+serde = {workspace = true}
+serde_derive = {workspace = true}
+reqwest = {workspace = true}
+
 lazy_static = "1.4.0"
 chrono = "0.4.26"
 toml = "0"
-serde = "1.0.164"
-serde_derive = "1.0.164"
-reqwest = "0.11.18"
-tokio = {version = "1.29.1", features = ["macros"]}
+
 table-extract = "0.2.3"

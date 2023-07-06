@@ -7,9 +7,6 @@ macro_rules! debug_println {
     ($($args:tt)*) => {
         #[cfg(debug_assertions)]
         println!($($args)*);
-
-        #[cfg(not(debug_assertions))]
-        ()
     };
 }
 
@@ -18,9 +15,6 @@ macro_rules! debug_print {
     ($($args:tt)*) => {
         #[cfg(debug_assertions)]
         print!($($args)*);
-
-        #[cfg(not(debug_assertions))]
-        ()
     };
 }
 

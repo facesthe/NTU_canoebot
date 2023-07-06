@@ -11,3 +11,10 @@ strip = 'symbols'
 lto = true
 codegen-units = 1
 opt-level = 's'
+
+[workspace.dependencies]
+tokio = {version = "1.29.1", features = ["macros", "rt-multi-thread"]}
+reqwest = "0.11.18"
+serde = "1.0.166"
+serde_derive = "1.0.166"
+serde_json = "1.0.100"

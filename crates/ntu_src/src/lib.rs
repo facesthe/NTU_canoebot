@@ -783,26 +783,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_fill() {
-        let original_date = chrono::Local::now().naive_local().date();
+        let original_date = chrono::Local::now().naive_local().date() + Duration::days(-1);
         SRC_CACHE.fill_all().await;
 
-        let facil = SRC_CACHE.get_facility(0, original_date).await.unwrap();
+        let facil_no = SRC_FACILITIES.len() - 1;
+
+        let facil = SRC_CACHE
+            .get_facility(facil_no as u8, original_date)
+            .await
+            .unwrap();
         println!("{}", facil.get_display_table(original_date).unwrap());
 
         let date = original_date + Duration::days(7);
-        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(9);
-        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(-7);
-        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(-9);
-        let facil = SRC_CACHE.get_facility(0, date).await.unwrap();
+        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
     }
 
