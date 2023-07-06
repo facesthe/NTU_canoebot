@@ -86,23 +86,23 @@ struct RawQuestionBlob {
     unknown_13: Value,
     unknown_14: Value,
 
-    unknown_vec_7: Value,
-    unknown_vec_8: Value,
+    html_form_description: Value,
+    html_form_title: Value,
 }
 
 /// Question types
 #[derive(Clone, Copy, Debug, Deserialize_repr)]
-#[repr(u32)]
+#[repr(u8)]
 pub enum FormQuestion {
     Short,
     Long,
     MultipleChoice,
     DropDown,
     CheckBox,
-    Scale,
-    Grid,
-    Date,
-    Time,
+    LinearScale,
+    Grid = 7,
+    Date = 9,
+    Time = 10,
 }
 
 /// Raw questions information
@@ -112,7 +112,10 @@ struct RawQuestion {
     title: String,
     description: Option<String>,
     question_type: FormQuestion,
-    additional_tags: Vec<RawQuestionTags>, // Vec RawQuestionTags
+
+    /// Additional information such as info for selection-type answers,
+    /// input validation live here.
+    additional_info: Vec<RawQuestionInfo>, // Vec RawQuestionTags
 
     unknown_2: Value,
     unknown_3: Value,
@@ -133,22 +136,34 @@ struct RawQuestion {
     html_description: Value,
 }
 
-/// Additional tags for question
+/// Additional info for question
 #[derive(Clone, Debug, Deserialize)]
-struct RawQuestionTags {
+struct RawQuestionInfo {
+    /// Question id used during form submission
     id: u64,
-    unknown: Value,
+
+    /// 1 dimensional data here
+    dimension_1: Option<Vec<RawDimension>>,
 
     /// Bool in number form
-    required: u8,
+    #[serde(deserialize_with = "uint_to_bool")]
+    required: bool,
 
+    // all subsequent fields are optional, and should have
+    // #[serde(default)] added to prevent deserialize errors
+
+    /// Place for 2-dim data, or additional information
+    /// for 1-dim data. It depends on the question type.
+    ///
+    /// Linear scale: `[lowest, highest]`
+    /// Grid : `[column]`
     #[serde(default)]
-    unknown_2: Value,
+    dimension_2: Option<Vec<String>>,
 
     /// Contains:
     /// - input validation for open-ended questions
     #[serde(default)]
-    unknown_vec: Option<Vec<Value>>,
+    input_validation: Option<Vec<RawInputValidation>>,
 
     #[serde(default)]
     unknown_3: Value,
@@ -160,7 +175,75 @@ struct RawQuestionTags {
     unknown_6: Value,
 
     #[serde(default)]
-    unknown_number: u8
+    unknown_number: Option<u8>,
+
+    /// appears in multiple choice grid
+    #[serde(default)]
+    unknown_7: Value,
+
+    /// appears in multiple choice grid
+    #[serde(default)]
+    unknown_8: Value
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
+struct RawInputValidation {
+    // the 2 numbers below seem to encode the type of input validation:
+    // num_1 == 6 -> response len, 4 -> regex
+    // num_2 == 203 -> minimum char count, 202 -> maximum char count (response len)
+    // num_2 == 299 -> contains, 300, does not contain, 301 -> match, 302 -> does not match (regex)
+
+    /// Type of input validation.
+    ///
+    /// `Regex == 4`, `Response length == 6`.
+    validation_type: u32,
+
+    /// Each input validation type has multiple subtypes.
+    /// This value differentiates between them.
+    validation_subtype: u32,
+
+    /// This contains the condition that needs to be met,
+    /// in string form
+    condition: Vec<String>,
+    /// Error text to return when condition is not fulfilled
+    #[serde(default)]
+    error_text: Option<String>
+}
+
+/// For questions that contain dimensional or array-like data,
+/// such as ranges, grids, etc.
+#[derive(Clone, Debug, Deserialize)]
+struct RawDimension {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    unknown_1: Value,
+    #[serde(default)]
+    unknown_2: Value,
+    #[serde(default)]
+    unknown_3: Value,
+
+    /// Not none when question type is DropDown (Some(0))
+    #[serde(default)]
+    unknown_number: Option<u8>
+}
+
+use serde::de::{self, Deserialize, Deserializer, Unexpected};
+/// Deserialize a known bit (0,1) to a bool.
+/// Used to deserialize the "required" field in [RawQuestionTags].
+fn uint_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match u8::deserialize(deserializer)? {
+        0 => Ok(false),
+        1 => Ok(true),
+        other => Err(de::Error::invalid_value(
+            Unexpected::Unsigned(other as u64),
+            &"zero or one only",
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -172,8 +255,8 @@ mod test {
     async fn test_deserialize_into_raw_form_data() {
         let url = format!(
             "https://docs.google.com/forms/d/e/{}/viewform",
-            // "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA"
-            "1FAIpQLSdZJlO9DfU1UQyQ1zgOnGLKrycyxP-eEcpzutfETaki2RgtVw"
+            "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA"
+            // "1FAIpQLSdZJlO9DfU1UQyQ1zgOnGLKrycyxP-eEcpzutfETaki2RgtVw"
         );
 
         let resp = match reqwest::get(url).await {
@@ -210,7 +293,7 @@ mod test {
         println!("variable contents:\n{}", &variable_contents);
         let des: RawFormData = serde_json::from_str(&variable_contents).unwrap();
 
-        println!("{:#?}", des);
+        println!("{:#?}", des.question_blob.questions);
         // println!("{:#?}", des.question_blob.questions);
     }
 
