@@ -109,7 +109,7 @@ pub enum FormQuestion {
 #[derive(Clone, Debug, Deserialize)]
 struct RawQuestion {
     id: u64,
-    title: String,
+    title: Option<String>,
     description: Option<String>,
     question_type: FormQuestion,
 
@@ -117,16 +117,23 @@ struct RawQuestion {
     /// input validation live here.
     additional_info: Vec<RawQuestionInfo>, // Vec RawQuestionTags
 
+    #[serde(default)]
     unknown_2: Value,
+    #[serde(default)]
     unknown_3: Value,
+    #[serde(default)]
     unknown_4: Value,
+    #[serde(default)]
     unknown_5: Value,
+    #[serde(default)]
     unknown_6: Value,
+    #[serde(default)]
     unknown_7: Value,
 
     /// A JSON array containing the question title with html tags.
     ///
     /// schema: `[null, html_title]`
+    #[serde(default)]
     html_title: Value,
 
     /// A JSON array containing the question description with html tags.
@@ -167,10 +174,14 @@ struct RawQuestionInfo {
 
     #[serde(default)]
     unknown_3: Value,
+
     #[serde(default)]
-    unknown_4: Value,
+    /// For time questions
+    time_type: Option<RawTimeType>,
+
     #[serde(default)]
-    unknown_5: Value,
+    unknown_5: Option<RawDateType>,
+
     #[serde(default)]
     unknown_6: Value,
 
@@ -203,9 +214,9 @@ struct RawInputValidation {
     /// This value differentiates between them.
     validation_subtype: u32,
 
-    /// This contains the condition that needs to be met,
+    /// This contains the condition(s) that needs to be met,
     /// in string form
-    condition: Vec<String>,
+    condition: Option<Vec<String>>,
     /// Error text to return when condition is not fulfilled
     #[serde(default)]
     error_text: Option<String>
@@ -227,6 +238,29 @@ struct RawDimension {
     /// Not none when question type is DropDown (Some(0))
     #[serde(default)]
     unknown_number: Option<u8>
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct RawTimeType {
+    inner: TimeType
+}
+
+/// Type representation for time-related questions
+#[derive(Clone, Copy, Debug, Deserialize_repr)]
+#[repr(u8)]
+pub enum TimeType {
+    /// Time of day in HH MM
+    Time,
+    /// Duration in HH MM SS
+    Duration
+}
+
+/// Date-time type is encoded into 2 binary discriminants,
+/// giving 4 possible combinations.
+#[derive(Clone, Debug, Deserialize)]
+struct RawDateType {
+    discriminant_1: u8,
+    discriminant_2: u8
 }
 
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
@@ -255,8 +289,8 @@ mod test {
     async fn test_deserialize_into_raw_form_data() {
         let url = format!(
             "https://docs.google.com/forms/d/e/{}/viewform",
-            "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA"
-            // "1FAIpQLSdZJlO9DfU1UQyQ1zgOnGLKrycyxP-eEcpzutfETaki2RgtVw"
+            // "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA"
+            "1FAIpQLSdZJlO9DfU1UQyQ1zgOnGLKrycyxP-eEcpzutfETaki2RgtVw"
         );
 
         let resp = match reqwest::get(url).await {
