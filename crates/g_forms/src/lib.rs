@@ -1,11 +1,10 @@
 //! A simple interface for creating and submitting Google forms.
 #![allow(unused)]
 
-mod form;
+pub mod form;
 mod raw;
 
 pub use form::GoogleForm;
-
 
 // impl GoogleForm {
 //     /// Link to a new form

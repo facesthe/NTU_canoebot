@@ -158,7 +158,6 @@ struct RawQuestionInfo {
 
     // all subsequent fields are optional, and should have
     // #[serde(default)] added to prevent deserialize errors
-
     /// Place for 2-dim data, or additional information
     /// for 1-dim data. It depends on the question type.
     ///
@@ -194,32 +193,61 @@ struct RawQuestionInfo {
 
     /// appears in multiple choice grid
     #[serde(default)]
-    unknown_8: Value
+    unknown_8: Value,
 }
 
-
 #[derive(Clone, Debug, Deserialize)]
-struct RawInputValidation {
+pub(crate) struct RawInputValidation {
     // the 2 numbers below seem to encode the type of input validation:
     // num_1 == 6 -> response len, 4 -> regex
     // num_2 == 203 -> minimum char count, 202 -> maximum char count (response len)
     // num_2 == 299 -> contains, 300, does not contain, 301 -> match, 302 -> does not match (regex)
-
-    /// Type of input validation.
-    ///
-    /// `Regex == 4`, `Response length == 6`.
-    validation_type: u32,
+    /// Type of input validation:
+    /// - Numeric = 1
+    /// - Text = 2
+    /// - Regex = 4
+    /// - Response Length = 6
+    pub validation_type: u32,
 
     /// Each input validation type has multiple subtypes.
     /// This value differentiates between them.
-    validation_subtype: u32,
+    ///
+    /// Numeric:
+    /// - GT = 1
+    /// - GTE = 2
+    /// - LT = 3
+    /// - LTE = 4
+    /// - EQ = 5
+    /// - NEQ = 6
+    /// - BT = 7,
+    /// - NBT = 8,
+    /// - IsNumber = 9,
+    /// - IsWholeNumber = 10
+    ///
+    /// Text:
+    /// - Contains = 100
+    /// - NotContains = 101
+    /// - IsEmail = 102
+    /// - IsURL = 103
+    ///
+    /// Regex:
+    /// - Contains = 299
+    /// - NotContains = 300
+    /// - Matches = 301
+    /// - NotMatches = 302
+    ///
+    /// Response length:
+    /// - MaximumChars = 202
+    /// - MinimumChars = 203
+    pub validation_subtype: u32,
 
     /// This contains the condition(s) that needs to be met,
     /// in string form
-    condition: Option<Vec<String>>,
+    #[serde(default)]
+    pub condition: Option<Vec<String>>,
     /// Error text to return when condition is not fulfilled
     #[serde(default)]
-    error_text: Option<String>
+    pub error_text: Option<String>,
 }
 
 /// For questions that contain dimensional or array-like data,
@@ -237,12 +265,12 @@ struct RawDimension {
 
     /// Not none when question type is DropDown (Some(0))
     #[serde(default)]
-    unknown_number: Option<u8>
+    unknown_number: Option<u8>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct RawTimeType {
-    inner: TimeType
+    inner: TimeType,
 }
 
 /// Type representation for time-related questions
@@ -252,7 +280,7 @@ pub enum TimeType {
     /// Time of day in HH MM
     Time,
     /// Duration in HH MM SS
-    Duration
+    Duration,
 }
 
 /// Date-time type is encoded into 2 binary discriminants,
@@ -260,7 +288,7 @@ pub enum TimeType {
 #[derive(Clone, Debug, Deserialize)]
 struct RawDateType {
     discriminant_1: u8,
-    discriminant_2: u8
+    discriminant_2: u8,
 }
 
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
@@ -341,7 +369,6 @@ mod test {
 
     #[test]
     fn test_deserialize_num_to_enum() {
-
         let json = r#"[0,1]"#;
 
         let des: Vec<FormQuestion> = serde_json::from_str(json).unwrap();
