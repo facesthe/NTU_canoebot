@@ -4,16 +4,15 @@
 //! because Google hates symbols.
 #![allow(unused)]
 
-use chrono::Date;
 use serde_derive::Deserialize;
-use serde_json::{Value, Number};
+use serde_json::{Number, Value};
 use serde_repr::Deserialize_repr;
 
 /// Form data as-is after fetch
 #[derive(Clone, Debug, Deserialize)]
-struct RawFormData {
+pub(crate) struct RawFormData {
     unknown_1: Value,
-    question_blob: RawQuestionBlob, // RawQuestionBlob
+    pub question_blob: RawQuestionBlob, // RawQuestionBlob
     unknown_2: String,
     description: String,
 
@@ -49,9 +48,9 @@ struct RawFormData {
 #[serde(
     expecting = "expecting [<form_description>, <questions>, <unknown_vec_1>, <unknown_1>, <unknown_2>, <unknown_vec_2>, <unknown_3>, <unknown_vec_3>, <form_title>, <unknown_number_1>, <unknown_vec_4>, <unknown_4>, <unknown_5>, <unknown_6>, <unknown_7>, <unknown_vec_5>, <unknown_vec_6>, <unknown_8>, <unknown_9>, <unknown_10>, <unknown_11>, <unknown_12>, <unknown_13>, <unknown_14>, <unknown_vec_7>, <unknown_vec_8> array"
 )]
-struct RawQuestionBlob {
+pub(crate) struct RawQuestionBlob {
     form_description: String,
-    questions: Vec<RawQuestion>, // RawQuestion
+    pub questions: Vec<RawQuestion>, // RawQuestion
     unknown_vec_1: Value,
 
     unknown_1: Value,
@@ -166,7 +165,7 @@ pub(crate) struct RawQuestionInfo {
     pub dimension_2: Option<Vec<String>>,
 
     /// Contains:
-    /// - input validation for open-ended questions
+    /// - input validation for select questions
     #[serde(default)]
     pub input_validation: Option<Vec<RawInputValidation>>,
 
@@ -180,8 +179,10 @@ pub(crate) struct RawQuestionInfo {
     #[serde(default)]
     pub date_type: Option<RawDateType>,
 
+    /// Is Some(_) for checkbox questions
     #[serde(default)]
-    unknown_6: Option<Number>,
+    #[serde(deserialize_with = "uint_option_to_bool")]
+    shuffle_order: Option<bool>,
 
     #[serde(default)]
     unknown_number: Option<u8>,
@@ -209,6 +210,7 @@ pub(crate) struct RawInputValidation {
     /// - Text = 2
     /// - Regex = 4
     /// - Response Length = 6
+    /// - Checkbox selections = 7
     pub validation_type: u32,
 
     /// Each input validation type has multiple subtypes.
@@ -241,6 +243,11 @@ pub(crate) struct RawInputValidation {
     /// Response length:
     /// - MaximumChars = 202
     /// - MinimumChars = 203
+    ///
+    /// Checkbox selection:
+    /// - At least = 200
+    /// - At most = 201
+    /// - Exactly = 204
     pub validation_subtype: u32,
 
     /// This contains the condition(s) that needs to be met,
@@ -257,7 +264,7 @@ pub(crate) struct RawInputValidation {
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct RawDimension {
     #[serde(default)]
-    name: String,
+    pub name: String,
     #[serde(default)]
     unknown_1: Value,
     #[serde(default)]
@@ -346,6 +353,27 @@ where
             &"zero or one only",
         )),
     }
+}
+
+// use serde::de::{self, Deserialize, Deserializer, Unexpected};
+/// Deserialize a known bit (0,1) to a bool.
+/// Used to deserialize the "required" field in [RawQuestionTags].
+fn uint_option_to_bool<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<u8>::deserialize(deserializer)? {
+        Some(val) => match val {
+            0 => Ok(Some(false)),
+            1 => Ok(Some(true)),
+            other => Err(de::Error::invalid_value(
+                Unexpected::Unsigned(other as u64),
+                &"zero or one only",
+            )),
+        },
+        None => Ok(None),
+    }
+    // todo!()
 }
 
 #[cfg(test)]

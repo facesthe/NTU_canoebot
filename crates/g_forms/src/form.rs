@@ -1,5 +1,4 @@
 //! Public form structs
-#![allow(unused)]
 
 use std::str::FromStr;
 
@@ -55,23 +54,20 @@ impl From<RawQuestion> for QuestionHeader {
         // #[rustfmt::skip]
         match &mut question.question_type {
             QuestionType::ShortAnswer(qn) | QuestionType::LongAnswer(qn) => {
-                todo!()
+                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap();
             }
-            //  => todo!(),
-            QuestionType::MultipleChoice => todo!(),
-            QuestionType::DropDown => todo!(),
-            QuestionType::CheckBox => todo!(),
-            QuestionType::LinearScale => todo!(),
+            QuestionType::MultipleChoice(qn)
+            | QuestionType::DropDown(qn)
+            | QuestionType::CheckBox(qn)
+            | QuestionType::LinearScale(qn) => {
+                *qn = SelectionQuestion::try_from(value.additional_info).unwrap()
+            }
             QuestionType::Grid => todo!(),
-            QuestionType::Date(qn) => {
-                todo!()
-            }
-            QuestionType::Time(qn) => {
-                todo!()
-            }
+            QuestionType::Date(qn) => *qn = DateQuestion::try_from(value.additional_info).unwrap(),
+            QuestionType::Time(qn) => *qn = TimeQuestion::try_from(value.additional_info).unwrap(),
         }
 
-        todo!()
+        question
     }
 }
 
@@ -80,10 +76,10 @@ impl From<RawQuestion> for QuestionHeader {
 pub enum QuestionType {
     ShortAnswer(OpenEndedQuestion),
     LongAnswer(OpenEndedQuestion),
-    MultipleChoice,
-    DropDown,
-    CheckBox,
-    LinearScale,
+    MultipleChoice(SelectionQuestion),
+    DropDown(SelectionQuestion),
+    CheckBox(SelectionQuestion),
+    LinearScale(SelectionQuestion),
     Grid,
     Date(DateQuestion),
     Time(TimeQuestion),
@@ -94,10 +90,10 @@ impl From<FormQuestion> for QuestionType {
         match value {
             FormQuestion::Short => Self::ShortAnswer(Default::default()),
             FormQuestion::Long => Self::LongAnswer(Default::default()),
-            FormQuestion::MultipleChoice => Self::MultipleChoice,
-            FormQuestion::DropDown => Self::DropDown,
-            FormQuestion::CheckBox => Self::CheckBox,
-            FormQuestion::LinearScale => Self::LinearScale,
+            FormQuestion::MultipleChoice => Self::MultipleChoice(Default::default()),
+            FormQuestion::DropDown => Self::DropDown(Default::default()),
+            FormQuestion::CheckBox => Self::CheckBox(Default::default()),
+            FormQuestion::LinearScale => Self::LinearScale(Default::default()),
             FormQuestion::Grid => Self::Grid,
             FormQuestion::Date => Self::Date(Default::default()),
             FormQuestion::Time => Self::Time(Default::default()),
@@ -133,17 +129,21 @@ impl TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion {
             validation_error: None,
         };
 
-        // the inner vec should also have a single element
-        let raw = inner
-            .input_validation
-            .ok_or(())?
-            .iter()
-            .next()
-            .ok_or(())?
-            .to_owned();
+        // // the inner vec should also have a single element
+        // let raw = inner
+        //     .input_validation
+        //     .ok_or(())?
+        //     .iter()
+        //     .next()
+        //     .ok_or(())?
+        //     .to_owned();
 
-        qn.validation = Some(InputValidation::try_from(raw.clone())?);
-        qn.validation_error = raw.error_text;
+        let raw: Option<RawInputValidation> = inner
+            .input_validation
+            .and_then(|v| v.iter().next().and_then(|elem| Some(elem.to_owned())));
+
+        qn.validation_error = raw.as_ref().and_then(|v| v.error_text.clone());
+        qn.validation = raw.and_then(|v| Some(InputValidation::try_from(v).ok()?));
 
         Ok(qn)
     }
@@ -195,6 +195,15 @@ pub enum InputValidation {
 
     /// Response valid if text is a valid email
     TextIsEmail =               103,
+
+    /// At least x number of responses checked
+    CheckBoxGTE(u32) =          200,
+
+    /// At most x number of responses
+    CheckBoxLTE(u32) =          201,
+
+    /// Exactly x number of responses
+    CheckBoxEQ(u32) =           204,
 
     /// Response valid if it is smaller or equal to the maximum length
     LengthMaximumChars(u32) =   202,
@@ -262,6 +271,10 @@ impl InputValidation {
             101 => Some(Self::TextNotContains(Default::default())),
             102 => Some(Self::TextIsEmail),
             103 => Some(Self::TextIsUrl),
+
+            200 => Some(Self::CheckBoxGTE(Default::default())),
+            201 => Some(Self::CheckBoxLTE(Default::default())),
+            204 => Some(Self::CheckBoxEQ(Default::default())),
 
             202 => Some(Self::LengthMaximumChars(Default::default())),
             203 => Some(Self::LengthMinimumChars(Default::default())),
@@ -343,7 +356,11 @@ impl InputValidation {
             Self::TextIsUrl => (),
             Self::TextIsEmail => (),
 
-            Self::LengthMaximumChars(x) | Self::LengthMinimumChars(x) => {
+            Self::LengthMaximumChars(x)
+            | Self::LengthMinimumChars(x)
+            | Self::CheckBoxEQ(x)
+            | Self::CheckBoxGTE(x)
+            | Self::CheckBoxLTE(x) => {
                 let num = cond.clone()?.iter().next()?.parse::<u32>().ok()?;
 
                 *x = num;
@@ -370,9 +387,19 @@ impl InputValidation {
 /// - Multiple choice
 /// - Check box
 /// - Drop down
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SelectionQuestion {
-    inner: Vec<SingleSelection>
+    /// Vector of available choices
+    inner: Vec<SingleSelection>,
+
+    // /// Multi-select?
+    // multiple: bool,
+    /// Lower and upper limits
+    /// for linear scale questions
+    limits: Option<SelectionLimits>,
+
+    /// Applicable to checkbox questions only
+    validation: Option<InputValidation>,
 }
 
 /// Represents a single selection option for
@@ -380,7 +407,61 @@ pub struct SelectionQuestion {
 /// responses.
 #[derive(Clone, Debug)]
 pub struct SingleSelection {
-    name: String,
+    /// String response
+    answer: String,
+
+    /// Marks if option is selected
+    selected: bool,
+}
+
+/// Labels for upper and lower selection limits
+#[derive(Clone, Debug, Default)]
+pub struct SelectionLimits {
+    lower: String,
+    upper: String,
+}
+
+impl TryFrom<Vec<RawQuestionInfo>> for SelectionQuestion {
+    type Error = ();
+
+    fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
+        let raw = value.into_iter().next().ok_or(())?;
+
+        let questions = raw
+            .dimension_1
+            .ok_or(())?
+            .into_iter()
+            .map(|elem| SingleSelection {
+                answer: elem.name,
+                selected: false,
+            })
+            .collect::<Vec<SingleSelection>>();
+
+        let limits: Option<SelectionLimits> = match raw.dimension_2 {
+            Some(_limit) => {
+                let chunk = _limit.chunks(2).next().ok_or(())?;
+                Some(SelectionLimits {
+                    lower: chunk[0].clone(),
+                    upper: chunk[1].clone(),
+                })
+            }
+            None => None,
+        };
+
+        let validation: Option<InputValidation> = match raw.input_validation {
+            Some(_iv) => {
+                let inner = _iv.into_iter().next().ok_or(())?;
+                Some(InputValidation::try_from(inner)?)
+            }
+            None => None,
+        };
+
+        Ok(Self {
+            inner: questions,
+            limits,
+            validation,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -424,6 +505,8 @@ impl TryFrom<Vec<RawQuestionInfo>> for TimeQuestion {
 
 #[cfg(test)]
 mod test {
+    use crate::raw::RawFormData;
+
     use super::InputValidation;
     use super::*;
 
@@ -446,8 +529,56 @@ mod test {
         assert!(matches!(validation, InputValidation::NumberLT(_)));
     }
 
-    #[test]
-    fn test_openendedqn_tryfrom_vec_rawqninfo() {
-        // z
+    /// Da big on'e
+    #[tokio::test]
+    async fn test_raw_to_form() {
+        let url = format!(
+            "https://docs.google.com/forms/d/e/{}/viewform",
+            // "1FAIpQLSfMtt0kvol72F9A2BaLJacr8Xzm9n51KBxVfS8YkDe8SfS5GA"
+            // "1FAIpQLSdZJlO9DfU1UQyQ1zgOnGLKrycyxP-eEcpzutfETaki2RgtVw"
+            "1FAIpQLSfmF5b8tCebE5ZT_1qw6_C42LA5azs5NboRxuqjJP4XPmlstg"
+        );
+
+        let resp = match reqwest::get(url).await {
+            Ok(_resp) => _resp,
+            Err(_) => panic!(),
+        };
+
+        let variable_contents: String = {
+            let html_body = match resp.text().await {
+                Ok(_html) => _html,
+                Err(_) => panic!(),
+            };
+
+            let variable_definition = scraper::Html::parse_document(&html_body)
+                .select(&scraper::Selector::parse("body script").unwrap())
+                .next()
+                .expect("should have a variable declared in the script section")
+                .text()
+                .collect::<String>();
+
+            // println!("variable definition:\n{}", variable_definition);
+
+            let mut variable_content_with_semi = variable_definition
+                .split("=")
+                .last()
+                .unwrap()
+                .trim()
+                .chars()
+                .collect::<Vec<char>>();
+
+            variable_content_with_semi.pop();
+            variable_content_with_semi.iter().collect::<String>()
+        };
+        println!("variable contents:\n{}", &variable_contents);
+        let des: RawFormData = serde_json::from_str(&variable_contents).unwrap();
+
+        let questions = des
+            .question_blob
+            .questions
+            .into_iter()
+            .map(|raw| QuestionHeader::from(raw))
+            .collect::<Vec<QuestionHeader>>();
+        println!("{:#?}", questions);
     }
 }
