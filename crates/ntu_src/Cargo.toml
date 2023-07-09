@@ -12,9 +12,8 @@ tokio = {workspace = true}
 serde = {workspace = true}
 serde_derive = {workspace = true}
 reqwest = {workspace = true}
+chrono = {workspace = true}
 
 lazy_static = "1.4.0"
-chrono = "0.4.26"
 toml = "0"
-
 table-extract = "0.2.3"

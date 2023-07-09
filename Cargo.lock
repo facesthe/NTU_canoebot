@@ -547,6 +547,7 @@ dependencies = [
 name = "g_forms"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "reqwest",
  "scraper 0.17.1",
  "serde",

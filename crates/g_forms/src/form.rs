@@ -5,7 +5,9 @@ use std::str::FromStr;
 
 pub use serde_json::Number;
 
-use crate::raw::{RawInputValidation, TimeType};
+use crate::raw::{
+    DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType,
+};
 
 /// Every response to a question is eventually serialized/generated
 /// to a string. This trait implements the logic to convert a form response
@@ -34,11 +36,43 @@ pub struct GoogleForm {
 /// Common question attributes
 #[derive(Clone, Debug)]
 pub struct QuestionHeader {
-    title: String,
+    title: Option<String>,
     /// Used for submissions
-    id: String,
+    id: u64,
     description: Option<String>,
     question_type: QuestionType,
+}
+
+impl From<RawQuestion> for QuestionHeader {
+    fn from(value: RawQuestion) -> Self {
+        let mut question = QuestionHeader {
+            title: value.title,
+            id: value.id,
+            description: value.description,
+            question_type: QuestionType::from(value.question_type),
+        };
+
+        // #[rustfmt::skip]
+        match &mut question.question_type {
+            QuestionType::ShortAnswer(qn) | QuestionType::LongAnswer(qn) => {
+                todo!()
+            }
+            //  => todo!(),
+            QuestionType::MultipleChoice => todo!(),
+            QuestionType::DropDown => todo!(),
+            QuestionType::CheckBox => todo!(),
+            QuestionType::LinearScale => todo!(),
+            QuestionType::Grid => todo!(),
+            QuestionType::Date(qn) => {
+                todo!()
+            }
+            QuestionType::Time(qn) => {
+                todo!()
+            }
+        }
+
+        todo!()
+    }
 }
 
 /// One form question
@@ -55,9 +89,25 @@ pub enum QuestionType {
     Time(TimeQuestion),
 }
 
+impl From<FormQuestion> for QuestionType {
+    fn from(value: FormQuestion) -> Self {
+        match value {
+            FormQuestion::Short => Self::ShortAnswer(Default::default()),
+            FormQuestion::Long => Self::LongAnswer(Default::default()),
+            FormQuestion::MultipleChoice => Self::MultipleChoice,
+            FormQuestion::DropDown => Self::DropDown,
+            FormQuestion::CheckBox => Self::CheckBox,
+            FormQuestion::LinearScale => Self::LinearScale,
+            FormQuestion::Grid => Self::Grid,
+            FormQuestion::Date => Self::Date(Default::default()),
+            FormQuestion::Time => Self::Time(Default::default()),
+        }
+    }
+}
+
 /// For open-ended type questions, such as
 /// short and long answer questions.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct OpenEndedQuestion {
     /// Form response
     response: Option<String>,
@@ -66,7 +116,37 @@ pub struct OpenEndedQuestion {
     validation: Option<InputValidation>,
 
     /// Error message if response validation fails
-    validation_error: String,
+    validation_error: Option<String>,
+}
+
+impl TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion {
+    type Error = ();
+
+    fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
+        // vec should have a valid first element
+        // for open ended questions
+        let inner = value.into_iter().next().ok_or(())?;
+
+        let mut qn = Self {
+            response: None,
+            validation: None,
+            validation_error: None,
+        };
+
+        // the inner vec should also have a single element
+        let raw = inner
+            .input_validation
+            .ok_or(())?
+            .iter()
+            .next()
+            .ok_or(())?
+            .to_owned();
+
+        qn.validation = Some(InputValidation::try_from(raw.clone())?);
+        qn.validation_error = raw.error_text;
+
+        Ok(qn)
+    }
 }
 
 /// Response validation
@@ -284,40 +364,90 @@ impl InputValidation {
     }
 }
 
+/// Selection type question.
+///
+/// Applies to:
+/// - Multiple choice
+/// - Check box
+/// - Drop down
+#[derive(Clone, Debug)]
+pub struct SelectionQuestion {
+    inner: Vec<SingleSelection>
+}
+
 /// Represents a single selection option for
 /// questions that consist of selection-type
 /// responses.
 #[derive(Clone, Debug)]
-pub struct SingleSelectionQuestion {
+pub struct SingleSelection {
     name: String,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum DateType {
-    /// Day and month only
-    Date,
-    /// Day, month and year
-    DateYear,
-    /// Day and month with time
-    DateTime,
-    /// Day, month and year with time
-    DateTimeYear,
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DateQuestion {
     variant: DateType,
+    inner: Option<chrono::NaiveDateTime>,
 }
 
-#[derive(Clone, Debug)]
+impl TryFrom<Vec<RawQuestionInfo>> for DateQuestion {
+    type Error = ();
+
+    fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
+        let raw = value.into_iter().next().ok_or(())?;
+        let date = DateType::try_from(raw.date_type.ok_or(())?)?;
+
+        Ok(Self {
+            variant: date,
+            inner: None,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct TimeQuestion {
     variant: TimeType,
+    inner: Option<chrono::NaiveTime>,
+}
+
+impl TryFrom<Vec<RawQuestionInfo>> for TimeQuestion {
+    type Error = ();
+
+    fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
+        let raw = value.into_iter().next().ok_or(())?;
+
+        Ok(Self {
+            variant: raw.time_type.ok_or(())?.inner,
+            inner: None,
+        })
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::InputValidation;
+    use super::*;
 
     #[test]
     fn test_repr_enum() {}
+
+    #[test]
+    fn test_inputvalidation_tryfrom_raw() {
+        let raw = RawInputValidation {
+            validation_type: 1,
+            validation_subtype: 3,
+            condition: Some(vec!["9.99".to_string()]),
+            error_text: Some("number needs to be greater than 9".to_string()),
+        };
+
+        let res = InputValidation::try_from(raw);
+        assert!(matches!(res, Ok(_)));
+
+        let validation = res.unwrap();
+        assert!(matches!(validation, InputValidation::NumberLT(_)));
+    }
+
+    #[test]
+    fn test_openendedqn_tryfrom_vec_rawqninfo() {
+        // z
+    }
 }

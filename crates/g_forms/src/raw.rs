@@ -4,10 +4,9 @@
 //! because Google hates symbols.
 #![allow(unused)]
 
-use std::clone;
-
+use chrono::Date;
 use serde_derive::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, Number};
 use serde_repr::Deserialize_repr;
 
 /// Form data as-is after fetch
@@ -107,15 +106,15 @@ pub enum FormQuestion {
 
 /// Raw questions information
 #[derive(Clone, Debug, Deserialize)]
-struct RawQuestion {
-    id: u64,
-    title: Option<String>,
-    description: Option<String>,
-    question_type: FormQuestion,
+pub(crate) struct RawQuestion {
+    pub id: u64,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub question_type: FormQuestion,
 
     /// Additional information such as info for selection-type answers,
     /// input validation live here.
-    additional_info: Vec<RawQuestionInfo>, // Vec RawQuestionTags
+    pub additional_info: Vec<RawQuestionInfo>, // Vec RawQuestionTags
 
     #[serde(default)]
     unknown_2: Value,
@@ -145,16 +144,16 @@ struct RawQuestion {
 
 /// Additional info for question
 #[derive(Clone, Debug, Deserialize)]
-struct RawQuestionInfo {
+pub(crate) struct RawQuestionInfo {
     /// Question id used during form submission
-    id: u64,
+    pub id: u64,
 
     /// 1 dimensional data here
-    dimension_1: Option<Vec<RawDimension>>,
+    pub dimension_1: Option<Vec<RawDimension>>,
 
     /// Bool in number form
     #[serde(deserialize_with = "uint_to_bool")]
-    required: bool,
+    pub required: bool,
 
     // all subsequent fields are optional, and should have
     // #[serde(default)] added to prevent deserialize errors
@@ -164,25 +163,25 @@ struct RawQuestionInfo {
     /// Linear scale: `[lowest, highest]`
     /// Grid : `[column]`
     #[serde(default)]
-    dimension_2: Option<Vec<String>>,
+    pub dimension_2: Option<Vec<String>>,
 
     /// Contains:
     /// - input validation for open-ended questions
     #[serde(default)]
-    input_validation: Option<Vec<RawInputValidation>>,
+    pub input_validation: Option<Vec<RawInputValidation>>,
 
     #[serde(default)]
     unknown_3: Value,
 
     #[serde(default)]
     /// For time questions
-    time_type: Option<RawTimeType>,
+    pub time_type: Option<RawTimeType>,
 
     #[serde(default)]
-    unknown_5: Option<RawDateType>,
+    pub date_type: Option<RawDateType>,
 
     #[serde(default)]
-    unknown_6: Value,
+    unknown_6: Option<Number>,
 
     #[serde(default)]
     unknown_number: Option<u8>,
@@ -202,6 +201,9 @@ pub(crate) struct RawInputValidation {
     // num_1 == 6 -> response len, 4 -> regex
     // num_2 == 203 -> minimum char count, 202 -> maximum char count (response len)
     // num_2 == 299 -> contains, 300, does not contain, 301 -> match, 302 -> does not match (regex)
+    /// Since `validation_subtypes` does not overlap across all subtypes,
+    /// this field will not be used.
+    ///
     /// Type of input validation:
     /// - Numeric = 1
     /// - Text = 2
@@ -253,7 +255,7 @@ pub(crate) struct RawInputValidation {
 /// For questions that contain dimensional or array-like data,
 /// such as ranges, grids, etc.
 #[derive(Clone, Debug, Deserialize)]
-struct RawDimension {
+pub(crate) struct RawDimension {
     #[serde(default)]
     name: String,
     #[serde(default)]
@@ -269,8 +271,8 @@ struct RawDimension {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct RawTimeType {
-    inner: TimeType,
+pub(crate) struct RawTimeType {
+    pub inner: TimeType,
 }
 
 /// Type representation for time-related questions
@@ -283,12 +285,50 @@ pub enum TimeType {
     Duration,
 }
 
+impl Default for TimeType {
+    fn default() -> Self {
+        Self::Time
+    }
+}
+
 /// Date-time type is encoded into 2 binary discriminants,
 /// giving 4 possible combinations.
 #[derive(Clone, Debug, Deserialize)]
-struct RawDateType {
+pub(crate) struct RawDateType {
     discriminant_1: u8,
     discriminant_2: u8,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum DateType {
+    /// Day and month only
+    Date,
+    /// Day, month and year
+    DateYear,
+    /// Day and month with time
+    DateTime,
+    /// Day, month and year with time
+    DateTimeYear,
+}
+
+impl Default for DateType {
+    fn default() -> Self {
+        Self::Date
+    }
+}
+
+impl TryFrom<RawDateType> for DateType {
+    type Error = ();
+
+    fn try_from(value: RawDateType) -> Result<Self, Self::Error> {
+        match (value.discriminant_1, value.discriminant_2) {
+            (0, 0) => Ok(Self::Date),
+            (0, 1) => Ok(Self::DateYear),
+            (1, 0) => Ok(Self::DateTime),
+            (1, 1) => Ok(Self::DateTimeYear),
+            (_, _) => Err(()),
+        }
+    }
 }
 
 use serde::de::{self, Deserialize, Deserializer, Unexpected};

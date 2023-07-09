@@ -11,6 +11,7 @@ reqwest = {workspace = true}
 serde = {workspace = true}
 serde_derive = {workspace = true}
 serde_json = {workspace = true}
-serde_repr = "0.1.14"
+chrono = {workspace = true}
 
+serde_repr = "0.1.14"
 scraper = "0.17.1"
