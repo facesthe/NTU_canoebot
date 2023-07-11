@@ -13,7 +13,7 @@ serde = {workspace = true}
 serde_derive = {workspace = true}
 reqwest = {workspace = true}
 chrono = {workspace = true}
+lazy_static = {workspace =  true}
 
-lazy_static = "1.4.0"
-toml = "0"
+toml = "0.7.4"
 table-extract = "0.2.3"
