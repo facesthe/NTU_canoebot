@@ -1,12 +1,14 @@
 //! Public form structs
 
-use std::str::FromStr;
+use std::{marker::PhantomData, str::FromStr};
 
 pub use serde_json::Number;
 
 use crate::raw::{
     DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType,
 };
+
+use self::subtypes::{Long, Short};
 
 /// Every response to a question is eventually serialized/generated
 /// to a string. This trait implements the logic to convert a form response
@@ -19,6 +21,17 @@ use crate::raw::{
 /// ```
 pub trait Response {
     fn response(&self) -> Result<String, ()>;
+}
+
+/// Unit structs for question subtypes
+pub mod subtypes {
+    /// Short answer question
+    #[derive(Clone, Debug, Default)]
+    pub struct Short {}
+
+    /// Long answer question
+    #[derive(Clone, Debug, Default)]
+    pub struct Long {}
 }
 
 /// This represents a form and all its contents
@@ -53,8 +66,11 @@ impl From<RawQuestion> for QuestionHeader {
 
         // #[rustfmt::skip]
         match &mut question.question_type {
-            QuestionType::ShortAnswer(qn) | QuestionType::LongAnswer(qn) => {
-                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap();
+            QuestionType::ShortAnswer(qn) => {
+                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap()
+            }
+            QuestionType::LongAnswer(qn) => {
+                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap()
             }
             QuestionType::MultipleChoice(qn)
             | QuestionType::DropDown(qn)
@@ -74,8 +90,8 @@ impl From<RawQuestion> for QuestionHeader {
 /// One form question
 #[derive(Clone, Debug)]
 pub enum QuestionType {
-    ShortAnswer(OpenEndedQuestion),
-    LongAnswer(OpenEndedQuestion),
+    ShortAnswer(OpenEndedQuestion<Short>),
+    LongAnswer(OpenEndedQuestion<Long>),
     MultipleChoice(SelectionQuestion),
     DropDown(SelectionQuestion),
     CheckBox(SelectionQuestion),
@@ -104,7 +120,9 @@ impl From<FormQuestion> for QuestionType {
 /// For open-ended type questions, such as
 /// short and long answer questions.
 #[derive(Clone, Debug, Default)]
-pub struct OpenEndedQuestion {
+pub struct OpenEndedQuestion<T> {
+    marker: PhantomData<T>,
+
     /// Form response
     response: Option<String>,
 
@@ -115,7 +133,7 @@ pub struct OpenEndedQuestion {
     validation_error: Option<String>,
 }
 
-impl TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion {
+impl<Long> TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion<Long> {
     type Error = ();
 
     fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
@@ -124,6 +142,7 @@ impl TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion {
         let inner = value.into_iter().next().ok_or(())?;
 
         let mut qn = Self {
+            marker: PhantomData,
             response: None,
             validation: None,
             validation_error: None,
