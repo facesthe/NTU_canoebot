@@ -1,4 +1,5 @@
-#![allow(unused)]
+//! This build script parses the config files and generates compile-time constants
+//! for use in the program.
 
 const SETTINGS_TEMPLATE: &str = "botsettings.template.toml";
 const SETTINGS_DEBUG: &str = "botsettings.template.debug.toml";
@@ -12,8 +13,16 @@ enum Setting {
     Deploy = 2,
 }
 
-use std::{collections::HashMap, fs, path::Path, str::FromStr};
-use toml;
+use core::panic;
+use std::{
+    collections::HashMap,
+    fs::{self, OpenOptions},
+    io::Write,
+    path::Path,
+    process::exit,
+    str::FromStr,
+};
+use toml::{self, Value};
 
 fn main() {
     let settings_arr = vec![
@@ -23,6 +32,7 @@ fn main() {
     ];
 
     // rerun this file if these files change
+    println!("cargo:rerun-if-changed=build.rs");
     let _ = settings_arr
         .iter()
         .map(|setting| println!("cargo:rerun-if-changed={}", setting));
@@ -42,19 +52,57 @@ fn main() {
 
     let file_to_use: usize; // indexes into settings_arr
     match (debug_file, deploy_file) {
-        (true, true) => file_to_use = Setting::Deploy as usize,
+        (true, true) => {
+            let debug = toml::Table::from_str(&settings_contents[Setting::Debug as usize]).unwrap();
+            let deploy =
+                toml::Table::from_str(&settings_contents[Setting::Deploy as usize]).unwrap();
+
+            let debug_use = debug
+                .get("use")
+                .and_then(|val| match val {
+                    Value::Boolean(_b) => Some(_b.to_owned()),
+                    _ => None,
+                })
+                .unwrap_or(false);
+
+            let deploy_use = deploy
+                .get("use")
+                .and_then(|val| match val {
+                    Value::Boolean(_b) => Some(_b.to_owned()),
+                    _ => None,
+                })
+                .unwrap_or(false);
+
+            match (debug_use, deploy_use) {
+                (true, true) => file_to_use = Setting::Deploy as usize,
+                (true, false) => file_to_use = Setting::Debug as usize,
+                (false, true) => file_to_use = Setting::Deploy as usize,
+                (false, false) => {
+                    println!("cargo:warning=\"use = true\" pair not set for both files. Set this key-value pair inside one configuration file.");
+                    exit(0)
+                    // file_to_use = Setting::Deploy as usize;
+                }
+            }
+        }
         (true, false) => file_to_use = Setting::Debug as usize,
         (false, true) => file_to_use = Setting::Deploy as usize,
-        (false, false) => panic!(
-            "debug/deploy file missing. At least one file required:\n-{}\n-{}",
-            settings_arr[0], settings_arr[1]
-        ),
+        (false, false) => {
+            file_to_use = Setting::Template as usize; // merge into self, effectively doing nothing
+
+            println!("cargo:warning=debug/deploy file missing. At least one file required:");
+            println!("cargo:warning=- {}", settings_arr[Setting::Debug as usize]);
+            println!("cargo:warning=- {}", settings_arr[Setting::Deploy as usize]);
+            println!("cargo:warning=Default settings may cause panics on runtime.");
+        }
     }
 
     let merged = merge_tables(
         &toml::Table::from_str(&settings_contents[Setting::Template as usize]).unwrap(),
         &toml::Table::from_str(&settings_contents[file_to_use]).unwrap(),
     );
+
+    let hash_table = table_to_hashmap(&merged, None);
+    generate_code_file(hash_table);
 }
 
 /// ChatGPT generated
@@ -96,10 +144,60 @@ fn read_append_to_vec(vec: &mut Vec<String>, file_path: &str) -> bool {
 }
 
 /// Convert a toml table to a hashmap by flattening
-fn table_to_hashmap(table: toml::Table) -> HashMap<String, String> {
-    for (key, val) in table.iter() {}
+fn table_to_hashmap(table: &toml::Table, prefix: Option<&str>) -> HashMap<String, Value> {
+    let mut map = HashMap::<String, Value>::new();
 
-    todo!()
+    for (key, val) in table.iter() {
+        let mut _key = key.to_owned().to_uppercase().replace("-", "_");
+        if let Some(pre) = prefix {
+            _key = format!("{}_{}", pre, _key);
+        }
+
+        if let Value::Table(t) = val {
+            let sub_map = table_to_hashmap(t, Some(_key.as_str()));
+            map.extend(sub_map);
+        } else {
+            map.insert(_key, val.to_owned());
+        }
+    }
+
+    map
+}
+
+/// Create and populate the generated file.
+/// This file will reside in this crate's root alongside `build.rs`.
+fn generate_code_file(variables: HashMap<String, Value>) {
+    let mut gen_file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open("generated.rs")
+        .unwrap();
+
+    gen_file
+        .write_all("/// The contents of this file are automatically generated.\n\n".as_bytes())
+        .unwrap();
+
+    for (key, val) in variables.iter() {
+        let (value_literal, value_type) = match val {
+            Value::String(s) => (format!("\"{}\"", s), "&str"),
+            Value::Integer(i) => (i.to_string(), "i64"),
+            Value::Float(f) => (f.to_string(), "f64"),
+            Value::Boolean(b) => (b.to_string(), "bool"),
+            Value::Datetime(dt) => (format!("\"{}\"", dt), "&str"),
+            // Value::Array(_) => todo!(), // never taken
+            // Value::Table(_) => todo!(), // never taken
+            _ => todo!(),
+        };
+
+        let generated_line = format!(
+            r#"pub const {}: {} = {};
+"#,
+            key, value_type, value_literal
+        );
+
+        gen_file.write_all(generated_line.as_bytes()).unwrap();
+    }
 }
 
 #[cfg(test)]
