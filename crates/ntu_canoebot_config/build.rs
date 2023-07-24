@@ -35,9 +35,9 @@ fn main() {
 
     // rerun this file if these files change
     println!("cargo:rerun-if-changed=build.rs");
-    let _ = settings_arr
-        .iter()
-        .map(|setting| println!("cargo:rerun-if-changed={}", setting));
+    for s in &settings_arr {
+        println!("cargo:rerun-if-changed={}", s);
+    }
 
     let mut settings_contents = Vec::new();
 
