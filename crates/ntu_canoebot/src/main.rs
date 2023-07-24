@@ -7,11 +7,14 @@ use teloxide::prelude::*;
 use crate::callback::callback_handler;
 use crate::command::message_handler;
 
+use ntu_canoebot_config as config;
+
 #[tokio::main]
 async fn main() {
-    dotenv::from_filename(".env_gen").ok();
+    std::env::set_var("RUST_LOG", config::LOGGER_LOG_LEVEL.to_string());
+    std::env::set_var("TELOXIDE_TOKEN", config::CANOEBOT_APIKEY.to_string());
+    // println!("ASDASD");
     pretty_env_logger::init();
-
     let bot = Bot::from_env();
 
     let handler = dptree::entry()

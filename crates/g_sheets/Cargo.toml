@@ -13,3 +13,5 @@ serde_derive = {workspace = true}
 serde_json = {workspace = true}
 chrono = {workspace = true}
 lazy_static = {workspace = true}
+
+csv = "1.2.1"

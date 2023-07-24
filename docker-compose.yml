@@ -10,6 +10,8 @@ services:
     restart: on-failure
     build:
       context: .
-      args:
-        - teloxide_token=${TELOXIDE_TOKEN:?NO_TELOXIDE_API_TOKEN}
-        - rust_log=${RUST_LOG:?NO_RUST_LOG_LEVEL}
+      dockerfile: ./docker/build.Dockerfile
+
+      # args:
+        # - teloxide_token=${TELOXIDE_TOKEN:?NO_TELOXIDE_API_TOKEN}
+        # - rust_log=${RUST_LOG:?NO_RUST_LOG_LEVEL}
