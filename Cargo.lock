@@ -1066,13 +1066,18 @@ dependencies = [
 name = "ntu_canoebot_attd"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "g_sheets",
+ "lazy_static",
+ "ntu_canoebot_config",
+ "tokio",
 ]
 
 [[package]]
 name = "ntu_canoebot_config"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "toml",
 ]
 

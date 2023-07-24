@@ -7,6 +7,8 @@ const SETTINGS_DEPLOY: &str = "botsettings.template.deploy.toml";
 
 const CONFIGS_PATH: &str = "../../.configs/";
 
+const GENERATED_FILE_PATH: &str = "generated.rs";
+
 enum Setting {
     Template = 0,
     Debug = 1,
@@ -101,8 +103,19 @@ fn main() {
         &toml::Table::from_str(&settings_contents[file_to_use]).unwrap(),
     );
 
+    let _wrapper = CodeGenWrapper::default();
+
     let hash_table = table_to_hashmap(&merged, None);
-    generate_code_file(hash_table);
+    generate_code_file(hash_table, GENERATED_FILE_PATH);
+
+    let hash_gen = generate_code_last_level_hashmap(&merged, None);
+    let mut gen_file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(GENERATED_FILE_PATH)
+        .unwrap();
+
+    gen_file.write_all(hash_gen.as_bytes()).unwrap();
 }
 
 /// ChatGPT generated
@@ -166,37 +179,143 @@ fn table_to_hashmap(table: &toml::Table, prefix: Option<&str>) -> HashMap<String
 
 /// Create and populate the generated file.
 /// This file will reside in this crate's root alongside `build.rs`.
-fn generate_code_file(variables: HashMap<String, Value>) {
+fn generate_code_file(variables: HashMap<String, Value>, path: &str) {
     let mut gen_file = OpenOptions::new()
-        .create(true)
         .write(true)
-        .truncate(true)
-        .open("generated.rs")
-        .unwrap();
-
-    gen_file
-        .write_all("/// The contents of this file are automatically generated.\n\n".as_bytes())
+        .append(true)
+        .open(path)
         .unwrap();
 
     for (key, val) in variables.iter() {
         let (value_literal, value_type) = match val {
-            Value::String(s) => (format!("\"{}\"", s), "&str"),
+            Value::String(s) => (format!("\"{}\"", s), "&'static str"),
             Value::Integer(i) => (i.to_string(), "i64"),
             Value::Float(f) => (f.to_string(), "f64"),
             Value::Boolean(b) => (b.to_string(), "bool"),
-            Value::Datetime(dt) => (format!("\"{}\"", dt), "&str"),
+            Value::Datetime(dt) => (
+                format!("Datetime::from_str(\"{}\").unwrap()", dt),
+                "Datetime",
+            ),
             // Value::Array(_) => todo!(), // never taken
             // Value::Table(_) => todo!(), // never taken
             _ => todo!(),
         };
 
         let generated_line = format!(
-            r#"pub const {}: {} = {};
-"#,
+            "pub static ref {}: {} = {};\n",
             key, value_type, value_literal
         );
 
         gen_file.write_all(generated_line.as_bytes()).unwrap();
+    }
+}
+
+/// Turns all last-level tables (tables that do not contain more tables)
+/// to a const hashmap.
+fn generate_code_last_level_hashmap(table: &toml::Table, prefix: Option<&str>) -> String {
+    // check if current table fits criteria
+    let last_level = table.iter().all(|(_, val)| match val {
+        Value::Table(_) | Value::Array(_) => false,
+        _ => true,
+    });
+
+    let generated = if last_level {
+        // code generated is accumulated into this string
+        let mut hash_gen = String::new();
+        hash_gen += &format!(
+            "pub static ref {}: HashMap<&'static str, String> = HashMap::from([\n",
+            prefix.unwrap_or("ROOT") // in the event that the entire toml file is a last-level table
+        );
+
+        for (key, val) in table.iter() {
+            let val_str: String = match val {
+                Value::String(_s) => format!("\"{}\"", _s),
+                Value::Integer(_i) => format!("\"{}\"", _i),
+                Value::Float(_f) => format!("\"{}\"", _f),
+                Value::Boolean(_b) => format!("\"{}\"", _b),
+                Value::Datetime(_dt) => format!("\"{}\"", _dt),
+                _ => {
+                    // arrays and tables should not appear here
+                    println!("cargo:warning=Invalid last level data type.");
+                    exit(1);
+                }
+            };
+            hash_gen += &format!("(\"{}\", {}.to_string()),\n", key.to_uppercase(), val_str);
+        }
+
+        hash_gen += "]);\n";
+        hash_gen
+    } else {
+        let generated_maps = table
+            .iter()
+            .map(|(key, val)| {
+                let prefix = if let Some(_pre) = prefix {
+                    format!("{}_{}", _pre.to_uppercase(), key.to_uppercase())
+                } else {
+                    key.to_uppercase()
+                };
+
+                // taking tables only
+                if let toml::Value::Table(t) = val {
+                    generate_code_last_level_hashmap(t, Some(&prefix))
+                } else {
+                    // ignore the rest
+                    String::new()
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        generated_maps
+    };
+
+    generated
+}
+
+/// Creates code for headers and footers.
+///
+/// Creates headers on construction
+/// and footers on destruction.
+struct CodeGenWrapper {}
+
+impl Default for CodeGenWrapper {
+    fn default() -> Self {
+        let mut gen_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(GENERATED_FILE_PATH)
+            .unwrap();
+
+        gen_file
+            .write_all("// The contents of this file are automatically generated.\n\n".as_bytes())
+            .unwrap();
+        gen_file
+            .write_all("use std::collections::HashMap;\n".as_bytes())
+            .unwrap();
+        gen_file
+            .write_all("use std::str::FromStr;\n".as_bytes())
+            .unwrap();
+        gen_file
+            .write_all("use toml::value::Datetime;\n\n".as_bytes())
+            .unwrap();
+        gen_file
+            .write_all("lazy_static::lazy_static! {\n".as_bytes())
+            .unwrap();
+
+        Self {}
+    }
+}
+
+impl Drop for CodeGenWrapper {
+    fn drop(&mut self) {
+        let mut gen_file = OpenOptions::new()
+            .append(true)
+            .write(true)
+            .open(GENERATED_FILE_PATH)
+            .unwrap();
+
+        gen_file.write_all("}\n".as_bytes()).unwrap()
     }
 }
 
