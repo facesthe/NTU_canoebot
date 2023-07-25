@@ -38,6 +38,7 @@ fn main() {
 
     // rerun this file if these files change
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed={}", GENERATED_FILE_PATH);
     for s in &settings_arr {
         println!("cargo:rerun-if-changed={}", s);
     }
