@@ -18,20 +18,21 @@
 //! If neither file has the `use = true` pair set, the build process will exit.
 //!
 //! ## Usage
-//! - All keys retain their paths in their names.
-//! - Each level is separated by an underscore `_`.
-//! - Absolute keys can be any toml type except for tables and arrays
+//! - All nested tables are destructured to become absolute keys.
+//! - Each inner table (namespace) is separated by an underscore `_`
+//! - Absolute keys can be any toml type except for tables
 //! - Absolute keys are stored directly as their toml data type
-//! - Last level tables (tables that do not contain tables) are also stored as a const hashmap. The values are stored in string form.
+//! - Absolute keys that point to arrays need to have each array element to be the same type
+//! - Last level tables (tables that do not contain tables) are also stored as a const hashmap. All hashmap values are strings.
 //! - All keys are stored in uppercase.
 //!
 //! ```
 //! use ntu_canoebot_config as config;
 //!
-//! /// retrieve the api key by absolute constant
+//! /// retrieve the api key by absolute key
 //! let key: &str = *config::CANOEBOT_APIKEY;
 //!
-//! /// retrieve a config with type known at compile time
+//! /// retrieve a config by it's absolute key
 //! let is_enabled: bool = *config::EVENTS_DAILY_LOGSHEET_PROMPT_ENABLE;
 //!
 //! /// retrieve the same config from a lookup table as a string
@@ -40,3 +41,10 @@
 //! ```
 
 include!("../generated.rs");
+
+#[cfg(test)]
+mod tests {
+    // included here so that build.rs can unit test as well
+    #![allow(unused)]
+    include!("../build.rs");
+}

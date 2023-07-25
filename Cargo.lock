@@ -572,7 +572,6 @@ dependencies = [
  "reqwest",
  "scraper 0.17.1",
  "serde",
- "serde_derive",
  "serde_json",
  "serde_repr",
  "tokio",
@@ -587,7 +586,6 @@ dependencies = [
  "lazy_static",
  "reqwest",
  "serde",
- "serde_derive",
  "serde_json",
  "tokio",
 ]
@@ -1093,10 +1091,11 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "lazy_static",
+ "ntu_canoebot_config",
  "ntu_canoebot_util",
  "reqwest",
  "serde",
- "serde_derive",
+ "serde_json",
  "table-extract",
  "tokio",
  "toml",

@@ -4,7 +4,7 @@
 //! because Google hates symbols.
 #![allow(unused)]
 
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use serde_json::{Number, Value};
 use serde_repr::Deserialize_repr;
 
@@ -338,7 +338,7 @@ impl TryFrom<RawDateType> for DateType {
     }
 }
 
-use serde::de::{self, Deserialize, Deserializer, Unexpected};
+use serde::de::{self, Deserializer, Unexpected};
 /// Deserialize a known bit (0,1) to a bool.
 /// Used to deserialize the "required" field in [RawQuestionTags].
 fn uint_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>

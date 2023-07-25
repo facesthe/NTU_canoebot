@@ -7,10 +7,11 @@ edition = "2021"
 
 [dependencies]
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+ntu_canoebot_config = {path = "../ntu_canoebot_config"}
 
 tokio = {workspace = true}
 serde = {workspace = true}
-serde_derive = {workspace = true}
+serde_json = {workspace = true}
 reqwest = {workspace = true}
 chrono = {workspace = true}
 lazy_static = {workspace =  true}

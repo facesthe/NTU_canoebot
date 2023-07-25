@@ -23,7 +23,7 @@ pub use form::GoogleForm;
 #[cfg(test)]
 #[allow(unused)]
 mod test {
-    use serde_derive::{Deserialize, Serialize};
+    use serde::{Deserialize, Serialize};
 
     use super::*;
 

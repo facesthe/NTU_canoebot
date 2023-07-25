@@ -10,15 +10,16 @@
 //! ```
 //!
 
-use std::{collections::HashMap, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc};
+use std::{fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc, fmt::Display};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime};
 use lazy_static::__Deref;
 
-use serde_derive::Deserialize;
+use serde::{Deserialize, Deserializer, de};
 use tokio::sync::Mutex;
 
 use ntu_canoebot_util::debug_println;
+use ntu_canoebot_config as config;
 
 const WINDOW_DAYS: usize = 8;
 
@@ -29,18 +30,20 @@ lazy_static::lazy_static! {
     /// Lookup table for src facilities, fixed at runtime
     pub static ref SRC_FACILITIES: SrcFacilities = {
 
-        let tomlfile: String = match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
-            Some(_file) => {_file},
-            None => panic!()
-        };
+        // let tomlfile: String = match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
+        //     Some(_file) => {_file},
+        //     None => panic!()
+        // };
 
-        let toml_val: HashMap<String, Vec<SrcFacility>> = toml::from_str(&tomlfile).expect("failed to parse toml");
+        // let toml_val: HashMap<String, Vec<SrcFacility>> = toml::from_str(&tomlfile).expect("failed to parse toml");
 
-        let inner_vec = toml_val.values().next().expect("map should have one entry");
+        // let inner_vec = toml_val.values().next().expect("map should have one entry");
+        let serialized_str = serde_json::to_string(&*config::FACILITIES).unwrap();
+        let inner_vec: Vec<SrcFacility> = serde_json::from_str(&serialized_str).unwrap();
 
         debug_println!("constructed global static SRC_FACILITIES");
         SrcFacilities {
-            inner: inner_vec.to_owned()
+            inner: inner_vec
         }
     };
 }
@@ -432,7 +435,7 @@ impl SrcCache {
             }
             None => {
                 debug_println!("cache miss, evicting: {}", old_line);
-                drop(cache_line);
+                // drop(cache_line);
                 drop(lock);
 
                 let date_to_fetch = Self::calculate_date_block(newer_date, date);
@@ -580,10 +583,22 @@ pub struct SrcFacility {
     #[serde(rename = "codename")]
     code_name: String,
     /// Number of courts, also for querying SRC
+    #[serde(deserialize_with = "from_str")]
     courts: u8,
 }
 
+/// Custom deserializer for data represented as strings
+fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where T: FromStr,
+          T::Err: Display,
+          D: Deserializer<'de>
+{
+    let s = String::deserialize(deserializer)?;
+    T::from_str(&s).map_err(de::Error::custom)
+}
+
 /// Wrapper around a vector of [SrcFacility]
+#[derive(Debug)]
 pub struct SrcFacilities {
     inner: Vec<SrcFacility>,
 }
@@ -612,31 +627,6 @@ impl SrcFacility {
 }
 
 impl SrcFacilities {
-    /// Attempts to find a file and read it.
-    /// If it is unable to find the file, it goes up one parent
-    /// and continues.
-    fn find_and_read_file(path: &str) -> Option<String> {
-        let path = PathBuf::from(path);
-
-        let mut curdir = std::env::current_dir().expect("failed to get current dir");
-
-        loop {
-            debug_println!("curdir: {:?}", &curdir);
-
-            if curdir.join(&path).exists() {
-                break;
-            } else {
-                match curdir.parent() {
-                    Some(_path) => curdir = PathBuf::from(_path),
-                    None => return None,
-                }
-            }
-        }
-
-        fs::read_to_string(curdir.join(path)).ok()
-        // todo!()
-    }
-
     /// Create facility table
     pub fn from_string(string: &str) -> Result<Self, toml::de::Error> {
         let res: Vec<SrcFacility> = toml::de::from_str(string)?;
@@ -664,8 +654,6 @@ mod errors {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
 
     #[tokio::test]
@@ -769,16 +757,9 @@ mod tests {
 
     #[test]
     fn test_read_srcscraper_config() {
-        // THIS IS TEMP THE PATH SHOULD CHANGE
-        let tomlfile: String =
-            match SrcFacilities::find_and_read_file(".configs/srcscraper.config.toml") {
-                Some(_file) => _file,
-                None => panic!(),
-            };
-
-        let toml_val: HashMap<String, Vec<SrcFacility>> =
-            toml::from_str(&tomlfile).expect("failed to read toml file");
-        let _x = toml_val.values().next().unwrap();
+        for facil in &*SRC_FACILITIES.inner {
+            println!("{:?}", facil);
+        }
     }
 
     #[tokio::test]
@@ -877,5 +858,17 @@ mod tests {
                 WINDOW_DAYS
             );
         }
+    }
+
+    #[test]
+    fn test_config_fetch() {
+        use ntu_canoebot_config as config;
+
+        let x = config::FACILITIES.clone();
+        let serialized = serde_json::to_string_pretty(&x).unwrap();
+
+        println!("{}", serialized);
+        let des: Vec<SrcFacility> = serde_json::from_str(&serialized).unwrap();
+        println!("{:#?}", des);
     }
 }
