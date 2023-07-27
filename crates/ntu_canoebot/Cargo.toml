@@ -7,8 +7,12 @@ description = "bot core"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+g_forms = {path = "../g_forms"}
 g_sheets = {path = "../g_sheets"}
+ntu_canoebot_attd = {path = "../ntu_canoebot_attd"}
 ntu_canoebot_config = {path = "../ntu_canoebot_config"}
+ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+ntu_src = {path = "../ntu_src"}
 
 teloxide = {workspace = true}
 tokio = {workspace = true}

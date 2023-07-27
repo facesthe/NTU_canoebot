@@ -21,3 +21,4 @@ serde_json = "1.0.100"
 chrono = "0.4.26"
 lazy_static = "1.4.0"
 toml = "0.7.6"
+polars = {version = "0.31.1", features = ["csv"]}

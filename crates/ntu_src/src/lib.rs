@@ -10,16 +10,16 @@
 //! ```
 //!
 
-use std::{fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc, fmt::Display};
+use std::{fmt::Display, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime};
 use lazy_static::__Deref;
 
-use serde::{Deserialize, Deserializer, de};
+use serde::{de, Deserialize, Deserializer};
 use tokio::sync::Mutex;
 
-use ntu_canoebot_util::debug_println;
 use ntu_canoebot_config as config;
+use ntu_canoebot_util::debug_println;
 
 const WINDOW_DAYS: usize = 8;
 
@@ -589,9 +589,10 @@ pub struct SrcFacility {
 
 /// Custom deserializer for data represented as strings
 fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where T: FromStr,
-          T::Err: Display,
-          D: Deserializer<'de>
+where
+    T: FromStr,
+    T::Err: Display,
+    D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(de::Error::custom)

@@ -1,6 +1,10 @@
 //! Google sheets fetch interface
 // #![allow(unused)]
 
+use std::io::Cursor;
+
+use polars::prelude::{CsvReader, DataFrame, SerReader};
+
 /// Returns the contents of a sheet as a csv object
 ///
 /// - `sheet_id`: the resource ID for a sheet. sheet needs to
@@ -8,7 +12,7 @@
 /// - `sheet_name`: the exact sheet name to fetch. passing an
 /// invalid name/None will not result in a failure; google will instead
 /// return the first sheet created for that sheet_id.
-pub async fn get_sheet<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> String {
+pub async fn get_as_csv<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> String {
     let url = format!(
         "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:csv&sheet={}",
         sheet_id.to_string(),
@@ -23,6 +27,17 @@ pub async fn get_sheet<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> Strin
     };
 
     resp.text().await.unwrap()
+}
+
+/// Returns the contents of a sheet as a polars dataframe
+pub async fn get_as_dataframe<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> DataFrame {
+    let csv_str = get_as_csv(sheet_id, sheet_name).await;
+
+    let curs = Cursor::new(csv_str);
+
+    let df = CsvReader::new(curs).finish().unwrap();
+
+    df
 }
 
 #[cfg(test)]
@@ -71,13 +86,49 @@ mod tests {
     /// Test fetching a google resource sheet
     #[tokio::test]
     async fn test_get_sheet() {
-        const SHEET_ID: &str = "1fSt_sO1s7moXPHbxBCD3JIKPa8QIZxtKWYUjD6ElZ-c";
+        // const SHEET_ID: &str = "1fSt_sO1s7moXPHbxBCD3JIKPa8QIZxtKWYUjD6ElZ-c";
+        const SHEET_ID: &str = "1O76QJOFOypuB8Ri62YEUnXF9r8YfLtMzTg3UsS9rzvQ";
 
-        const NAME: Option<&str> = Some("airlines");
+        const NAME: Option<&str> = Some("JUL-2023");
 
-        let resp = get_sheet(SHEET_ID, NAME).await;
+        let resp = get_as_csv(SHEET_ID, NAME).await;
 
-        println!("{:?}", resp)
+        // let csv_str = resp.().await;
+
+        println!("{}", resp);
+
+        let mut reader = csv::Reader::from_reader(resp.as_bytes());
+
+        // for rec in reader.records() {
+        //     let rec = rec.unwrap();
+        //     // let
+        // }
+
+        let matrix = reader
+            .records()
+            .into_iter()
+            .map(|row| {
+                let row = row.unwrap();
+                row.iter()
+                    .map(|cell| cell.to_owned())
+                    .collect::<Vec<String>>()
+            })
+            .collect::<Vec<Vec<String>>>();
+
+        for row in matrix {
+            println!("row size: {}", row.len())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_as_dataframe() {
+        const SHEET_ID: &str = "1O76QJOFOypuB8Ri62YEUnXF9r8YfLtMzTg3UsS9rzvQ";
+
+        const NAME: Option<&str> = Some("JUL-2023");
+
+        let df = get_as_dataframe(SHEET_ID, NAME).await;
+
+        println!("{:?}", df.head(None));
     }
 }
 
