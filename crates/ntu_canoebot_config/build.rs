@@ -338,7 +338,7 @@ mod codegen {
             // code generated is accumulated into this string
             let mut hash_gen = String::new();
             hash_gen += &format!(
-                "pub static ref {}: HashMap<&'static str, String> = HashMap::from([\n",
+                "/// type: HashMap<&'static str, String>\npub static ref {}: HashMap<&'static str, String> = HashMap::from([\n",
                 prefix.unwrap_or("ROOT") // in the event that the entire toml file is a last-level table
             );
 
@@ -388,8 +388,8 @@ mod codegen {
             let (value_type, value_literal) = val.generate_code(false);
 
             let generated_line = format!(
-                "pub static ref {}: {} = {};\n",
-                key, value_type, value_literal
+                "/// type: {}\npub static ref {}: {} = {};\n",
+                value_type, key, value_type, value_literal
             );
 
             gen += &generated_line;
