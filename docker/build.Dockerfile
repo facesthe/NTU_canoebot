@@ -7,6 +7,8 @@ WORKDIR /build/ntu_canoebot
 
 # build actual
 COPY . .
+# build proc-macros and runs build scripts
+RUN cargo check --release
 RUN cargo build --release
 RUN mkdir -p bin
 RUN cp target/x86_64-unknown-linux-musl/release/ntu_canoebot bin/ntu_canoebot
