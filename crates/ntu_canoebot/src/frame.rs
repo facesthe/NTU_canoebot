@@ -14,7 +14,7 @@ use crate::callback::src::Date;
 use crate::callback::Callback;
 use crate::frame::common_buttons::WEEKDAYS;
 
-use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, REFRESH, MONTHS};
+use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, MONTHS, REFRESH};
 
 /// Construct a keyboard from two 2D arrays/vec consisting of the callback
 /// button name and the callback data.
@@ -99,13 +99,14 @@ pub fn fold_buttons<N: ToString>(
 pub fn calendar_month_gen(
     date: NaiveDate,
     data: &[Callback],
+    year: Callback,
     next: Callback,
     prev: Callback,
-    back: Option<&Callback>,
+    back: Option<Callback>,
 ) -> InlineKeyboardMarkup {
     let num_days_in_month = days_in_month(date.year(), date.month());
 
-    let buttons = (0..num_days_in_month)
+    let buttons = (1..=num_days_in_month)
         .into_iter()
         .zip(data)
         .map(|(name, data)| (name.to_string(), data.to_owned()))
@@ -128,7 +129,7 @@ pub fn calendar_month_gen(
     // add header (navi buttons + month name) and footer (back button if is Some())
     let header = vec![
         (BACK_ARROW.to_string(), prev),
-        (date.format("%b %Y").to_string(), Callback::Empty),
+        (date.format("%b %Y").to_string(), year),
         (FORWARD_ARROW.to_string(), next),
     ];
 
@@ -152,17 +153,12 @@ pub fn calendar_year_gen(
     data: &[Callback],
     next: Callback,
     prev: Callback,
-    back: Option<&Callback>,
+    back: Option<Callback>,
 ) -> InlineKeyboardMarkup {
     let buttons = MONTHS
         .into_iter()
         .zip(data.iter())
-        .map(|(month, data)| {
-            (
-                month.to_string(),
-                data.to_owned(),
-            )
-        })
+        .map(|(month, data)| (month.to_string(), data.to_owned()))
         .collect::<Vec<(String, Callback)>>();
 
     let header = vec![
@@ -210,7 +206,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 ///
 /// Following ISO 8601's spec that Monday is the first day of the week,
 /// there would be 3 days preceding the start of the month (Monday - Wednesday),
-/// and 0 days following the end of the month (Sunday) to end on Sunday.
+/// and 1 day following the end of the month (Sunday) to end on Sunday.
 ///
 /// ```no_run
 /// assert_eq!(month_padding(1970, 1), (3, 1));
@@ -225,7 +221,7 @@ fn month_padding(year: i32, month: u32) -> (u32, u32) {
     let padding_start = start_day.num_days_from_monday();
     let padding_end = 7 - end_day.num_days_from_sunday();
 
-    (padding_start, padding_end)
+    (padding_start, padding_end % 7)
 }
 
 /// The main menu
@@ -263,20 +259,23 @@ pub fn date_am_pm_navigation() {
 
 /// Commonly used button names throughout this crate
 pub mod common_buttons {
-    pub const BACK: &str = "<< back";
+    pub const BACK: &str = "back";
     pub const BACK_ARROW: &str = "<<";
     pub const FORWARD_ARROW: &str = ">>";
     pub const REFRESH: &str = "⟳";
     pub const BLANK: &str = " ";
 
     pub const WEEKDAYS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-    pub const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    pub const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
 }
 
 /// Commonly used inline keyboard descriptions for each frame
 pub mod common_descriptions {
     pub const MENU: &str = "Choose from the options below:";
     pub const BOOKING: &str = "Choose a booking option below:";
+    pub const CALENDAR: &str = "Choose a date:";
 }
 
 #[cfg(test)]
@@ -294,7 +293,8 @@ mod tests {
     fn test_month_padding() {
         assert_eq!(month_padding(1970, 1), (3, 1));
         assert_eq!(month_padding(1980, 1), (1, 3));
-        assert_eq!(month_padding(1990, 1), (0, 4))
+        assert_eq!(month_padding(1990, 1), (0, 4));
+        assert_eq!(month_padding(2023, 12), (4, 0))
     }
 
     #[test]

@@ -2,6 +2,7 @@ mod callback;
 mod command;
 mod frame;
 
+use ntu_src::SRC_CACHE;
 use teloxide::prelude::*;
 
 use crate::callback::callback_handler;
@@ -16,6 +17,8 @@ async fn main() {
     // println!("ASDASD");
     pretty_env_logger::init();
     let bot = Bot::from_env();
+
+    tokio::task::spawn(SRC_CACHE.fill_all());
 
     let handler = dptree::entry()
         .branch(Update::filter_message().endpoint(message_handler))

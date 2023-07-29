@@ -153,6 +153,7 @@ impl HandleCommand for Commands {
                         .collect::<Vec<Callback>>(),
                     Callback::Empty,
                     Callback::Empty,
+                    Callback::Empty,
                     None,
                 );
 

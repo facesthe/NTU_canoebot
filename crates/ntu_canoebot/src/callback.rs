@@ -203,9 +203,13 @@ impl HandleCallback for Callback {
                 Ok(())
             }
             Callback::Menu(call) => call.handle_callback(bot, query).await,
+            Callback::Src(call) => call.handle_callback(bot, query).await,
 
             // to catch unimpl'd callbacks
-            _ => Ok(()),
+            _ => {
+                log::debug!("callback not yet specified in match arm");
+                Ok(())
+            }
         }
     }
 }
