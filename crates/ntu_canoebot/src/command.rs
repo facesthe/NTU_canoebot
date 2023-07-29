@@ -14,7 +14,7 @@ use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDate;
 use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;

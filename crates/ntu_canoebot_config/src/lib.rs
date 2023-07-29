@@ -39,6 +39,7 @@
 //! let is_enabled: &str = config::EVENTS_DAILY_LOGSHEET_PROMPT.get("ENABLE").unwrap();
 //!
 //! ```
+#![recursion_limit = "256"]
 
 include!("../generated.rs");
 

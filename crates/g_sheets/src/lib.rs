@@ -12,7 +12,7 @@ use polars::prelude::{CsvReader, DataFrame, SerReader};
 /// - `sheet_name`: the exact sheet name to fetch. passing an
 /// invalid name/None will not result in a failure; google will instead
 /// return the first sheet created for that sheet_id.
-pub async fn get_as_csv<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> String {
+pub async fn get_as_csv<T: ToString, U: ToString>(sheet_id: T, sheet_name: Option<U>) -> String {
     let url = format!(
         "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:csv&sheet={}",
         sheet_id.to_string(),
@@ -30,7 +30,10 @@ pub async fn get_as_csv<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> Stri
 }
 
 /// Returns the contents of a sheet as a polars dataframe
-pub async fn get_as_dataframe<T: ToString>(sheet_id: T, sheet_name: Option<T>) -> DataFrame {
+pub async fn get_as_dataframe<T: ToString, U: ToString>(
+    sheet_id: T,
+    sheet_name: Option<U>,
+) -> DataFrame {
     let csv_str = get_as_csv(sheet_id, sheet_name).await;
 
     let curs = Cursor::new(csv_str);

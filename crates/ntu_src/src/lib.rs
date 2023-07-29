@@ -10,7 +10,7 @@
 //! ```
 //!
 
-use std::{fmt::Display, fs, ops::DerefMut, path::PathBuf, str::FromStr, sync::Arc};
+use std::{fmt::Display, ops::DerefMut, str::FromStr, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime};
 use lazy_static::__Deref;
@@ -391,7 +391,14 @@ impl SrcCache {
 
     /// Retrieves facility booking data for a particular facility.
     /// Fetches from SRC if date does not exist.
-    pub async fn get_facility(&self, facility_num: u8, date: NaiveDate) -> Option<SrcBookingEntry> {
+    ///
+    /// Set `refresh` to `true` to force a fetch from SRC.
+    pub async fn get_facility(
+        &self,
+        facility_num: u8,
+        date: NaiveDate,
+        refresh: bool,
+    ) -> Option<SrcBookingEntry> {
         let mut lock = self.lock().await;
         let cache_line = &mut lock[facility_num as usize];
 
@@ -431,7 +438,16 @@ impl SrcCache {
         match hit {
             Some(idx) => {
                 debug_println!("cache hit: {}", idx);
-                return Some(cache_line[idx].clone());
+                if refresh {
+                    drop(lock);
+                    self.fill(date, facility_num, idx != 0).await.ok()?;
+
+                    let mut lock = self.lock().await;
+                    let line = &mut lock[facility_num as usize];
+                    return Some(line[idx].clone());
+                } else {
+                    return Some(cache_line[idx].clone());
+                }
             }
             None => {
                 debug_println!("cache miss, evicting: {}", old_line);
@@ -771,35 +787,50 @@ mod tests {
         let facil_no = SRC_FACILITIES.len() - 1;
 
         let facil = SRC_CACHE
-            .get_facility(facil_no as u8, original_date)
+            .get_facility(facil_no as u8, original_date, false)
             .await
             .unwrap();
         println!("{}", facil.get_display_table(original_date).unwrap());
 
         let date = original_date + Duration::days(7);
-        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
+        let facil = SRC_CACHE
+            .get_facility(facil_no as u8, date, false)
+            .await
+            .unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(9);
-        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
+        let facil = SRC_CACHE
+            .get_facility(facil_no as u8, date, false)
+            .await
+            .unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(-7);
-        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
+        let facil = SRC_CACHE
+            .get_facility(facil_no as u8, date, false)
+            .await
+            .unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
 
         let date = original_date + Duration::days(-9);
-        let facil = SRC_CACHE.get_facility(facil_no as u8, date).await.unwrap();
+        let facil = SRC_CACHE
+            .get_facility(facil_no as u8, date, false)
+            .await
+            .unwrap();
         println!("{}", facil.get_display_table(date).unwrap());
     }
 
     #[tokio::test]
-    async fn test_cache_fill_refresh() {
+    async fn test_cache_fill_refresh_all() {
         // let original_date = chrono::Local::now().naive_local().date();
         SRC_CACHE.fill_all().await;
 
         SRC_CACHE.refresh_all().await;
     }
+
+    #[tokio::test]
+    async fn test_cache_fill_refresh() {}
 
     #[test]
     fn test_date_calculation() {

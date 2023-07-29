@@ -31,3 +31,4 @@ deflate = '1.0.0'
 base64 = '0.21.0'
 async-trait = '0.1.68'
 dotenv = "0.15.0"
+tokio_schedule = "0.3.1"

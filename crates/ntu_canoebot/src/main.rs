@@ -4,6 +4,7 @@ mod frame;
 
 use ntu_src::SRC_CACHE;
 use teloxide::prelude::*;
+use tokio_schedule::Job;
 
 use crate::callback::callback_handler;
 use crate::command::message_handler;
@@ -14,11 +15,11 @@ use ntu_canoebot_config as config;
 async fn main() {
     std::env::set_var("RUST_LOG", config::LOGGER_LOG_LEVEL.to_string());
     std::env::set_var("TELOXIDE_TOKEN", config::CANOEBOT_APIKEY.to_string());
-    // println!("ASDASD");
+
     pretty_env_logger::init();
     let bot = Bot::from_env();
 
-    tokio::task::spawn(SRC_CACHE.fill_all());
+    tokio::task::spawn(start_events());
 
     let handler = dptree::entry()
         .branch(Update::filter_message().endpoint(message_handler))
@@ -29,4 +30,15 @@ async fn main() {
         .build()
         .dispatch()
         .await;
+}
+
+/// Periodic tasks / init tasks go here
+async fn start_events() {
+    tokio::task::spawn(SRC_CACHE.fill_all());
+
+    let cache_refresh = tokio_schedule::every(10)
+        .minutes()
+        .perform(|| async { SRC_CACHE.refresh_all().await });
+
+    tokio::task::spawn(cache_refresh);
 }

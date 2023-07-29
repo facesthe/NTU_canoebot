@@ -1,12 +1,11 @@
 //! Implementation of the SRC booking menu
 //!
-#![allow(unused)]
 
 use std::error::Error;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, Duration, NaiveDate};
 use ntu_src::{SRC_CACHE, SRC_FACILITIES};
 use serde::{Deserialize, Serialize};
 use teloxide::{
@@ -18,8 +17,8 @@ use crate::{
     callback::{self, Callback},
     frame::{
         calendar_month_gen, calendar_year_gen,
-        common_buttons::{BACK, BACK_ARROW, FORWARD_ARROW, MONTHS},
-        common_descriptions::{CALENDAR, MENU},
+        common_buttons::{BACK, BACK_ARROW, FORWARD_ARROW},
+        common_descriptions::MENU,
         construct_keyboard_tuple, fold_buttons,
     },
 };
@@ -40,12 +39,12 @@ pub enum Src {
     /// Show the year calendar
     YearSelect(String, Date),
 
-    /// Send a query to the cache
-    Query(String, Date),
+    /// Send a query to the cache.
+    /// Set the bool to `true` to perform a refresh
+    Query(String, Date, bool),
 
-    /// Send a refresh request to the cache
-    Refresh(String, Date),
-
+    // /// Send a refresh request to the cache
+    // Refresh(String, Date),
     /// Close the menu
     Close,
 }
@@ -84,9 +83,10 @@ impl HandleCallback for Src {
         match self {
             Self::Menu => src_menu(bot, query).await,
             Src::MonthSelect(id, date) => src_month_select(&id, date.clone(), bot, query).await,
-            Src::Query(id, date) => src_query(id, date.clone(), bot, query).await,
             Src::YearSelect(id, date) => src_year_select(id, date.clone(), bot, query).await,
-            Src::Refresh(id, date) => todo!(),
+            Src::Query(id, date, refresh) => {
+                src_query(id, date.clone(), *refresh, bot, query).await
+            }
             Src::Close => {
                 let msg = message_from_callback_query(&query)?;
                 bot.edit_message_text(msg.chat.id, msg.id, "/src").await?;
@@ -105,6 +105,18 @@ fn message_from_callback_query(
         .ok_or(anyhow!("failed to get message from callback query"))?)
 }
 
+async fn src_menu(bot: Bot, query: CallbackQuery) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let (text, keyboard) = src_menu_create();
+
+    let msg = message_from_callback_query(&query)?;
+
+    bot.edit_message_text(msg.chat.id, msg.id, text)
+        .reply_markup(keyboard)
+        .await?;
+
+    Ok(())
+}
+
 /// Facility selection.
 /// Changes to month selection
 async fn src_month_select(
@@ -113,11 +125,19 @@ async fn src_month_select(
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // let facil = SRC_FACILITIES.iter().find(|elem| elem.code_name == facil_id).unwrap();
-
     log::trace!("facility selection");
 
     let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
+    let facil_name = SRC_FACILITIES
+        .iter()
+        .find_map(|f| {
+            if facil_id == f.code_name {
+                Some(f.name.as_str())
+            } else {
+                None
+            }
+        })
+        .ok_or(anyhow!("failed to get facility id. did the config change?"))?;
 
     let prev = {
         let new = start - Duration::days(1);
@@ -141,6 +161,7 @@ async fn src_month_select(
                     month: date.month(),
                     day: date.day(),
                 },
+                false,
             ))
         })
         .collect();
@@ -150,7 +171,7 @@ async fn src_month_select(
     let keyboard = calendar_month_gen(start, &days, year, next, prev, back);
 
     let msg = message_from_callback_query(&query)?;
-    bot.edit_message_text(msg.chat.id, msg.id, CALENDAR)
+    bot.edit_message_text(msg.chat.id, msg.id, facil_name)
         .reply_markup(keyboard)
         .await?;
 
@@ -166,7 +187,7 @@ async fn src_year_select(
     let buttons: Vec<Callback> = (0..12)
         .into_iter()
         .enumerate()
-        .map(|(idx, m)| {
+        .map(|(idx, _m)| {
             let date = Date {
                 year: date.year,
                 month: (idx + 1) as u32,
@@ -209,10 +230,44 @@ async fn src_year_select(
     Ok(())
 }
 
-/// Date selection
+/// Generate navigation buttons
+fn src_navigation_buttons(facil_id: &str, date: Date) -> InlineKeyboardMarkup {
+    let next = Callback::Src(Src::Query(
+        facil_id.to_owned(),
+        {
+            let d: NaiveDate = date.into();
+            (d + Duration::days(1)).into()
+        },
+        false,
+    ));
+
+    let prev = Callback::Src(Src::Query(
+        facil_id.to_owned(),
+        {
+            let d: NaiveDate = date.into();
+            (d - Duration::days(1)).into()
+        },
+        false,
+    ));
+
+    let refresh = Callback::Src(Src::Query(facil_id.to_owned(), date, true));
+    let back = Callback::Src(Src::MonthSelect(facil_id.to_string(), date));
+
+    let buttons = vec![
+        vec![
+            (BACK_ARROW.to_string(), prev),
+            (FORWARD_ARROW.to_string(), next),
+        ],
+        vec![("refresh".to_string(), refresh), (BACK.to_string(), back)],
+    ];
+
+    construct_keyboard_tuple(buttons)
+}
+
 async fn src_query(
     facil_id: &str,
     date: Date,
+    refresh: bool,
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -229,7 +284,7 @@ async fn src_query(
         .ok_or(anyhow!("failed to lookup facility id"))?;
 
     let data = SRC_CACHE
-        .get_facility(facil_idx as u8, date.into())
+        .get_facility(facil_idx as u8, date.into(), refresh)
         .await
         .ok_or(anyhow!("failed to retrieve from cache"))?;
 
@@ -237,46 +292,13 @@ async fn src_query(
         "failed to lookup date. check if date falls within booking entry range"
     ))?;
 
-    let next = Callback::Src(Src::Query(facil_id.to_owned(), {
-        let d: NaiveDate = date.into();
-        (d + Duration::days(1)).into()
-    }));
-
-    let prev = Callback::Src(Src::Query(facil_id.to_owned(), {
-        let d: NaiveDate = date.into();
-        (d - Duration::days(1)).into()
-    }));
-
-    let refresh = Callback::Src(Src::Refresh(facil_id.to_owned(), date));
-    let back = Callback::Src(Src::MonthSelect(facil_id.to_string(), date));
-
-    let buttons = vec![
-        vec![
-            (BACK_ARROW.to_string(), prev),
-            (FORWARD_ARROW.to_string(), next),
-        ],
-        vec![("refresh".to_string(), refresh), (BACK.to_string(), back)],
-    ];
-
-    let keyboard = construct_keyboard_tuple(buttons);
+    let keyboard = src_navigation_buttons(facil_id, date);
 
     let msg = message_from_callback_query(&query)?;
 
     bot.edit_message_text(msg.chat.id, msg.id, format!("```\n{}```", contents))
         .reply_markup(keyboard)
         .parse_mode(ParseMode::MarkdownV2)
-        .await;
-
-    Ok(())
-}
-
-async fn src_menu(bot: Bot, query: CallbackQuery) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let (text, keyboard) = src_menu_create();
-
-    let msg = message_from_callback_query(&query)?;
-
-    bot.edit_message_text(msg.chat.id, msg.id, text)
-        .reply_markup(keyboard)
         .await?;
 
     Ok(())
@@ -290,7 +312,7 @@ pub fn src_menu_create() -> (String, InlineKeyboardMarkup) {
             .map(|facil| facil.short_name.as_str())
             .collect::<Vec<&str>>();
 
-        main_buttons.push("back");
+        main_buttons.push("close");
         main_buttons
     };
 
@@ -321,4 +343,23 @@ pub fn src_menu_create() -> (String, InlineKeyboardMarkup) {
     let keyboard = construct_keyboard_tuple(folded_buttons);
 
     (MENU.to_string(), keyboard)
+}
+
+#[cfg(test)]
+mod tests {
+
+    const ASD: char = '\u{FE2D}';
+
+    #[test]
+    fn test_underline() {
+        let asd = "this is a string";
+
+        let underlined = asd
+            .chars()
+            .map(|c| [c, ASD].iter().collect::<String>())
+            .collect::<Vec<String>>()
+            .concat();
+
+        println!("{}", underlined);
+    }
 }

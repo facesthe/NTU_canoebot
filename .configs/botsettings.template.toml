@@ -36,10 +36,18 @@ getnames_ver = 2
 use_deconflict = true
 deconflict_ver = 2
 deconflict_recursion_limit = 5
+configuration_sheet = "configs"
 
 # switch from old -> new ON this date
 # it defaults to sheetscraper.new if this is not overriden
 changeover_date = 1970-01-01
+
+[sheetscraper.columns]
+name = "name"
+short_name = "shortname"
+boat_primary = "boat_1"
+boat_alternate = "boat_2"
+certification = "1_star"
 
 # previous AY configuration
 [sheetscraper.old]

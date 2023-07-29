@@ -9,7 +9,7 @@ use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me};
 use teloxide::utils::command::BotCommands;
 
 use super::{Commands, HandleCommand};
-use crate::callback::{callbacks, Callback};
+use crate::callback::Callback;
 use crate::frame;
 
 /// Unit struct to carry trait implementations.

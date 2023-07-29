@@ -14,7 +14,7 @@ use crate::callback::src::Date;
 use crate::callback::Callback;
 use crate::frame::common_buttons::WEEKDAYS;
 
-use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, MONTHS, REFRESH};
+use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, MONTHS, REFRESH, UNDERLINE};
 
 /// Construct a keyboard from two 2D arrays/vec consisting of the callback
 /// button name and the callback data.
@@ -106,11 +106,26 @@ pub fn calendar_month_gen(
 ) -> InlineKeyboardMarkup {
     let num_days_in_month = days_in_month(date.year(), date.month());
 
-    let buttons = (1..=num_days_in_month)
+    let mut buttons = (1..=num_days_in_month)
         .into_iter()
         .zip(data)
         .map(|(name, data)| (name.to_string(), data.to_owned()))
         .collect::<Vec<(String, Callback)>>();
+
+    let today = chrono::Local::now().date_naive();
+
+    // underline the current day
+    if today.year() == date.year() && today.month() == date.month() {
+        let day = buttons.get_mut(today.day() as usize - 1).unwrap();
+        let old = &day.0;
+        let new = old
+            .chars()
+            .map(|c| [c, UNDERLINE].iter().collect::<String>())
+            .collect::<Vec<String>>()
+            .concat();
+
+        day.0 = new;
+    }
 
     let (pre, post) = month_padding(date.year(), date.month());
 
@@ -269,6 +284,9 @@ pub mod common_buttons {
     pub const MONTHS: [&str; 12] = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
+
+    /// Unicode combining character
+    pub const UNDERLINE: char = '\u{FE2D}';
 }
 
 /// Commonly used inline keyboard descriptions for each frame
