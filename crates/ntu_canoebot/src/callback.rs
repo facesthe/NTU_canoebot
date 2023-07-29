@@ -1,6 +1,7 @@
 pub mod booking;
 pub mod callbacks;
 pub mod menu;
+pub mod src;
 
 use std::error::Error;
 use std::str::FromStr;
@@ -16,11 +17,25 @@ use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 /// Callback data type.
+/// All callback subtypes **must** be reachable through this type.
+/// That means that this enum must contain all possible callback variants.
+///
+/// Enums can be nested ad infinitum, as long as they and their structs derive:
+/// ```no-run
+/// #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// ```
+///
+/// This type contains callback data that can be attached to any
+/// inline markup button.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Callback {
     BigData(callbacks::BigData),
-    Empty(callbacks::Empty),
+    Empty,
     Menu(menu::Menu),
+    Src(src::Src),
+    /// Custom callback handlers that might not be linked
+    /// to a particular command.
+    Custom,
 }
 
 /// Handle a callback.
@@ -50,7 +65,6 @@ pub enum Callback {
 ///         bot: Bot,
 ///         query: CallbackQuery,
 ///     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-///         bot.answer_callback_query(&query.id).await?;
 ///         Ok(())
 ///     }
 /// }
@@ -184,8 +198,14 @@ impl HandleCallback for Callback {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         match &self {
             Callback::BigData(call) => call.handle_callback(bot, query).await,
-            Callback::Empty(call) => call.handle_callback(bot, query).await,
+            Callback::Empty => {
+                bot.answer_callback_query(&query.id).await?;
+                Ok(())
+            }
             Callback::Menu(call) => call.handle_callback(bot, query).await,
+
+            // to catch unimpl'd callbacks
+            _ => Ok(()),
         }
     }
 }
@@ -203,7 +223,7 @@ pub async fn callback_handler(
             let data_vec = data.as_bytes().to_owned();
             (&data_vec).try_into().unwrap()
         } else {
-            Callback::Empty(callbacks::Empty {})
+            Callback::Empty
         }
     };
 

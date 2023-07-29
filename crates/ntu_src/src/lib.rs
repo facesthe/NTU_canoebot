@@ -581,7 +581,7 @@ pub struct SrcFacility {
     pub short_name: String,
     /// Code name for querying SRC
     #[serde(rename = "codename")]
-    code_name: String,
+    pub code_name: String,
     /// Number of courts, also for querying SRC
     #[serde(deserialize_with = "from_str")]
     courts: u8,

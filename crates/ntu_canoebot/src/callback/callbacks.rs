@@ -23,7 +23,7 @@ impl HandleCallback for BigData {
 }
 
 /// Blank callback (empty/unused buttons)
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Empty {}
 
 #[async_trait]

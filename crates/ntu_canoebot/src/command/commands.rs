@@ -87,10 +87,7 @@ impl HandleCommand for Button {
         _me: Me,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         bot.send_message(msg.chat.id, "Here is your button")
-            .reply_markup(single_inline_button(
-                "button",
-                Callback::Empty(callbacks::Empty {}),
-            ))
+            .reply_markup(single_inline_button("button", Callback::Empty))
             .await?;
 
         Ok(())
