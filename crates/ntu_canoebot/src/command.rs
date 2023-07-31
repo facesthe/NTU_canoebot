@@ -19,7 +19,7 @@ use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 
-use crate::callback::Callback;
+use crate::callback::{self, Callback};
 use crate::frame::{calendar_month_gen, calendar_year_gen};
 
 /// Main commands
@@ -143,6 +143,17 @@ impl HandleCommand for Commands {
             Commands::Menu(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Feedback => Ok(()), // todo
             Commands::Src(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Namelist => {
+                callback::namelist_get(
+                    (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
+                    false,
+                    false,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
+            }
 
             Commands::Calendar => {
                 let keyboard = calendar_month_gen(

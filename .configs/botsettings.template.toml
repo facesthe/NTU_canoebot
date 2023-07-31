@@ -44,6 +44,11 @@ date_format = "%d-%b-%y"
 # it defaults to sheetscraper.new if this is not overriden
 changeover_date = 1970-01-01
 
+# cache lifetimes, in minutes
+[sheetscraper.cache]
+namelist = 30
+
+
 [sheeetscraper.layout]
 # fencing = rows/cols of the sheet that are cut out prior to processing
 fencing.left = 1

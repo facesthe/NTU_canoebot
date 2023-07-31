@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-use super::HandleCallback;
+use super::{message_from_callback_query, Date, HandleCallback};
 
 /// The SRC booking menu
 ///
@@ -47,14 +47,6 @@ pub enum Src {
     // Refresh(String, Date),
     /// Close the menu
     Close,
-}
-
-/// Date struct for [Src::DateSelect]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct Date {
-    pub year: i32,
-    pub month: u32,
-    pub day: u32,
 }
 
 impl From<NaiveDate> for Date {
@@ -94,15 +86,6 @@ impl HandleCallback for Src {
             }
         }
     }
-}
-
-fn message_from_callback_query(
-    query: &CallbackQuery,
-) -> Result<&Message, Box<dyn Error + Send + Sync>> {
-    Ok(query
-        .message
-        .as_ref()
-        .ok_or(anyhow!("failed to get message from callback query"))?)
 }
 
 async fn src_menu(bot: Bot, query: CallbackQuery) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -186,11 +169,10 @@ async fn src_year_select(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let buttons: Vec<Callback> = (0..12)
         .into_iter()
-        .enumerate()
-        .map(|(idx, _m)| {
+        .map(|m| {
             let date = Date {
                 year: date.year,
-                month: (idx + 1) as u32,
+                month: m + 1,
                 day: 1,
             };
 

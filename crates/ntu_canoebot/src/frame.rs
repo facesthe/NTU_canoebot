@@ -10,9 +10,9 @@ use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
 use crate::callback::booking::{self, Booking};
 use crate::callback::menu::Menu;
-use crate::callback::src::Date;
 use crate::callback::Callback;
-use crate::frame::common_buttons::WEEKDAYS;
+use crate::callback::Date;
+use crate::frame::common_buttons::{BACK, DATE, TIME, WEEKDAYS};
 
 use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, MONTHS, REFRESH, UNDERLINE};
 
@@ -267,9 +267,29 @@ pub fn booking_menu(_uuid: u128) -> InlineKeyboardMarkup {
     construct_keyboard(callback_names, callback_data)
 }
 
-/// Common navigation buttons for namelist, training
-pub fn date_am_pm_navigation() {
-    let callback_names = [vec![BACK_ARROW, REFRESH, FORWARD_ARROW], vec!["time"]];
+/// Common navigation buttons for namelist, training, etc
+///
+/// Shows (in row order):
+/// - previous, refresh, next
+/// - time, calendar
+///
+pub fn date_am_pm_navigation(
+    date: NaiveDate,
+    refresh: Callback,
+    next: Callback,
+    prev: Callback,
+    time_slot: Callback,
+    calendar: Callback,
+) -> InlineKeyboardMarkup {
+    let navi_row = vec![
+        (BACK_ARROW, prev),
+        (REFRESH, refresh),
+        (FORWARD_ARROW, next),
+    ];
+
+    let other_row = vec![(TIME, time_slot), (DATE, calendar)];
+
+    construct_keyboard_tuple([navi_row, other_row])
 }
 
 /// Commonly used button names throughout this crate
@@ -279,6 +299,9 @@ pub mod common_buttons {
     pub const FORWARD_ARROW: &str = ">>";
     pub const REFRESH: &str = "⟳";
     pub const BLANK: &str = " ";
+
+    pub const TIME: &str = "time";
+    pub const DATE: &str = "date";
 
     pub const WEEKDAYS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     pub const MONTHS: [&str; 12] = [

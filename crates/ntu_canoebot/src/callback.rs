@@ -1,20 +1,29 @@
 pub mod booking;
 pub mod callbacks;
 pub mod menu;
+mod namelist;
 pub mod src;
 
 use std::error::Error;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
 pub use booking::Booking;
 pub use menu::Menu;
+use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
+
+pub use namelist::namelist_get;
+
+use crate::frame::construct_keyboard_tuple;
+
+const BLANK_BLOCK: char = '\u{2588}';
 
 /// Callback data type.
 /// All callback subtypes **must** be reachable through this type.
@@ -33,6 +42,7 @@ pub enum Callback {
     Empty,
     Menu(menu::Menu),
     Src(src::Src),
+    NameList(namelist::NameList),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -76,6 +86,41 @@ trait HandleCallback {
         bot: Bot,
         query: CallbackQuery,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
+}
+
+// Add new callbacks to the match arm here
+#[async_trait]
+impl HandleCallback for Callback {
+    async fn handle_callback(
+        &self,
+        bot: Bot,
+        query: CallbackQuery,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        match &self {
+            Callback::BigData(call) => call.handle_callback(bot, query).await,
+            Callback::Empty => {
+                bot.answer_callback_query(&query.id).await?;
+                Ok(())
+            }
+            Callback::Menu(call) => call.handle_callback(bot, query).await,
+            Callback::Src(call) => call.handle_callback(bot, query).await,
+            Callback::NameList(call) => call.handle_callback(bot, query).await,
+
+            // to catch unimpl'd callbacks
+            _ => {
+                debug_println!("callback not yet specified in match arm");
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Date struct passed inside callbacks
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct Date {
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
 }
 
 /// Default inner struct for some enums
@@ -189,29 +234,43 @@ impl ToString for Callback {
     }
 }
 
-#[async_trait]
-impl HandleCallback for Callback {
-    async fn handle_callback(
-        &self,
-        bot: Bot,
-        query: CallbackQuery,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        match &self {
-            Callback::BigData(call) => call.handle_callback(bot, query).await,
-            Callback::Empty => {
-                bot.answer_callback_query(&query.id).await?;
-                Ok(())
-            }
-            Callback::Menu(call) => call.handle_callback(bot, query).await,
-            Callback::Src(call) => call.handle_callback(bot, query).await,
+/// Get the message inside a callback query
+fn message_from_callback_query(
+    query: &CallbackQuery,
+) -> Result<&Message, Box<dyn Error + Send + Sync>> {
+    Ok(query
+        .message
+        .as_ref()
+        .ok_or(anyhow!("failed to get message from callback query"))?)
+}
 
-            // to catch unimpl'd callbacks
-            _ => {
-                log::debug!("callback not yet specified in match arm");
-                Ok(())
-            }
-        }
-    }
+/// Substitute all text in a message with blank blocks,
+/// to visually mark that a callback has been triggered.
+/// Set `blank_rows` to the number of blank button rows.
+pub async fn replace_with_whitespace(
+    bot: Bot,
+    msg: &Message,
+    blank_rows: usize,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let replacement: String = msg
+        .text()
+        .unwrap_or(" ")
+        .chars()
+        .map(|c| if c == '\n' { c } else { BLANK_BLOCK })
+        .collect();
+
+    let keyboard = construct_keyboard_tuple(
+        (0..blank_rows)
+            .into_iter()
+            .map(|_| [(" ", Callback::Empty)])
+            .collect::<Vec<[(&str, Callback); 1]>>(),
+    );
+
+    bot.edit_message_text(msg.chat.id, msg.id, replacement)
+        .reply_markup(keyboard)
+        .await?;
+
+    Ok(())
 }
 
 /// Main callback handler

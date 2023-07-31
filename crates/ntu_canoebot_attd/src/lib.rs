@@ -3,16 +3,16 @@
 mod deconflict;
 mod update;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
 
 use ntu_canoebot_config as config;
 use ntu_canoebot_util::debug_println;
 use polars::{
     export::ahash::HashSet,
-    prelude::{AnyValue, CsvWriter, DataFrame, SerWriter},
+    prelude::{AnyValue, DataFrame},
     series::Series,
 };
 use tokio::sync::RwLock;
@@ -46,12 +46,16 @@ lazy_static! {
 
     /// Hashmap of long names -> short names
     static ref SHORTENED_NAMES: [RwLock<HashMap<String, String>>; 2] = Default::default();
+
+    /// Local cache of sheet.
+    pub static ref SHEET_CACHE: RwLock<Sheet> = Default::default();
+
 }
 
 /// For switching between configs
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(usize)]
-enum Config {
+pub enum Config {
     Old = 0,
     New = 1,
 }
@@ -70,15 +74,71 @@ impl From<usize> for Config {
 #[derive(Clone, Debug, Default)]
 #[allow(unused)]
 pub struct Sheet {
+    fetch_time: NaiveDateTime,
     data: DataFrame,
     start: NaiveDate,
     end: NaiveDate,
 }
 
-impl From<DataFrame> for Sheet {
-    fn from(mut value: DataFrame) -> Self {
+/// Namelist object
+#[derive(Clone, Debug)]
+pub struct NameList {
+    /// Namelist date
+    pub date: NaiveDate,
+
+    /// Time slot
+    pub time: bool,
+
+    /// List of names for a session
+    pub names: Vec<String>,
+
+    /// List of boats (if any) for a session
+    pub boats: Option<Vec<String>>,
+
+    pub fetch_time: NaiveDateTime,
+}
+
+/// Format the namelist for display
+impl Display for NameList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut lines: Vec<String> = Vec::new();
+
+        lines.push(self.date.format("%d %b %y").to_string());
+        lines.push(format!(
+            "{} {}",
+            self.date.format("%a"),
+            if self.time { "PM" } else { "AM" }
+        ));
+        lines.push(String::new());
+
+        let main_list: Vec<String> = match &self.boats {
+            Some(_boats) => {
+                let padding = self.names.iter().map(|name| name.len()).max().unwrap();
+
+                self.names
+                    .iter()
+                    .zip(_boats.iter())
+                    .map(|(n, b)| format!("{:padding$}  {}", n, b, padding = padding))
+                    .collect()
+            }
+            None => self.names.iter().map(|name| name.to_owned()).collect(),
+        };
+
+        lines.extend(main_list);
+
+        lines.push(String::new());
+        lines.push(format!("fetched at {}", self.fetch_time.format("%H:%M:%S")));
+
+        let res = lines.join("\n");
+        write!(f, "{}", res)
+    }
+}
+
+impl TryFrom<DataFrame> for Sheet {
+    type Error = ();
+    fn try_from(mut value: DataFrame) -> Result<Self, Self::Error> {
         // verify start date
-        let start_date = &value[1].get(0).unwrap();
+        let start_date = &value[1].get(0).ok().ok_or(())?;
 
         let start_date = dataframe_cell_to_string(start_date.to_owned());
 
@@ -94,7 +154,7 @@ impl From<DataFrame> for Sheet {
 
         value = value.drop_many(&cols_to_drop);
 
-        let length = value.iter().map(|series| series.len()).max().unwrap();
+        let length = value.iter().map(|series| series.len()).max().ok_or(())?;
         value = value.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
 
         let name_column = &value[0];
@@ -115,20 +175,126 @@ impl From<DataFrame> for Sheet {
             })
             .collect();
 
-        let filtered = DataFrame::new([vec![name_column.to_owned()], filtered].concat()).unwrap();
+        let filtered = DataFrame::new([vec![name_column.to_owned()], filtered].concat())
+            .ok()
+            .ok_or(())?;
 
-        println!("{}", filtered);
+        debug_println!("{}", filtered);
 
-        let start =
-            NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT).unwrap();
+        let start = NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT)
+            .ok()
+            .ok_or(())?;
         let days_in_sheet = filtered.get_columns().len() / 2 + 1;
 
-        println!("days in sheet: {}", days_in_sheet);
-        Self {
+        debug_println!("days in sheet: {}", days_in_sheet);
+
+        Ok(Self {
+            fetch_time: chrono::Local::now().naive_local(),
             data: filtered,
             start,
             end: start + Duration::days(days_in_sheet as i64), // temp
+        })
+    }
+}
+
+impl Sheet {
+    /// Returns a list of names for a particular date and time.
+    /// Returns [Option::None] if the date given is outside the sheet range.
+    ///
+    /// Set `time_slot` to `false` for morning sessions.
+    /// Set `time_slot` to `true` for afternoon sessions.
+    pub async fn get_names(&self, date: NaiveDate, time_slot: bool) -> Option<NameList> {
+        if date < self.start || date > self.end {
+            return None;
         }
+
+        let delta = (date - self.start).num_days() as usize;
+        let offset = if time_slot { delta * 2 } else { delta * 2 + 1 };
+
+        let names = &self.data[0];
+        let selected = &self
+            .data
+            .column(&self.data.get_column_names().get(offset)?)
+            .ok()?;
+
+        let read_lock = {
+            let change_over = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
+            let config = if date
+                >= NaiveDate::from_ymd_opt(
+                    change_over.year.into(),
+                    change_over.month.into(),
+                    change_over.day.into(),
+                )
+                .unwrap()
+            {
+                Config::New
+            } else {
+                Config::Old
+            };
+
+            debug_println!(
+                "changeover date is: {}.\nUsing {:?} config for date: {}.",
+                change_over,
+                config,
+                date
+            );
+
+            SHORTENED_NAMES[config as usize].read().await
+        };
+
+        debug_println!("selected col with offset {}: {}", offset, selected);
+        let filtered: Vec<String> = selected
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, name)| {
+                let converted = dataframe_cell_to_string(name);
+                // debug_println!("cell contains: {}", converted);
+                if converted == "Y" {
+                    let cell = names.get(idx).unwrap();
+
+                    // substitute with short names (if any)
+                    let key = dataframe_cell_to_string(cell);
+                    if read_lock.contains_key(&key) {
+                        read_lock.get(&key).and_then(|val| Some(val.to_owned()))
+                    } else {
+                        Some(key)
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Some(NameList {
+            date,
+            time: time_slot,
+            names: filtered,
+            boats: None,
+            fetch_time: self.fetch_time
+        })
+    }
+
+    /// Checks if the sheet contains the specified date
+    pub fn contains_date(&self, date: NaiveDate) -> bool {
+        if date >= self.start && date <= self.end {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Checks which config to use, by comparing the given date and changeover date.
+pub fn get_config_type(date: NaiveDate) -> Config {
+    let change = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
+
+    if date
+        >= NaiveDate::from_ymd_opt(change.year.into(), change.month.into(), change.day.into())
+            .unwrap()
+    {
+        Config::New
+    } else {
+        Config::Old
     }
 }
 
@@ -138,7 +304,7 @@ impl From<DataFrame> for Sheet {
 /// - A sheet always starts on Monday and ends on Sunday
 /// - The sheet must end on the last Sunday of a month
 /// - A sheet is named MMM-YYYY
-fn calculate_sheet_name(date: NaiveDate) -> String {
+pub fn calculate_sheet_name(date: NaiveDate) -> String {
     let last_day = {
         let next_month;
         let next_year;
@@ -167,7 +333,6 @@ fn calculate_sheet_name(date: NaiveDate) -> String {
     actual_sheet_date.format("%b-%Y").to_string()
 }
 
-/// Returns the attendance sheet, given a date
 async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
     let change = {
         let d = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
@@ -194,6 +359,39 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 
 pub async fn name_list() {}
 
+/// Refresh the cached sheet
+pub async fn refresh_sheet_cache(force: bool) -> Result<(), ()> {
+
+    debug_println!("refreshing sheet cache at: {}", chrono::Local::now().time());
+
+    let today = chrono::Local::now().date_naive();
+    let read_lock = SHEET_CACHE.read().await;
+
+    // check if cache lifetime limit has exceeded
+    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes() < *config::SHEETSCRAPER_CACHE_NAMELIST {
+        if !force {
+            return Ok(())
+        }
+    }
+
+    drop(read_lock);
+    let config = get_config_type(today);
+
+    let sheet_id = ATTENDANCE_SHEETS[config as usize];
+    let sheet_name = calculate_sheet_name(today + Duration::days(1));
+    let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
+
+    let sheet: Sheet = df.try_into()?;
+
+    let mut write_lock = SHEET_CACHE.write().await;
+    write_lock.start = sheet.start;
+    write_lock.end = sheet.end;
+    write_lock.data = sheet.data;
+    write_lock.fetch_time = sheet.fetch_time;
+
+    Ok(())
+}
+
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
@@ -204,12 +402,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_dt_from_str() {
-        let dt = "26-Jun-23";
+    fn asd() {
+        let map = HashMap::from([("asd".to_string(), "asd")]);
 
-        let date = NaiveDate::parse_from_str(dt, "%d-%b-%y");
-
-        println!("{:?}", date);
+        assert_eq!(map.contains_key("asd"), true)
     }
 
     #[tokio::test]
@@ -231,6 +427,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_sheet_from_dataframe() {
+        init().await;
+
         let today = chrono::Local::now().date_naive();
         let sheet_name = calculate_sheet_name(today);
 
@@ -242,14 +440,20 @@ mod tests {
         )
         .await;
 
-        let mut sheet: Sheet = df.into();
+        let mut sheet: Sheet = df.try_into().unwrap();
 
         println!("sheet start: {}", sheet.start);
         println!("sheet end: {}", sheet.end);
+        println!("sheet time: {}", sheet.fetch_time);
 
-        let out_file = File::create("test.csv").unwrap();
-        let csv_writer = CsvWriter::new(out_file);
-        csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
+        let names = sheet.get_names(today, false).await;
+        // println!("{:#?}", names);
+
+        println!("namelist:\n{}", names.unwrap());
+
+        // let out_file = File::create("test.csv").unwrap();
+        // let csv_writer = CsvWriter::new(out_file);
+        // csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
     }
 
     #[test]

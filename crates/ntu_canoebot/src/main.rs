@@ -34,11 +34,20 @@ async fn main() {
 
 /// Periodic tasks / init tasks go here
 async fn start_events() {
-    tokio::task::spawn(SRC_CACHE.fill_all());
+    const REFRESH_INTERVAL: u32 = 10;
 
-    let cache_refresh = tokio_schedule::every(10)
+    tokio::task::spawn(SRC_CACHE.fill_all());
+    tokio::task::spawn(ntu_canoebot_attd::refresh_sheet_cache(true));
+
+    let cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minutes()
         .perform(|| async { SRC_CACHE.refresh_all().await });
-
     tokio::task::spawn(cache_refresh);
+
+    let attendance_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL).minutes().perform(|| async {
+        ntu_canoebot_attd::refresh_sheet_cache(false)
+            .await
+            .expect("attendance sheet refresh failed");
+    });
+    tokio::task::spawn(attendance_cache_refresh);
 }
