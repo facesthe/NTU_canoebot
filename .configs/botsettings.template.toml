@@ -37,10 +37,21 @@ use_deconflict = true
 deconflict_ver = 2
 deconflict_recursion_limit = 5
 configuration_sheet = "configs"
+# format string for date cell in top left of sheet
+date_format = "%d-%b-%y"
 
 # switch from old -> new ON this date
 # it defaults to sheetscraper.new if this is not overriden
 changeover_date = 1970-01-01
+
+[sheeetscraper.layout]
+# fencing = rows/cols of the sheet that are cut out prior to processing
+fencing.left = 1
+fencing.top = 2
+
+# non-data columns before each 7-day block
+block_pre_padding = 3
+
 
 [sheetscraper.columns]
 name = "name"

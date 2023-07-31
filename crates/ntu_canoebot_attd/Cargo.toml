@@ -14,3 +14,5 @@ polars = {workspace = true}
 
 g_sheets = {path = "../g_sheets"}
 ntu_canoebot_config = {path = "../ntu_canoebot_config"}
+ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+

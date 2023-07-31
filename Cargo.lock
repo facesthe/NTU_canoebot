@@ -1485,6 +1485,7 @@ dependencies = [
  "g_sheets",
  "lazy_static",
  "ntu_canoebot_config",
+ "ntu_canoebot_util",
  "polars",
  "tokio",
 ]

@@ -1,18 +1,23 @@
 //! Attendance fetch and formatting crate
-#![allow(unused)]
 
-use std::{collections::HashMap, default, error::Error};
+mod deconflict;
+mod update;
+
+use std::collections::HashMap;
 
 use chrono::{Datelike, Duration, NaiveDate};
 use lazy_static::lazy_static;
 
 use ntu_canoebot_config as config;
+use ntu_canoebot_util::debug_println;
 use polars::{
-    error::get_warning_function,
     export::ahash::HashSet,
-    prelude::{AnyValue, DataFrame},
+    prelude::{AnyValue, CsvWriter, DataFrame, SerWriter},
+    series::Series,
 };
 use tokio::sync::RwLock;
+
+pub use update::init;
 
 // most of these globals are initialized in init().
 lazy_static! {
@@ -57,6 +62,72 @@ impl From<usize> for Config {
             Config::Old
         } else {
             Config::New
+        }
+    }
+}
+
+/// Attendance data for one sheet
+#[derive(Clone, Debug, Default)]
+#[allow(unused)]
+pub struct Sheet {
+    data: DataFrame,
+    start: NaiveDate,
+    end: NaiveDate,
+}
+
+impl From<DataFrame> for Sheet {
+    fn from(mut value: DataFrame) -> Self {
+        // verify start date
+        let start_date = &value[1].get(0).unwrap();
+
+        let start_date = dataframe_cell_to_string(start_date.to_owned());
+
+        debug_println!("{}", start_date);
+
+        // trim sides of data
+        let cols_to_drop: Vec<&str> = value
+            .get_column_names()
+            .iter()
+            .zip((0..*config::SHEEETSCRAPER_LAYOUT_FENCING_LEFT).into_iter())
+            .map(|(col, _)| *col)
+            .collect();
+
+        value = value.drop_many(&cols_to_drop);
+
+        let length = value.iter().map(|series| series.len()).max().unwrap();
+        value = value.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
+
+        let name_column = &value[0];
+
+        // remove non-data columns
+        let filtered: Vec<Series> = value
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, col)| {
+                let window_index =
+                    idx % (14 + *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
+
+                if window_index <= *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
+                    None
+                } else {
+                    Some(col.to_owned())
+                }
+            })
+            .collect();
+
+        let filtered = DataFrame::new([vec![name_column.to_owned()], filtered].concat()).unwrap();
+
+        println!("{}", filtered);
+
+        let start =
+            NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT).unwrap();
+        let days_in_sheet = filtered.get_columns().len() / 2 + 1;
+
+        println!("days in sheet: {}", days_in_sheet);
+        Self {
+            data: filtered,
+            start,
+            end: start + Duration::days(days_in_sheet as i64), // temp
         }
     }
 }
@@ -116,171 +187,9 @@ async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
     Some(df)
 }
 
+/// Convert an [AnyValue] type to a string.
 fn dataframe_cell_to_string(cell: AnyValue) -> String {
     cell.to_string().trim_matches('\"').to_string()
-}
-
-/// Performs lookup and stuff and updates lazy-static globals
-async fn update_config_from_df(
-    df: &DataFrame,
-    config: Config,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // SHORTENED_NAMES
-    let mut names_lookup = df
-        .columns([
-            &*config::SHEETSCRAPER_COLUMNS_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_SHORT_NAME,
-        ])
-        .unwrap();
-
-    let filtered = names_lookup
-        .chunks(2)
-        .map(|row_slice| {
-            let left = row_slice[0];
-            let right = row_slice[1];
-
-            let res: Vec<(String, String)> = left
-                .iter()
-                .zip(right.iter())
-                .filter_map(|(l, r)| {
-                    let lft = dataframe_cell_to_string(l);
-                    let rht = dataframe_cell_to_string(r);
-
-                    if lft.len() == 0 || rht.len() == 0 {
-                        None
-                    } else {
-                        Some((lft, rht))
-                    }
-                })
-                .collect();
-
-            res
-        })
-        .collect::<Vec<Vec<(String, String)>>>()
-        .concat();
-
-    let map: HashMap<String, String> = filtered.into_iter().collect();
-    // println!("names lookup: {:#?}", map);
-
-    let mut lock = SHORTENED_NAMES[config as usize].write().await;
-    lock.clear();
-    lock.extend(map);
-
-    // BOATS
-    let boat_list = df
-        .columns([
-            &*config::SHEETSCRAPER_COLUMNS_BOAT_PRIMARY,
-            &*config::SHEETSCRAPER_COLUMNS_BOAT_ALTERNATE,
-        ])
-        .unwrap();
-
-    let mut set: HashSet<String> = Default::default();
-
-    for list in &boat_list {
-        let filtered = list
-            .iter()
-            .filter_map(|cell| {
-                let name = dataframe_cell_to_string(cell);
-                if name.len() != 0 {
-                    Some(name)
-                } else {
-                    None
-                }
-            })
-            .collect::<HashSet<String>>();
-
-        set.extend(filtered);
-    }
-
-    // println!("boat set: {:?}", set);
-
-    let mut lock = BOATS[config as usize].write().await;
-    lock.clear();
-    lock.extend(set);
-
-    // NAMES_CERTS
-    let names_and_certs = df
-        .columns([
-            &*config::SHEETSCRAPER_COLUMNS_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_CERTIFICATION,
-        ])
-        .unwrap();
-
-    let names = names_and_certs.get(0).unwrap();
-    let certs = names_and_certs.get(1).unwrap();
-
-    let filtered = names
-        .iter()
-        .zip(certs.iter())
-        .filter_map(|(n, c)| {
-            let name = dataframe_cell_to_string(n);
-            let cert: Result<u8, std::num::ParseIntError> =
-                dataframe_cell_to_string(c).parse::<u8>();
-            let status: bool;
-            if name.len() == 0 {
-                return None;
-            }
-            match cert {
-                Ok(_s) => status = _s != 0, // false if 0, true if otherwise
-                Err(_) => return None,
-            }
-
-            Some((name, status))
-        })
-        .collect::<HashMap<String, bool>>();
-
-    // println!("certificate status: {:#?}", filtered);
-
-    let mut lock = NAMES_CERTS[config as usize].write().await;
-    lock.clear();
-    lock.extend(filtered);
-
-    // BOAT_ALLOCATIONS
-    let primary = boat_list[0];
-    let alternate = boat_list[1];
-    let allocations = names
-        .iter()
-        .zip(primary.iter())
-        .zip(alternate.iter())
-        .filter_map(|((name, pri), alt)| {
-
-
-        let name = dataframe_cell_to_string(name);
-        let pri = dataframe_cell_to_string(pri);
-        let alt = dataframe_cell_to_string(alt);
-
-        if name.len() == 0 {
-            return None;
-        }
-        let pri_boat = if pri.len() == 0 {
-            None
-        } else {
-            Some(pri)
-        };
-
-        let alt_boat = if alt.len() == 0 {
-            None
-        } else {
-            Some(alt)
-        };
-
-        Some((name, (pri_boat, alt_boat)))
-    }).collect::<HashMap<String, (Option<String>, Option<String>)>>();
-
-    // println!("boat allocations: {:#?}", allocations);
-    let mut lock = BOAT_ALLOCATIONS[config as usize].write().await;
-    lock.clear();
-    lock.extend(allocations);
-
-    Ok(())
-}
-
-/// Initialize/reload from the configs sheet
-pub async fn init() {
-    for (idx, sheet_id) in ATTENDANCE_SHEETS.iter().enumerate() {
-        let df = g_sheets::get_as_dataframe(sheet_id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET)).await;
-        update_config_from_df(&df, idx.into()).await.unwrap()
-    }
 }
 
 pub async fn name_list() {}
@@ -288,26 +197,19 @@ pub async fn name_list() {}
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
+    use std::fs::File;
+    use std::io::Write;
+    use std::str::FromStr;
+
     use super::*;
 
-    #[tokio::test]
-    async fn asd() {
-        let sheet = g_sheets::get_as_dataframe(
-            ATTENDANCE_SHEETS[Config::Old as usize],
-            Some(&*config::SHEETSCRAPER_CONFIGURATION_SHEET),
-        )
-        .await;
-        println!("{:?}", sheet.dtypes());
+    #[test]
+    fn test_dt_from_str() {
+        let dt = "26-Jun-23";
 
-        let cols = sheet.get_column_names();
-        println!("all cols: {:#?}", cols);
+        let date = NaiveDate::parse_from_str(dt, "%d-%b-%y");
 
-        let col = sheet
-            .column(&*config::SHEETSCRAPER_COLUMNS_CERTIFICATION)
-            .unwrap();
-        println!("{}", col);
-
-        update_config_from_df(&sheet, Config::Old).await;
+        println!("{:?}", date);
     }
 
     #[tokio::test]
@@ -325,6 +227,29 @@ mod tests {
 
         let new_short_names = SHORTENED_NAMES[0].read().await;
         println!("{:#?}", new_short_names);
+    }
+
+    #[tokio::test]
+    async fn test_sheet_from_dataframe() {
+        let today = chrono::Local::now().date_naive();
+        let sheet_name = calculate_sheet_name(today);
+
+        println!("sheet name: {}", &sheet_name);
+
+        let df = g_sheets::get_as_dataframe(
+            *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+            Some(sheet_name),
+        )
+        .await;
+
+        let mut sheet: Sheet = df.into();
+
+        println!("sheet start: {}", sheet.start);
+        println!("sheet end: {}", sheet.end);
+
+        let out_file = File::create("test.csv").unwrap();
+        let csv_writer = CsvWriter::new(out_file);
+        csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
     }
 
     #[test]
