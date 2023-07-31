@@ -136,7 +136,7 @@ impl Display for NameList {
 
 impl TryFrom<DataFrame> for Sheet {
     type Error = ();
-    fn try_from(mut value: DataFrame) -> Result<Self, Self::Error> {
+    fn try_from(value: DataFrame) -> Result<Self, Self::Error> {
         // verify start date
         let start_date = &value[1].get(0).ok().ok_or(())?;
 
@@ -152,22 +152,24 @@ impl TryFrom<DataFrame> for Sheet {
             .map(|(col, _)| *col)
             .collect();
 
-        value = value.drop_many(&cols_to_drop);
+        debug_println!("to drop cols: {:?}", cols_to_drop);
 
-        let length = value.iter().map(|series| series.len()).max().ok_or(())?;
-        value = value.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
+        let inter_1 = value.drop_many(&cols_to_drop);
 
-        let name_column = &value[0];
+        let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
+        let inter_2 = inter_1.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
+        let name_column = &inter_2[0];
 
         // remove non-data columns
-        let filtered: Vec<Series> = value
+        let filtered: Vec<Series> = inter_2
             .iter()
             .enumerate()
+            .skip(1)
             .filter_map(|(idx, col)| {
                 let window_index =
-                    idx % (14 + *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
+                    (idx - 1) % (14 + *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
 
-                if window_index <= *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
+                if window_index < *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
                     None
                 } else {
                     Some(col.to_owned())
@@ -209,7 +211,11 @@ impl Sheet {
         }
 
         let delta = (date - self.start).num_days() as usize;
-        let offset = if time_slot { delta * 2 } else { delta * 2 + 1 };
+        let offset = if time_slot {
+            delta * 2 + 2
+        } else {
+            delta * 2 + 1
+        };
 
         let names = &self.data[0];
         let selected = &self
@@ -219,18 +225,7 @@ impl Sheet {
 
         let read_lock = {
             let change_over = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
-            let config = if date
-                >= NaiveDate::from_ymd_opt(
-                    change_over.year.into(),
-                    change_over.month.into(),
-                    change_over.day.into(),
-                )
-                .unwrap()
-            {
-                Config::New
-            } else {
-                Config::Old
-            };
+            let config = get_config_type(date);
 
             debug_println!(
                 "changeover date is: {}.\nUsing {:?} config for date: {}.",
@@ -270,7 +265,7 @@ impl Sheet {
             time: time_slot,
             names: filtered,
             boats: None,
-            fetch_time: self.fetch_time
+            fetch_time: self.fetch_time,
         })
     }
 
@@ -361,16 +356,17 @@ pub async fn name_list() {}
 
 /// Refresh the cached sheet
 pub async fn refresh_sheet_cache(force: bool) -> Result<(), ()> {
-
     debug_println!("refreshing sheet cache at: {}", chrono::Local::now().time());
 
     let today = chrono::Local::now().date_naive();
     let read_lock = SHEET_CACHE.read().await;
 
     // check if cache lifetime limit has exceeded
-    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes() < *config::SHEETSCRAPER_CACHE_NAMELIST {
+    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
+        < *config::SHEETSCRAPER_CACHE_NAMELIST
+    {
         if !force {
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -399,13 +395,21 @@ mod tests {
     use std::io::Write;
     use std::str::FromStr;
 
+    use polars::prelude::{CsvWriter, SerWriter};
+
     use super::*;
 
-    #[test]
-    fn asd() {
-        let map = HashMap::from([("asd".to_string(), "asd")]);
+    #[tokio::test]
+    async fn get_sheet() {
+        let mut df = g_sheets::get_as_dataframe(
+            *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+            Some("Aug-2023"),
+        )
+        .await;
 
-        assert_eq!(map.contains_key("asd"), true)
+        let out_file = File::create("attd.csv").unwrap();
+        let csv_writer = CsvWriter::new(out_file);
+        csv_writer.has_header(true).finish(&mut df).unwrap();
     }
 
     #[tokio::test]
@@ -429,18 +433,23 @@ mod tests {
     async fn test_sheet_from_dataframe() {
         init().await;
 
-        let today = chrono::Local::now().date_naive();
+        let today = NaiveDate::from_ymd_opt(2023, 8, 25).unwrap();
         let sheet_name = calculate_sheet_name(today);
 
         println!("sheet name: {}", &sheet_name);
 
-        let df = g_sheets::get_as_dataframe(
+        let mut df = g_sheets::get_as_dataframe(
             *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
             Some(sheet_name),
         )
         .await;
 
         let mut sheet: Sheet = df.try_into().unwrap();
+
+        let cols = sheet.data.get_column_names();
+        println!("{:?}", cols);
+        let x: Vec<&&str> = cols.iter().skip(1).collect();
+        println!("{:?}", x);
 
         println!("sheet start: {}", sheet.start);
         println!("sheet end: {}", sheet.end);
@@ -451,9 +460,9 @@ mod tests {
 
         println!("namelist:\n{}", names.unwrap());
 
-        // let out_file = File::create("test.csv").unwrap();
-        // let csv_writer = CsvWriter::new(out_file);
-        // csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
+        let out_file = File::create("raw.csv").unwrap();
+        let csv_writer = CsvWriter::new(out_file);
+        csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
     }
 
     #[test]

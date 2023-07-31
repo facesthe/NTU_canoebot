@@ -166,7 +166,7 @@ pub async fn namelist_get(
             time: time_slot,
             names: Default::default(),
             boats: None,
-            fetch_time: chrono::Local::now().naive_local()
+            fetch_time: chrono::Local::now().naive_local(),
         });
 
     // generate keyboard

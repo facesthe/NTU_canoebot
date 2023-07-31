@@ -44,10 +44,13 @@ async fn start_events() {
         .perform(|| async { SRC_CACHE.refresh_all().await });
     tokio::task::spawn(cache_refresh);
 
-    let attendance_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL).minutes().perform(|| async {
-        ntu_canoebot_attd::refresh_sheet_cache(false)
-            .await
-            .expect("attendance sheet refresh failed");
-    });
+    let attendance_cache_refresh =
+        tokio_schedule::every(REFRESH_INTERVAL)
+            .minutes()
+            .perform(|| async {
+                ntu_canoebot_attd::refresh_sheet_cache(false)
+                    .await
+                    .expect("attendance sheet refresh failed");
+            });
     tokio::task::spawn(attendance_cache_refresh);
 }
