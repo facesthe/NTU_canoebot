@@ -50,7 +50,6 @@ changeover_date = 1970-01-01
 attd = 30
 prog = 30
 
-
 [sheeetscraper.layout]
 # fencing = rows/cols of the sheet that are cut out prior to processing
 fencing.left = 1
@@ -58,7 +57,6 @@ fencing.top = 2
 
 # non-data columns before each 7-day block
 block_pre_padding = 3
-
 
 [sheetscraper.columns]
 # attendance sheet cols
@@ -87,6 +85,7 @@ program_sheet = "google sheets sheetid"
 format = "Paddling {date_str}\n\n{boatallo_no_date}\n\n{trainingam_prog}"
 smm_measure = "" # no longer used
 
+
 [formfiller]
 form_id = "SCF logsheet form id"
 
@@ -104,6 +103,11 @@ end     = 17:30:00
 # don't think this is used anymore
 [traininglog]
 form_id = ""
+
+
+[src]
+# cache refresh interval
+cache_refresh = 30
 
 
 [events.daily.logsheet_prompt]
