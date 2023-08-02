@@ -3,7 +3,7 @@
 mod deconflict;
 mod update;
 
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
@@ -48,7 +48,12 @@ lazy_static! {
     static ref SHORTENED_NAMES: [RwLock<HashMap<String, String>>; 2] = Default::default();
 
     /// Local cache of sheet.
-    pub static ref SHEET_CACHE: RwLock<Sheet> = Default::default();
+    pub static ref SHEET_CACHE: RwLock<AttdSheet> = Default::default();
+
+    /// Local cache of trainig prog.
+    /// Since each program sheet contains data for one entire year,
+    /// this is pretty much all the data needed.
+    pub static ref PROG_CACHE: RwLock<ProgSheet> = Default::default();
 
 }
 
@@ -72,8 +77,17 @@ impl From<usize> for Config {
 
 /// Attendance data for one sheet
 #[derive(Clone, Debug, Default)]
+pub struct AttdSheet {
+    fetch_time: NaiveDateTime,
+    data: DataFrame,
+    start: NaiveDate,
+    end: NaiveDate,
+}
+
+/// Training prog data for sheet
+#[derive(Clone, Debug, Default)]
 #[allow(unused)]
-pub struct Sheet {
+pub struct ProgSheet {
     fetch_time: NaiveDateTime,
     data: DataFrame,
     start: NaiveDate,
@@ -134,7 +148,7 @@ impl Display for NameList {
     }
 }
 
-impl TryFrom<DataFrame> for Sheet {
+impl TryFrom<DataFrame> for AttdSheet {
     type Error = ();
     fn try_from(value: DataFrame) -> Result<Self, Self::Error> {
         // verify start date
@@ -199,7 +213,7 @@ impl TryFrom<DataFrame> for Sheet {
     }
 }
 
-impl Sheet {
+impl AttdSheet {
     /// Returns a list of names for a particular date and time.
     /// Returns [Option::None] if the date given is outside the sheet range.
     ///
@@ -250,9 +264,9 @@ impl Sheet {
                     // substitute with short names (if any)
                     let key = dataframe_cell_to_string(cell);
                     if read_lock.contains_key(&key) {
-                        read_lock.get(&key).and_then(|val| Some(val.to_owned()))
+                        return read_lock.get(&key).cloned();
                     } else {
-                        Some(key)
+                        return Some(key);
                     }
                 } else {
                     None
@@ -270,6 +284,86 @@ impl Sheet {
     }
 
     /// Checks if the sheet contains the specified date
+    pub fn contains_date(&self, date: NaiveDate) -> bool {
+        if date >= self.start && date <= self.end {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl TryFrom<DataFrame> for ProgSheet {
+    type Error = ();
+
+    fn try_from(value: DataFrame) -> Result<Self, Self::Error> {
+        let now = chrono::Local::now().naive_local();
+
+        let (sheet_start, sheet_end) = {
+            let date_col = value
+                .column(*config::SHEETSCRAPER_COLUMNS_PROG_DATE)
+                .unwrap();
+
+            // debug_println!()
+
+            let start = dataframe_cell_to_string(date_col.iter().next().unwrap());
+            let end = dataframe_cell_to_string(date_col.iter().last().unwrap());
+
+            debug_println!("start: {}", start);
+            debug_println!("end: {}", end);
+
+            (
+                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
+                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
+            )
+        };
+
+        Ok(Self {
+            fetch_time: now,
+            data: value,
+            start: sheet_start,
+            end: sheet_end,
+        })
+    }
+}
+
+impl ProgSheet {
+    /// Returns the training prog for a given date
+    pub fn get_program(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
+        let delta = (date - self.start).num_days();
+
+        let col = if time_slot {
+            *config::SHEETSCRAPER_COLUMNS_PROG_PM
+        } else {
+            *config::SHEETSCRAPER_COLUMNS_PROG_AM
+        };
+
+        let col = self.data.column(col).ok()?;
+        let cell = col.get(delta as usize).ok()?;
+
+        Some(dataframe_cell_to_string(cell))
+    }
+
+    /// Returns the formatted training prog, formatted for display as a message
+    pub fn get_formatted_prog(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
+        let prog_contents = self.get_program(date, time_slot)?;
+
+        let mut lines = Vec::new();
+
+        lines.push(date.format("%d %b %y").to_string());
+        lines.push(format!(
+            "{} {}",
+            date.format("%a"),
+            if time_slot { "PM" } else { "AM" }
+        ));
+        lines.push(String::new());
+        lines.push(prog_contents);
+        lines.push(String::new());
+        lines.push(format!("fetched at {}", self.fetch_time.format("%H:%M:%S")));
+
+        Some(lines.join("\n"))
+    }
+
     pub fn contains_date(&self, date: NaiveDate) -> bool {
         if date >= self.start && date <= self.end {
             true
@@ -355,15 +449,18 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 pub async fn name_list() {}
 
 /// Refresh the cached sheet
-pub async fn refresh_sheet_cache(force: bool) -> Result<(), ()> {
-    debug_println!("refreshing sheet cache at: {}", chrono::Local::now().time());
+pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
+    debug_println!(
+        "refreshing attd sheet cache at: {}",
+        chrono::Local::now().time()
+    );
 
-    let today = chrono::Local::now().date_naive();
+    let today = chrono::Local::now().date_naive() + Duration::days(1);
     let read_lock = SHEET_CACHE.read().await;
 
     // check if cache lifetime limit has exceeded
     if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
-        < *config::SHEETSCRAPER_CACHE_NAMELIST
+        < *config::SHEETSCRAPER_CACHE_ATTD
     {
         if !force {
             return Ok(());
@@ -377,13 +474,47 @@ pub async fn refresh_sheet_cache(force: bool) -> Result<(), ()> {
     let sheet_name = calculate_sheet_name(today + Duration::days(1));
     let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
 
-    let sheet: Sheet = df.try_into()?;
+    let sheet: AttdSheet = df.try_into()?;
 
     let mut write_lock = SHEET_CACHE.write().await;
     write_lock.start = sheet.start;
     write_lock.end = sheet.end;
     write_lock.data = sheet.data;
     write_lock.fetch_time = sheet.fetch_time;
+
+    Ok(())
+}
+
+/// Refresh the cached sheet
+pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
+    debug_println!(
+        "refreshing prog sheet cache at: {}",
+        chrono::Local::now().time()
+    );
+
+    let today = chrono::Local::now().naive_local() + Duration::days(1);
+    let read_lock = PROG_CACHE.read().await;
+
+    if (today - read_lock.fetch_time).num_minutes() < *config::SHEETSCRAPER_CACHE_PROG {
+        if !force {
+            return Ok(());
+        }
+    }
+
+    drop(read_lock);
+    let config = get_config_type(today.date());
+    let sheet_id = PROGRAM_SHEETS[config as usize];
+
+    let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
+
+    let sheet: ProgSheet = df.try_into()?;
+
+    let mut write_lock = PROG_CACHE.write().await;
+
+    write_lock.fetch_time = sheet.fetch_time;
+    write_lock.data = sheet.data;
+    write_lock.start = sheet.start;
+    write_lock.end = sheet.end;
 
     Ok(())
 }
@@ -433,7 +564,8 @@ mod tests {
     async fn test_sheet_from_dataframe() {
         init().await;
 
-        let today = NaiveDate::from_ymd_opt(2023, 8, 25).unwrap();
+        let today = chrono::Local::now().date_naive();
+
         let sheet_name = calculate_sheet_name(today);
 
         println!("sheet name: {}", &sheet_name);
@@ -444,7 +576,7 @@ mod tests {
         )
         .await;
 
-        let mut sheet: Sheet = df.try_into().unwrap();
+        let mut sheet: AttdSheet = df.try_into().unwrap();
 
         let cols = sheet.data.get_column_names();
         println!("{:?}", cols);
@@ -463,6 +595,27 @@ mod tests {
         let out_file = File::create("raw.csv").unwrap();
         let csv_writer = CsvWriter::new(out_file);
         csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_prog_from_dataframe() {
+        init().await;
+
+        let today = chrono::Local::now().date_naive();
+
+        let mut df = g_sheets::get_as_dataframe(
+            *config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
+            Option::<&str>::None,
+        )
+        .await;
+
+        debug_println!("prog sheet: {}", df);
+
+        let sheet: ProgSheet = df.try_into().unwrap();
+
+        let prog = sheet.get_program(today, false);
+
+        println!("{:?}", prog);
     }
 
     #[test]

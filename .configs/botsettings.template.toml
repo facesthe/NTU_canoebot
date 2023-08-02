@@ -39,6 +39,7 @@ deconflict_recursion_limit = 5
 configuration_sheet = "configs"
 # format string for date cell in top left of sheet
 date_format = "%d-%b-%y"
+date_format_prog = "%Y-%m-%d"
 
 # switch from old -> new ON this date
 # it defaults to sheetscraper.new if this is not overriden
@@ -46,7 +47,8 @@ changeover_date = 1970-01-01
 
 # cache lifetimes, in minutes
 [sheetscraper.cache]
-namelist = 30
+attd = 30
+prog = 30
 
 
 [sheeetscraper.layout]
@@ -59,11 +61,17 @@ block_pre_padding = 3
 
 
 [sheetscraper.columns]
-name = "name"
-short_name = "shortname"
-boat_primary = "boat_1"
-boat_alternate = "boat_2"
-certification = "1_star"
+# attendance sheet cols
+attd.name = "name"
+attd.short_name = "shortname"
+attd.boat_primary = "boat_1"
+attd.boat_alternate = "boat_2"
+attd.certification = "1_star"
+
+# prog sheet cols
+prog.date = "Date"
+prog.am = "AM program"
+prog.pm = "PM program"
 
 # previous AY configuration
 [sheetscraper.old]

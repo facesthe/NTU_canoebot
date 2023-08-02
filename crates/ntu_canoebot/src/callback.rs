@@ -3,6 +3,7 @@ pub mod callbacks;
 pub mod menu;
 mod namelist;
 pub mod src;
+mod training;
 
 use std::error::Error;
 use std::str::FromStr;
@@ -20,6 +21,7 @@ use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 pub use namelist::namelist_get;
+pub use training::training_get;
 
 use crate::frame::construct_keyboard_tuple;
 
@@ -43,6 +45,7 @@ pub enum Callback {
     Menu(menu::Menu),
     Src(src::Src),
     NameList(namelist::NameList),
+    Training(training::Training),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -97,18 +100,21 @@ impl HandleCallback for Callback {
         query: CallbackQuery,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         match &self {
-            Callback::BigData(call) => call.handle_callback(bot, query).await,
             Callback::Empty => {
                 bot.answer_callback_query(&query.id).await?;
                 Ok(())
             }
-            Callback::Menu(call) => call.handle_callback(bot, query).await,
             Callback::Src(call) => call.handle_callback(bot, query).await,
             Callback::NameList(call) => call.handle_callback(bot, query).await,
+            Callback::Training(call) => call.handle_callback(bot, query).await,
+
+            // testing
+            Callback::Menu(call) => call.handle_callback(bot, query).await,
+            Callback::BigData(call) => call.handle_callback(bot, query).await,
 
             // to catch unimpl'd callbacks
             _ => {
-                debug_println!("callback not yet specified in match arm");
+                debug_println!("callback present but not explicitly handled in match arm");
                 Ok(())
             }
         }
@@ -278,19 +284,21 @@ pub async fn callback_handler(
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // answer the callback query once at the top
-    bot.answer_callback_query(&query.id).await?;
+    tokio::spawn(async {
+        // answer the callback query once at the top
+        bot.answer_callback_query(&query.id).await.unwrap();
 
-    let _callback_data: Callback = {
-        if let Some(data) = &query.data {
-            let data_vec = data.as_bytes().to_owned();
-            (&data_vec).try_into().unwrap()
-        } else {
-            Callback::Empty
-        }
-    };
+        let _callback_data: Callback = {
+            if let Some(data) = &query.data {
+                let data_vec = data.as_bytes().to_owned();
+                (&data_vec).try_into().unwrap()
+            } else {
+                Callback::Empty
+            }
+        };
 
-    _callback_data.handle_callback(bot, query).await?;
+        _callback_data.handle_callback(bot, query).await.unwrap();
+    });
 
     Ok(())
 }

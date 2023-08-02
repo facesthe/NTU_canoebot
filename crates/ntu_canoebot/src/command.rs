@@ -139,10 +139,12 @@ impl HandleCommand for Commands {
         match &self {
             Commands::Help(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Start(cmd) => cmd.handle_command(bot, msg, me).await,
-            Commands::Button(cmd) => cmd.handle_command(bot, msg, me).await,
-            Commands::Menu(cmd) => cmd.handle_command(bot, msg, me).await,
-            Commands::Feedback => Ok(()), // todo
             Commands::Src(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Reload => {
+                ntu_canoebot_attd::init().await;
+                bot.send_message(msg.chat.id, "configs updated").await?;
+                Ok(())
+            }
             Commands::Namelist => {
                 callback::namelist_get(
                     (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
@@ -154,7 +156,23 @@ impl HandleCommand for Commands {
                 )
                 .await
             }
+            Commands::Training => {
+                callback::training_get(
+                    (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
+                    false,
+                    false,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
+                // Ok(())
+            }
 
+            // test cmds
+            Commands::Button(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Menu(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Feedback => Ok(()), // todo
             Commands::Calendar => {
                 let keyboard = calendar_month_gen(
                     NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
@@ -189,6 +207,7 @@ impl HandleCommand for Commands {
 
                 Ok(())
             }
+
             // placeholder arm for unimpl'd commands
             _ => Ok(()),
         }
@@ -203,15 +222,20 @@ pub async fn message_handler(
     msg: Message,
     me: Me,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if let Some(text) = msg.text() {
-        match Commands::parse(text, me.username()) {
-            Ok(_cmd) => _cmd.handle_command(bot, msg, me).await?,
+    tokio::spawn(async {
+        if let Some(text) = msg.text() {
+            match Commands::parse(text, me.username()) {
+                Ok(_cmd) => {
+                    let cloned = _cmd.clone();
+                    tokio::task::spawn(async move { cloned.handle_command(bot, msg, me).await });
+                }
 
-            Err(_err) => {
-                empty_command_handler(bot, msg, me).await;
+                Err(_err) => {
+                    empty_command_handler(bot, msg, me).await;
+                }
             }
         }
-    }
+    });
 
     Ok(())
 }

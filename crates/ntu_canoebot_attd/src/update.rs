@@ -21,8 +21,8 @@ async fn update_config_from_df(
     // SHORTENED_NAMES
     let names_lookup = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_SHORT_NAME,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_SHORT_NAME,
         ])
         .unwrap();
 
@@ -62,8 +62,8 @@ async fn update_config_from_df(
     // BOATS
     let boat_list = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_BOAT_PRIMARY,
-            &*config::SHEETSCRAPER_COLUMNS_BOAT_ALTERNATE,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_PRIMARY,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_ALTERNATE,
         ])
         .unwrap();
 
@@ -94,8 +94,8 @@ async fn update_config_from_df(
     // NAMES_CERTS
     let names_and_certs = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_CERTIFICATION,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
+            &*config::SHEETSCRAPER_COLUMNS_ATTD_CERTIFICATION,
         ])
         .unwrap();
 

@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
 use ntu_canoebot_attd::{
-    calculate_sheet_name, get_config_type, refresh_sheet_cache, Sheet, SHEET_CACHE,
+    calculate_sheet_name, get_config_type, refresh_attd_sheet_cache, AttdSheet, SHEET_CACHE,
 };
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
@@ -44,10 +44,14 @@ impl HandleCallback for NameList {
         bot: Bot,
         query: CallbackQuery,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        debug_println!("namelist callback triggered");
+
         let msg = message_from_callback_query(&query)?;
 
         match self {
             NameList::Get(date, time_slot, refresh) => {
+                // let msg_cloned = msg.clone();
+                // tokio::spawn(replace_with_whitespace(bot.clone(), &msg_cloned, 2));
                 replace_with_whitespace(bot.clone(), &msg, 2).await?;
                 namelist_get(date.to_owned(), *time_slot, *refresh, bot, msg, true).await?
             }
@@ -139,7 +143,7 @@ pub async fn namelist_get(
 
     debug_println!("sheet name: {}", sheet_name);
 
-    let sheet: Sheet = {
+    let sheet: AttdSheet = {
         // check if cache matches up with this sheet
         let read_lock = SHEET_CACHE.read().await;
         let in_cache = read_lock.contains_date(date.into());
@@ -147,7 +151,7 @@ pub async fn namelist_get(
         if in_cache {
             if refresh {
                 drop(read_lock);
-                refresh_sheet_cache(refresh).await.unwrap();
+                refresh_attd_sheet_cache(refresh).await.unwrap();
                 SHEET_CACHE.read().await.clone()
             } else {
                 read_lock.clone()
