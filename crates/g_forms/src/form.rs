@@ -4,8 +4,9 @@ use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
 pub use serde_json::Number;
 
-use crate::raw::{
-    DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType,
+use crate::{
+    question::{question_types::*, Question},
+    raw::{DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType},
 };
 
 use self::subtypes::{Long, Short};
@@ -56,6 +57,7 @@ pub struct QuestionHeader {
 }
 
 impl From<RawQuestion> for QuestionHeader {
+    #[rustfmt::skip]
     fn from(value: RawQuestion) -> Self {
         let mut question = QuestionHeader {
             title: value.title,
@@ -64,23 +66,33 @@ impl From<RawQuestion> for QuestionHeader {
             question_type: QuestionType::from(value.question_type),
         };
 
-        // #[rustfmt::skip]
         match &mut question.question_type {
             QuestionType::ShortAnswer(qn) => {
-                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap()
+                *qn = Question::try_from(value.additional_info).unwrap()
             }
             QuestionType::LongAnswer(qn) => {
-                *qn = OpenEndedQuestion::try_from(value.additional_info).unwrap()
+                *qn = Question::try_from(value.additional_info).unwrap()
             }
-            QuestionType::MultipleChoice(qn)
-            | QuestionType::DropDown(qn)
-            | QuestionType::CheckBox(qn)
-            | QuestionType::LinearScale(qn) => {
-                *qn = SelectionQuestion::try_from(value.additional_info).unwrap()
+            QuestionType::MultipleChoice(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
+            }
+            QuestionType::DropDown(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
+            }
+            QuestionType::CheckBox(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
+            }
+            QuestionType::LinearScale(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
             }
             QuestionType::Grid => todo!(),
-            QuestionType::Date(qn) => *qn = DateQuestion::try_from(value.additional_info).unwrap(),
-            QuestionType::Time(qn) => *qn = TimeQuestion::try_from(value.additional_info).unwrap(),
+            // QuestionType::Grid(qn) => todo!(),
+            QuestionType::Date(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
+            }
+            QuestionType::Time(qn) => {
+                *qn = Question::try_from(value.additional_info).unwrap()
+            }
         }
 
         question
@@ -90,15 +102,17 @@ impl From<RawQuestion> for QuestionHeader {
 /// One form question
 #[derive(Clone, Debug)]
 pub enum QuestionType {
-    ShortAnswer(OpenEndedQuestion<Short>),
-    LongAnswer(OpenEndedQuestion<Long>),
-    MultipleChoice(SelectionQuestion),
-    DropDown(SelectionQuestion),
-    CheckBox(SelectionQuestion),
-    LinearScale(SelectionQuestion),
+    ShortAnswer(Question<ShortAnswer>),
+    LongAnswer(Question<LongAnswer>),
+    MultipleChoice(Question<MultipleChoice>),
+    DropDown(Question<DropDown>),
+    CheckBox(Question<CheckBox>),
+    LinearScale(Question<LinearScale>),
+
     Grid,
-    Date(DateQuestion),
-    Time(TimeQuestion),
+    // Grid(Question<Grid>),
+    Date(Question<Date>),
+    Time(Question<Time>),
 }
 
 impl From<FormQuestion> for QuestionType {
@@ -111,6 +125,7 @@ impl From<FormQuestion> for QuestionType {
             FormQuestion::CheckBox => Self::CheckBox(Default::default()),
             FormQuestion::LinearScale => Self::LinearScale(Default::default()),
             FormQuestion::Grid => Self::Grid,
+            // FormQuestion::Grid => Self::Grid(Default::default()),
             FormQuestion::Date => Self::Date(Default::default()),
             FormQuestion::Time => Self::Time(Default::default()),
         }

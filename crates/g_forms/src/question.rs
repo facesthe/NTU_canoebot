@@ -18,7 +18,7 @@ use self::question_types::{
 /// as a question type.
 pub trait IsQuestion {}
 
-mod question_types {
+pub mod question_types {
     use super::IsQuestion;
 
     #[derive(Clone, Debug, Default)]
@@ -225,7 +225,7 @@ impl TryFrom<Vec<RawQuestionInfo>> for Question<LinearScale> {
     type Error = ();
 
     fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
-        todo!()
+        raw_to_selection(value)
     }
 }
 
