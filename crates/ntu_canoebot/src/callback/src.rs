@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-use super::{message_from_callback_query, Date, HandleCallback};
+use super::{message_from_callback_query, replace_with_whitespace, Date, HandleCallback};
 
 /// The SRC booking menu
 ///
@@ -253,6 +253,9 @@ async fn src_query(
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let msg = message_from_callback_query(&query)?;
+    replace_with_whitespace(bot.clone(), msg, 2).await?;
+
     let facil_idx = SRC_FACILITIES
         .iter()
         .enumerate()
@@ -275,8 +278,6 @@ async fn src_query(
     ))?;
 
     let keyboard = src_navigation_buttons(facil_id, date);
-
-    let msg = message_from_callback_query(&query)?;
 
     bot.edit_message_text(msg.chat.id, msg.id, format!("```\n{}```", contents))
         .reply_markup(keyboard)

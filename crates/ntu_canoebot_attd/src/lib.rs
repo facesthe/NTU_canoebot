@@ -495,7 +495,9 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     let today = chrono::Local::now().naive_local() + Duration::days(1);
     let read_lock = PROG_CACHE.read().await;
 
-    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes() < *config::SHEETSCRAPER_CACHE_PROG {
+    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
+        < *config::SHEETSCRAPER_CACHE_PROG
+    {
         if !force {
             return Ok(());
         }

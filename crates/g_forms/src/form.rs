@@ -1,6 +1,6 @@
 //! Public form structs
 
-use std::{marker::PhantomData, str::FromStr};
+use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
 pub use serde_json::Number;
 
@@ -20,7 +20,7 @@ use self::subtypes::{Long, Short};
 ///
 /// ```
 pub trait Response {
-    fn response(&self) -> Result<String, ()>;
+    fn response(&self) -> Option<String>;
 }
 
 /// Unit structs for question subtypes
@@ -133,7 +133,7 @@ pub struct OpenEndedQuestion<T> {
     validation_error: Option<String>,
 }
 
-impl<Long> TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion<Long> {
+impl<T> TryFrom<Vec<RawQuestionInfo>> for OpenEndedQuestion<T> {
     type Error = ();
 
     fn try_from(value: Vec<RawQuestionInfo>) -> Result<Self, Self::Error> {
@@ -427,17 +427,17 @@ pub struct SelectionQuestion {
 #[derive(Clone, Debug)]
 pub struct SingleSelection {
     /// String response
-    answer: String,
+    pub answer: String,
 
     /// Marks if option is selected
-    selected: bool,
+    pub selected: bool,
 }
 
 /// Labels for upper and lower selection limits
 #[derive(Clone, Debug, Default)]
 pub struct SelectionLimits {
-    lower: String,
-    upper: String,
+    pub(crate) lower: String,
+    pub(crate) upper: String,
 }
 
 impl TryFrom<Vec<RawQuestionInfo>> for SelectionQuestion {
@@ -524,10 +524,9 @@ impl TryFrom<Vec<RawQuestionInfo>> for TimeQuestion {
 
 #[cfg(test)]
 mod test {
-    use crate::raw::RawFormData;
 
-    use super::InputValidation;
     use super::*;
+    use crate::raw::RawFormData;
 
     #[test]
     fn test_repr_enum() {}

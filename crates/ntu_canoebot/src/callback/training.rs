@@ -8,7 +8,7 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{calendar_month_gen, calendar_year_gen, date_am_pm_navigation};
 
-use super::{message_from_callback_query, Callback, Date, HandleCallback, replace_with_whitespace};
+use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
 
 use ntu_canoebot_config as config;
 
