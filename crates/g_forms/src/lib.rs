@@ -1,4 +1,9 @@
 //! A simple interface for creating and submitting Google forms.
+//!
+//! ```
+//! use g_forms::GoogleForm;
+//!
+//! ```
 #![allow(unused)]
 
 pub mod form;

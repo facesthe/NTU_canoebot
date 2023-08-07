@@ -49,7 +49,7 @@ pub(crate) struct RawFormData {
     expecting = "expecting [<form_description>, <questions>, <unknown_vec_1>, <unknown_1>, <unknown_2>, <unknown_vec_2>, <unknown_3>, <unknown_vec_3>, <form_title>, <unknown_number_1>, <unknown_vec_4>, <unknown_4>, <unknown_5>, <unknown_6>, <unknown_7>, <unknown_vec_5>, <unknown_vec_6>, <unknown_8>, <unknown_9>, <unknown_10>, <unknown_11>, <unknown_12>, <unknown_13>, <unknown_14>, <unknown_vec_7>, <unknown_vec_8> array"
 )]
 pub(crate) struct RawQuestionBlob {
-    form_description: String,
+    pub form_description: String,
     pub questions: Vec<RawQuestion>, // RawQuestion
     unknown_vec_1: Value,
 
@@ -62,7 +62,7 @@ pub(crate) struct RawQuestionBlob {
 
     unknown_vec_3: Value,
 
-    form_title: String,
+    pub form_title: String,
 
     unknown_number_1: u32,
 

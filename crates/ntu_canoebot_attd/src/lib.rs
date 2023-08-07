@@ -2,6 +2,7 @@
 
 mod deconflict;
 mod update;
+mod logsheet;
 
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 

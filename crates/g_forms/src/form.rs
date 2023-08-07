@@ -2,11 +2,12 @@
 
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
+use ntu_canoebot_util::debug_println;
 pub use serde_json::Number;
 
 use crate::{
     question::{question_types::*, Question},
-    raw::{DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType},
+    raw::{DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType, RawFormData},
 };
 
 use self::subtypes::{Long, Short};
@@ -46,6 +47,62 @@ pub struct GoogleForm {
     questions: Vec<QuestionHeader>,
 }
 
+impl GoogleForm {
+    /// Create a form the form id
+    pub async fn from_id(id: &str) -> Option<Self> {
+        let url = format!("https://docs.google.com/forms/d/e/{}/viewform", id);
+
+        let resp = match reqwest::get(url).await {
+            Ok(_r) => _r,
+            Err(_) => panic!(),
+        };
+
+        let variable_contents: String = {
+            let html_body = match resp.text().await {
+                Ok(_html) => _html,
+                Err(_) => panic!(),
+            };
+
+            let variable_definition = scraper::Html::parse_document(&html_body)
+                .select(&scraper::Selector::parse("body script").unwrap())
+                .next()
+                .expect("should have a variable declared in the script section")
+                .text()
+                .collect::<String>();
+
+            // println!("variable definition:\n{}", variable_definition);
+
+            let mut variable_content_with_semi = variable_definition
+                .split("=")
+                .last()
+                .unwrap()
+                .trim()
+                .chars()
+                .collect::<Vec<char>>();
+
+            variable_content_with_semi.pop();
+            variable_content_with_semi.iter().collect::<String>()
+        };
+
+        let des: RawFormData = serde_json::from_str(&variable_contents).unwrap();
+
+        let questions = des
+            .question_blob
+            .questions
+            .into_iter()
+            .map(|raw| QuestionHeader::from(raw))
+            .collect::<Vec<QuestionHeader>>();
+
+        Some(Self {
+            id: id.to_owned(),
+            title: des.question_blob.form_title,
+            description: des.question_blob.form_description,
+            questions,
+        })
+
+    }
+}
+
 /// Common question attributes
 #[derive(Clone, Debug)]
 pub struct QuestionHeader {
@@ -57,45 +114,44 @@ pub struct QuestionHeader {
 }
 
 impl From<RawQuestion> for QuestionHeader {
-    #[rustfmt::skip]
     fn from(value: RawQuestion) -> Self {
-        let mut question = QuestionHeader {
+        let qn = match value.question_type {
+            FormQuestion::Short => {
+                QuestionType::ShortAnswer(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::Long => {
+                QuestionType::LongAnswer(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::MultipleChoice => {
+                QuestionType::MultipleChoice(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::DropDown => {
+                QuestionType::DropDown(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::CheckBox => {
+                QuestionType::CheckBox(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::LinearScale => {
+                QuestionType::LinearScale(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::Grid => {
+                // QuestionType::Grid(Question::try_from(value.additional_info).unwrap())
+                QuestionType::Grid
+            }
+            FormQuestion::Date => {
+                QuestionType::Date(Question::try_from(value.additional_info).unwrap())
+            }
+            FormQuestion::Time => {
+                QuestionType::Time(Question::try_from(value.additional_info).unwrap())
+            }
+        };
+
+        Self {
             title: value.title,
             id: value.id,
             description: value.description,
-            question_type: QuestionType::from(value.question_type),
-        };
-
-        match &mut question.question_type {
-            QuestionType::ShortAnswer(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::LongAnswer(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::MultipleChoice(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::DropDown(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::CheckBox(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::LinearScale(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::Grid => todo!(),
-            // QuestionType::Grid(qn) => todo!(),
-            QuestionType::Date(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
-            QuestionType::Time(qn) => {
-                *qn = Question::try_from(value.additional_info).unwrap()
-            }
+            question_type: qn,
         }
-
-        question
     }
 }
 

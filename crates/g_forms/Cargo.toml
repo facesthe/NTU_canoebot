@@ -12,5 +12,7 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 chrono = {workspace = true}
 
+ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+
 serde_repr = "0.1.14"
 scraper = "0.17.1"
