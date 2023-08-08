@@ -1,11 +1,9 @@
 //! Public form structs
 
 use std::{
-    collections::HashMap,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    str::FromStr,
 };
 
 use ntu_canoebot_util::debug_println;
@@ -13,14 +11,12 @@ use serde::Serialize;
 pub use serde_json::Number;
 
 use crate::{
-    question::{question_types::*, Question},
+    question::{question_types::*, IsQuestion, Question},
     raw::{
         DateType, FormQuestion, RawFormData, RawInputValidation, RawQuestion, RawQuestionInfo,
         TimeType,
     },
 };
-
-use self::subtypes::{Long, Short};
 
 /// Every response to a question is eventually serialized/generated
 /// to a string. This trait implements the logic to convert a form response
@@ -35,41 +31,26 @@ pub trait Response {
     fn response(&self) -> Option<String>;
 }
 
-/// Unit structs for question subtypes
-pub mod subtypes {
-    /// Short answer question
-    #[derive(Clone, Debug, Default)]
-    pub struct Short {}
-
-    /// Long answer question
-    #[derive(Clone, Debug, Default)]
-    pub struct Long {}
-}
-
 /// This represents a form and all its contents
 #[derive(Clone, Debug)]
 pub struct GoogleForm {
     /// Form id used in the url
-    id: String,
-    title: String,
-    description: String,
+    pub id: String,
+    pub title: String,
+    pub description: String,
 
     questions: Vec<QuestionHeader>,
-    /// Formatted responses
-    pub response: HashMap<String, String>,
 
     /// Actual response payload
-    response_payload: Vec<FieldPairs>,
-
+    response: Vec<(String, String)>,
 }
 
 /// Contains the key-value pairs for one question and response.
 #[derive(Clone, Debug, Serialize)]
 pub struct FieldPairs {
     key: String,
-    value: String
+    value: String,
 }
-
 
 impl Deref for GoogleForm {
     type Target = Vec<QuestionHeader>;
@@ -137,8 +118,13 @@ impl GoogleForm {
             description: des.question_blob.form_description,
             questions,
             response: Default::default(),
-            response_payload: Default::default(),
         })
+    }
+
+    /// Get a mutable reference to a question
+    pub fn question(&mut self, qn: usize) -> Option<&mut QuestionType> {
+        let qn = self.get_mut(qn)?;
+        Some(&mut qn.question_type)
     }
 
     /// Create/update internal hashmap of qn-response pairs
@@ -154,34 +140,22 @@ impl GoogleForm {
             })
             .collect();
 
-        self.response.extend(pairs);
-
-        self.response_payload = self.response.iter().map(|(k,v)| {
-            FieldPairs { key: k.to_owned(), value: v.to_owned() }
-        }).collect();
+        self.response = pairs;
     }
 
     /// Submit the form
     pub async fn submit(&mut self) -> Result<reqwest::Response, ()> {
         self.generate_map();
 
-        debug_println!("data: {:#?}", &self.response_payload);
-
-        let params = self.response.iter().map(|(k, v)| {
-            (k.to_owned(), v.to_owned())
-        }).collect::<Vec<(String, String)>>();
-
-        debug_println!("urlencoded: {:#?}", &params);
+        debug_println!("data: {:#?}", &self.response);
 
         let resp = {
             let request = reqwest::Client::new()
-            .post(format!(
-                "https://docs.google.com/forms/d/e/{}/formResponse",
-                self.id
-            ))
-            .form(&params);
-
-            debug_println!("request url: {:?}", request.try_clone().unwrap().build().unwrap().url());
+                .post(format!(
+                    "https://docs.google.com/forms/d/e/{}/formResponse",
+                    self.id
+                ))
+                .form(&self.response);
 
             request.send().await
         };
@@ -193,10 +167,10 @@ impl GoogleForm {
 /// Common question attributes
 #[derive(Clone, Debug)]
 pub struct QuestionHeader {
-    title: Option<String>,
+    pub title: Option<String>,
     /// Used for submissions
     pub id: u64,
-    description: Option<String>,
+    pub description: Option<String>,
     pub question_type: QuestionType,
 }
 
@@ -232,7 +206,6 @@ impl Response for QuestionHeader {
 
 impl From<RawQuestion> for QuestionHeader {
     fn from(value: RawQuestion) -> Self {
-
         let info = value.additional_info.iter().next().unwrap();
         let qn_id = info.id;
 
@@ -801,63 +774,47 @@ mod test {
 
         println!("{:#?}", form);
 
-        if let QuestionType::ShortAnswer(q) = &mut form.get_mut(0).unwrap().question_type {
-            q.fill_str("bot response").unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::ShortAnswer(q) = &mut form.get_mut(1).unwrap().question_type {
-            q.fill_str("bot@botmail.com").unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::LongAnswer(q) = &mut form.get_mut(2).unwrap().question_type {
-            q.fill_str(&"a".repeat(101)).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::MultipleChoice(q) = &mut form.get_mut(3).unwrap().question_type {
-            q.fill_option(0).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::CheckBox(q) = &mut form.get_mut(4).unwrap().question_type {
-            q.fill_option(0).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::DropDown(q) = &mut form.get_mut(5).unwrap().question_type {
-            q.fill_option(0).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::LinearScale(q) = &mut form.get_mut(6).unwrap().question_type {
-            q.fill_option(0).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::Date(q) = &mut form.get_mut(7).unwrap().question_type {
-            q.fill_date(chrono::Local::now().naive_local()).unwrap()
-        } else {
-            panic!()
-        }
-
-        if let QuestionType::Time(q) = &mut form.get_mut(8).unwrap().question_type {
-            q.fill_time(chrono::Local::now().time()).unwrap()
-        } else {
-            panic!()
-        }
+        form.question(0)
+            .unwrap()
+            .fill_str("rust bot response")
+            .unwrap();
+        form.question(1).unwrap().fill_str("rust@rust.com").unwrap();
+        form.question(2)
+            .unwrap()
+            .fill_str(&"a".repeat(101))
+            .unwrap();
+        form.question(3).unwrap().fill_option(0).unwrap();
+        form.question(4).unwrap().fill_option(0).unwrap();
+        form.question(5).unwrap().fill_option(0).unwrap();
+        form.question(6).unwrap().fill_option(0).unwrap();
+        form.question(7)
+            .unwrap()
+            .fill_date(chrono::Local::now().naive_local())
+            .unwrap();
+        form.question(8)
+            .unwrap()
+            .fill_date(chrono::Local::now().naive_local())
+            .unwrap();
+        form.question(9)
+            .unwrap()
+            .fill_date(chrono::Local::now().naive_local())
+            .unwrap();
+        form.question(10)
+            .unwrap()
+            .fill_date(chrono::Local::now().naive_local())
+            .unwrap();
+        form.question(11)
+            .unwrap()
+            .fill_time(chrono::Local::now().time())
+            .unwrap();
+        form.question(12)
+            .unwrap()
+            .fill_time(chrono::Local::now().time())
+            .unwrap();
 
         // form.generate_map();
         let resp = form.submit().await;
 
-        println!("{:#?}", resp);
+        println!("response: {:#?}", resp);
     }
 }

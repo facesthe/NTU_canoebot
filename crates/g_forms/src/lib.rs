@@ -4,7 +4,6 @@
 //! use g_forms::GoogleForm;
 //!
 //! ```
-#![allow(unused)]
 
 pub mod form;
 mod question;

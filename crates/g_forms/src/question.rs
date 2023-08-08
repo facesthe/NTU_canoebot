@@ -2,14 +2,13 @@
 
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDateTime, NaiveTime};
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::RequestBuilder;
 use serde_json::Number;
 
 use crate::{
-    form::{InputValidation, Response, SelectionLimits, SingleSelection},
+    form::{InputValidation, QuestionType, Response, SelectionLimits, SingleSelection},
     raw::{DateType, RawInputValidation, RawQuestionInfo, TimeType},
 };
 
@@ -419,7 +418,7 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
     /// For selection questions.
     /// Fill the response from the numbered option.
     fn _fill_option(&mut self, resp: usize) -> FillResult {
-        let mut opt = self.inner.as_mut().ok_or(())?.get_mut(resp).ok_or(())?;
+        let opt = self.inner.as_mut().ok_or(())?.get_mut(resp).ok_or(())?;
         opt.selected = true;
         self.response = Some(opt.answer.to_owned());
 
@@ -429,21 +428,22 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
     fn _fill_date(&mut self, resp: NaiveDateTime) -> FillResult {
         self.date_time = Some(resp);
 
+        // this took so long to get right AHHHHHHH
         match self.date_type.ok_or(())? {
             DateType::Date => {
-                let resp_str = resp.format("%d/%m").to_string();
+                let resp_str = resp.format("%Y-%m-%d").to_string();
                 self.response = Some(resp_str);
             }
             DateType::DateYear => {
-                let resp_str = resp.format("%d/%m/%Y").to_string();
+                let resp_str = resp.format("%Y-%m-%d").to_string();
                 self.response = Some(resp_str);
             }
             DateType::DateTime => {
-                let resp_str = resp.format("%d/%m %H:%M:00").to_string();
+                let resp_str = resp.format("%Y-%m-%d %H:%M:00").to_string();
                 self.response = Some(resp_str);
             }
             DateType::DateTimeYear => {
-                let resp_str = resp.format("%d/%m/%Y %H:%M:00").to_string();
+                let resp_str = resp.format("%Y-%m-%d %H:%M:00").to_string();
                 self.response = Some(resp_str);
             }
         }
@@ -524,6 +524,78 @@ impl Question<Date> {
 impl Question<Time> {
     pub fn fill_time(&mut self, resp: NaiveTime) -> FillResult {
         self._fill_time(resp)
+    }
+}
+
+/// Use these methods if the question type is known
+impl QuestionType {
+    pub fn fill_str(&mut self, resp: &str) -> FillResult {
+        match self {
+            QuestionType::ShortAnswer(qn) => qn._fill_str(resp),
+            QuestionType::LongAnswer(qn) => qn._fill_str(resp),
+            QuestionType::MultipleChoice(_) => Err(()),
+            QuestionType::DropDown(_) => Err(()),
+            QuestionType::CheckBox(_) => Err(()),
+            QuestionType::LinearScale(_) => Err(()),
+            QuestionType::Grid => Err(()),
+            QuestionType::Date(_) => Err(()),
+            QuestionType::Time(_) => Err(()),
+        }
+    }
+
+    pub fn fill_number(&mut self, resp: Number) -> FillResult {
+        match self {
+            QuestionType::ShortAnswer(qn) => qn._fill_number(resp),
+            QuestionType::LongAnswer(qn) => qn._fill_number(resp),
+            QuestionType::MultipleChoice(_) => Err(()),
+            QuestionType::DropDown(_) => Err(()),
+            QuestionType::CheckBox(_) => Err(()),
+            QuestionType::LinearScale(_) => Err(()),
+            QuestionType::Grid => Err(()),
+            QuestionType::Date(_) => Err(()),
+            QuestionType::Time(_) => Err(()),
+        }
+    }
+
+    pub fn fill_option(&mut self, resp: usize) -> FillResult {
+        match self {
+            QuestionType::ShortAnswer(_) => Err(()),
+            QuestionType::LongAnswer(_) => Err(()),
+            QuestionType::MultipleChoice(qn) => qn._fill_option(resp),
+            QuestionType::DropDown(qn) => qn._fill_option(resp),
+            QuestionType::CheckBox(qn) => qn._fill_option(resp),
+            QuestionType::LinearScale(qn) => qn._fill_option(resp),
+            QuestionType::Grid => Err(()),
+            QuestionType::Date(_) => Err(()),
+            QuestionType::Time(_) => Err(()),
+        }
+    }
+    pub fn fill_date(&mut self, resp: NaiveDateTime) -> FillResult {
+        match self {
+            QuestionType::ShortAnswer(_) => Err(()),
+            QuestionType::LongAnswer(_) => Err(()),
+            QuestionType::MultipleChoice(_) => Err(()),
+            QuestionType::DropDown(_) => Err(()),
+            QuestionType::CheckBox(_) => Err(()),
+            QuestionType::LinearScale(_) => Err(()),
+            QuestionType::Grid => Err(()),
+            QuestionType::Date(qn) => qn._fill_date(resp),
+            QuestionType::Time(_) => Err(()),
+        }
+    }
+
+    pub fn fill_time(&mut self, resp: NaiveTime) -> FillResult {
+        match self {
+            QuestionType::ShortAnswer(_) => Err(()),
+            QuestionType::LongAnswer(_) => Err(()),
+            QuestionType::MultipleChoice(_) => Err(()),
+            QuestionType::DropDown(_) => Err(()),
+            QuestionType::CheckBox(_) => Err(()),
+            QuestionType::LinearScale(_) => Err(()),
+            QuestionType::Grid => Err(()),
+            QuestionType::Date(_) => Err(()),
+            QuestionType::Time(qn) => qn._fill_time(resp),
+        }
     }
 }
 

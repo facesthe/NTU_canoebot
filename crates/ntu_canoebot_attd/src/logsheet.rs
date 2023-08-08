@@ -3,11 +3,10 @@
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use chrono::NaiveTime;
-    use g_forms::form::{Number, QuestionType, Response};
-    use ntu_canoebot_config as config;
+    use g_forms::form::{Number, QuestionType};
+    // use ntu_canoebot_config as config;
 
     /// Test if g_forms can deserialize form data
     #[tokio::test]
@@ -22,6 +21,7 @@ mod tests {
             println!("{:#?}", qn.question_type)
         }
 
+        // this is the long way of filling up a question
         if let QuestionType::ShortAnswer(q) = &mut form.get_mut(0).unwrap().question_type {
             q.fill_str("osas").unwrap()
         } else {
