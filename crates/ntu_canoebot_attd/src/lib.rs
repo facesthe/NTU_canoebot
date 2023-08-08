@@ -1,8 +1,8 @@
 //! Attendance fetch and formatting crate
 
 mod deconflict;
-mod update;
 mod logsheet;
+mod update;
 
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 

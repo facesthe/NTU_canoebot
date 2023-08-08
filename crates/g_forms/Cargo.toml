@@ -11,8 +11,10 @@ reqwest = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 chrono = {workspace = true}
+lazy_static = {workspace = true}
 
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
 
 serde_repr = "0.1.14"
 scraper = "0.17.1"
+regex = "1.9.3"

@@ -1,13 +1,23 @@
 //! Public form structs
 
-use std::{fmt::Debug, marker::PhantomData, str::FromStr};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    str::FromStr,
+};
 
 use ntu_canoebot_util::debug_println;
+use serde::Serialize;
 pub use serde_json::Number;
 
 use crate::{
     question::{question_types::*, Question},
-    raw::{DateType, FormQuestion, RawInputValidation, RawQuestion, RawQuestionInfo, TimeType, RawFormData},
+    raw::{
+        DateType, FormQuestion, RawFormData, RawInputValidation, RawQuestion, RawQuestionInfo,
+        TimeType,
+    },
 };
 
 use self::subtypes::{Long, Short};
@@ -45,6 +55,34 @@ pub struct GoogleForm {
     description: String,
 
     questions: Vec<QuestionHeader>,
+    /// Formatted responses
+    pub response: HashMap<String, String>,
+
+    /// Actual response payload
+    response_payload: Vec<FieldPairs>,
+
+}
+
+/// Contains the key-value pairs for one question and response.
+#[derive(Clone, Debug, Serialize)]
+pub struct FieldPairs {
+    key: String,
+    value: String
+}
+
+
+impl Deref for GoogleForm {
+    type Target = Vec<QuestionHeader>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.questions
+    }
+}
+
+impl DerefMut for GoogleForm {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.questions
+    }
 }
 
 impl GoogleForm {
@@ -98,8 +136,57 @@ impl GoogleForm {
             title: des.question_blob.form_title,
             description: des.question_blob.form_description,
             questions,
+            response: Default::default(),
+            response_payload: Default::default(),
         })
+    }
 
+    /// Create/update internal hashmap of qn-response pairs
+    /// temp set as public
+    pub fn generate_map(&mut self) {
+        let pairs: Vec<(String, String)> = self
+            .iter()
+            .map(|qn| {
+                let qn_id = format!("entry.{}", qn.id);
+                let qn_resp = qn.response().unwrap_or(String::new());
+
+                (qn_id, qn_resp)
+            })
+            .collect();
+
+        self.response.extend(pairs);
+
+        self.response_payload = self.response.iter().map(|(k,v)| {
+            FieldPairs { key: k.to_owned(), value: v.to_owned() }
+        }).collect();
+    }
+
+    /// Submit the form
+    pub async fn submit(&mut self) -> Result<reqwest::Response, ()> {
+        self.generate_map();
+
+        debug_println!("data: {:#?}", &self.response_payload);
+
+        let params = self.response.iter().map(|(k, v)| {
+            (k.to_owned(), v.to_owned())
+        }).collect::<Vec<(String, String)>>();
+
+        debug_println!("urlencoded: {:#?}", &params);
+
+        let resp = {
+            let request = reqwest::Client::new()
+            .post(format!(
+                "https://docs.google.com/forms/d/e/{}/formResponse",
+                self.id
+            ))
+            .form(&params);
+
+            debug_println!("request url: {:?}", request.try_clone().unwrap().build().unwrap().url());
+
+            request.send().await
+        };
+
+        resp.map_err(|_| ())
     }
 }
 
@@ -108,13 +195,47 @@ impl GoogleForm {
 pub struct QuestionHeader {
     title: Option<String>,
     /// Used for submissions
-    id: u64,
+    pub id: u64,
     description: Option<String>,
-    question_type: QuestionType,
+    pub question_type: QuestionType,
+}
+
+impl Deref for QuestionHeader {
+    type Target = QuestionType;
+
+    fn deref(&self) -> &Self::Target {
+        &self.question_type
+    }
+}
+
+impl DerefMut for QuestionHeader {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.question_type
+    }
+}
+
+impl Response for QuestionHeader {
+    fn response(&self) -> Option<String> {
+        match &self.question_type {
+            QuestionType::ShortAnswer(qn) => qn.response(),
+            QuestionType::LongAnswer(qn) => qn.response(),
+            QuestionType::MultipleChoice(qn) => qn.response(),
+            QuestionType::DropDown(qn) => qn.response(),
+            QuestionType::CheckBox(qn) => qn.response(),
+            QuestionType::LinearScale(qn) => qn.response(),
+            QuestionType::Grid => todo!(),
+            QuestionType::Date(qn) => qn.response(),
+            QuestionType::Time(qn) => qn.response(),
+        }
+    }
 }
 
 impl From<RawQuestion> for QuestionHeader {
     fn from(value: RawQuestion) -> Self {
+
+        let info = value.additional_info.iter().next().unwrap();
+        let qn_id = info.id;
+
         let qn = match value.question_type {
             FormQuestion::Short => {
                 QuestionType::ShortAnswer(Question::try_from(value.additional_info).unwrap())
@@ -148,7 +269,7 @@ impl From<RawQuestion> for QuestionHeader {
 
         Self {
             title: value.title,
-            id: value.id,
+            id: qn_id,
             description: value.description,
             question_type: qn,
         }
@@ -669,5 +790,74 @@ mod test {
             .map(|raw| QuestionHeader::from(raw))
             .collect::<Vec<QuestionHeader>>();
         println!("{:#?}", questions);
+    }
+
+    #[tokio::test]
+    async fn test_form_send() {
+        let mut form =
+            GoogleForm::from_id("1FAIpQLSfmF5b8tCebE5ZT_1qw6_C42LA5azs5NboRxuqjJP4XPmlstg")
+                .await
+                .unwrap();
+
+        println!("{:#?}", form);
+
+        if let QuestionType::ShortAnswer(q) = &mut form.get_mut(0).unwrap().question_type {
+            q.fill_str("bot response").unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::ShortAnswer(q) = &mut form.get_mut(1).unwrap().question_type {
+            q.fill_str("bot@botmail.com").unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::LongAnswer(q) = &mut form.get_mut(2).unwrap().question_type {
+            q.fill_str(&"a".repeat(101)).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::MultipleChoice(q) = &mut form.get_mut(3).unwrap().question_type {
+            q.fill_option(0).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::CheckBox(q) = &mut form.get_mut(4).unwrap().question_type {
+            q.fill_option(0).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::DropDown(q) = &mut form.get_mut(5).unwrap().question_type {
+            q.fill_option(0).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::LinearScale(q) = &mut form.get_mut(6).unwrap().question_type {
+            q.fill_option(0).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::Date(q) = &mut form.get_mut(7).unwrap().question_type {
+            q.fill_date(chrono::Local::now().naive_local()).unwrap()
+        } else {
+            panic!()
+        }
+
+        if let QuestionType::Time(q) = &mut form.get_mut(8).unwrap().question_type {
+            q.fill_time(chrono::Local::now().time()).unwrap()
+        } else {
+            panic!()
+        }
+
+        // form.generate_map();
+        let resp = form.submit().await;
+
+        println!("{:#?}", resp);
     }
 }

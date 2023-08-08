@@ -1,8 +1,11 @@
 //! Implementations for the [Question] data type.
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use lazy_static::lazy_static;
+use regex::Regex;
+use reqwest::RequestBuilder;
 use serde_json::Number;
 
 use crate::{
@@ -14,6 +17,11 @@ use self::question_types::{
     CheckBox, Date, DropDown, Grid, LinearScale, LongAnswer, MultipleChoice, ShortAnswer, Time,
 };
 
+lazy_static! {
+    /// Email matching regex
+    static ref REGEX_EMAIL: Regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+
+}
 /// Unit types that implement this trait can be used
 /// as a question type.
 pub trait IsQuestion {}
@@ -265,6 +273,13 @@ pub type FillResult = Result<(), ()>;
 
 // private implementations here
 impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
+    // /// Pushes the question-response pair to an internal map.
+    // /// If the key exists, its value is updated.
+    // fn _add_to_map(&mut self, id: u64, resp: String) {
+    //     let key = format!("entry.{}", id);
+
+    // }
+
     fn _fill_number(&mut self, resp: Number) -> FillResult {
         // input validation
         if let Some(validation) = &self.input_validation {
@@ -342,16 +357,20 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
     fn _fill_str(&mut self, resp: &str) -> FillResult {
         if let Some(validation) = &self.input_validation {
             match validation {
-                // InputValidation::NumberGT(_) => todo!(),
-                // InputValidation::NumberGTE(_) => todo!(),
-                // InputValidation::NumberLT(_) => todo!(),
-                // InputValidation::NumberLTE(_) => todo!(),
-                // InputValidation::NumberEQ(_) => todo!(),
-                // InputValidation::NumberNEQ(_) => todo!(),
-                // InputValidation::NumberBT(_, _) => todo!(),
-                // InputValidation::NumberNBT(_, _) => todo!(),
-                // InputValidation::NumberIsNumber => todo!(),
-                // InputValidation::NumberIsWhole => todo!(),
+                InputValidation::NumberGT(_)
+                | InputValidation::NumberGTE(_)
+                | InputValidation::NumberLT(_)
+                | InputValidation::NumberLTE(_)
+                | InputValidation::NumberEQ(_)
+                | InputValidation::NumberNEQ(_)
+                | InputValidation::NumberBT(_, _)
+                | InputValidation::NumberNBT(_, _)
+                | InputValidation::NumberIsNumber
+                | InputValidation::NumberIsWhole => {
+                    let num = Number::from_str(resp).ok().ok_or(())?;
+                    return self._fill_number(num);
+                }
+
                 InputValidation::TextContains(text) => {
                     if !resp.contains(text) {
                         return Err(());
@@ -362,8 +381,14 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                         return Err(());
                     }
                 }
-                InputValidation::TextIsUrl => todo!(),
-                InputValidation::TextIsEmail => todo!(),
+                InputValidation::TextIsUrl => match reqwest::Url::try_from(resp) {
+                    Ok(_) => (),
+                    Err(_) => return Err(()),
+                },
+                InputValidation::TextIsEmail => match REGEX_EMAIL.is_match(resp) {
+                    true => (),
+                    false => return Err(()),
+                },
                 // InputValidation::CheckBoxGTE(_) => todo!(),
                 // InputValidation::CheckBoxLTE(_) => todo!(),
                 // InputValidation::CheckBoxEQ(_) => todo!(),
@@ -385,6 +410,8 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                 _ => return Err(()),
             }
         }
+
+        self.response = Some(resp.to_owned());
 
         Ok(())
     }
@@ -412,11 +439,11 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                 self.response = Some(resp_str);
             }
             DateType::DateTime => {
-                let resp_str = resp.format("%d/%m/%Y %H:%M:00").to_string();
+                let resp_str = resp.format("%d/%m %H:%M:00").to_string();
                 self.response = Some(resp_str);
             }
             DateType::DateTimeYear => {
-                let resp_str = resp.format("%d/%m %H:%M:00").to_string();
+                let resp_str = resp.format("%d/%m/%Y %H:%M:00").to_string();
                 self.response = Some(resp_str);
             }
         }
@@ -429,7 +456,6 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
         let combined = NaiveDateTime::new(date_part, resp);
         self.date_time = Some(combined);
 
-        todo!();
         match self.time_type.ok_or(())? {
             TimeType::Time => {
                 let resp_str = resp.format("%H:%M:00").to_string();
@@ -469,11 +495,23 @@ impl Question<MultipleChoice> {
     }
 }
 
-impl Question<DropDown> {}
+impl Question<DropDown> {
+    pub fn fill_option(&mut self, resp: usize) -> FillResult {
+        self._fill_option(resp)
+    }
+}
 
-impl Question<CheckBox> {}
+impl Question<CheckBox> {
+    pub fn fill_option(&mut self, resp: usize) -> FillResult {
+        self._fill_option(resp)
+    }
+}
 
-impl Question<LinearScale> {}
+impl Question<LinearScale> {
+    pub fn fill_option(&mut self, resp: usize) -> FillResult {
+        self._fill_option(resp)
+    }
+}
 
 impl Question<Grid> {}
 
@@ -486,5 +524,75 @@ impl Question<Date> {
 impl Question<Time> {
     pub fn fill_time(&mut self, resp: NaiveTime) -> FillResult {
         self._fill_time(resp)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use chrono::NaiveDateTime;
+    use chrono::NaiveTime;
+    use serde_json::Number;
+
+    use crate::form::Response;
+
+    use super::question_types::*;
+    use super::Question;
+
+    /// Check that stringified answers conforms to google's spec
+    #[test]
+    fn test_string_answers() {
+        let mut qn_short = Question::<ShortAnswer>::default();
+        qn_short.fill_number(Number::from(100)).unwrap();
+        let stringified = qn_short.response().unwrap();
+        assert_eq!(stringified, "100");
+
+        qn_short
+            .fill_number(Number::from_f64(3.14).unwrap())
+            .unwrap();
+        let stringified = qn_short.response().unwrap();
+        assert_eq!(stringified, "3.14");
+
+        let mut qn_date = Question::<Date>::default();
+        let d = NaiveDate::from_ymd_opt(1970, 12, 24).unwrap();
+        let t = NaiveTime::from_hms_opt(9, 18, 27).unwrap();
+        let dt = NaiveDateTime::new(d, t);
+
+        qn_date.date_type = Some(crate::raw::DateType::Date);
+        qn_date.fill_date(dt).unwrap();
+        let stringified = qn_date.response().unwrap();
+        assert_eq!(stringified, "24/12");
+
+        qn_date.date_type = Some(crate::raw::DateType::DateTime);
+        qn_date.fill_date(dt).unwrap();
+        let stringified = qn_date.response().unwrap();
+        assert_eq!(stringified, "24/12 09:18:00");
+
+        qn_date.date_type = Some(crate::raw::DateType::DateTimeYear);
+        qn_date.fill_date(dt).unwrap();
+        let stringified = qn_date.response().unwrap();
+        assert_eq!(stringified, "24/12/1970 09:18:00");
+
+        qn_date.date_type = Some(crate::raw::DateType::DateYear);
+        qn_date.fill_date(dt).unwrap();
+        let stringified = qn_date.response().unwrap();
+        assert_eq!(stringified, "24/12/1970");
+
+        let mut qn_time = Question::<Time>::default();
+        qn_time.time_type = Some(crate::raw::TimeType::Time);
+        qn_time.fill_time(t).unwrap();
+        let stringified = qn_time.response().unwrap();
+        assert_eq!(stringified, "09:18:00");
+
+        qn_time.time_type = Some(crate::raw::TimeType::Duration);
+        qn_time.fill_time(t).unwrap();
+        let stringified = qn_time.response().unwrap();
+        assert_eq!(stringified, "09:18:27");
+    }
+
+    #[test]
+    fn asd() {
+        let x = reqwest::Url::try_from("http://asd.com");
+        assert!(matches!(x, Err(_)))
     }
 }
