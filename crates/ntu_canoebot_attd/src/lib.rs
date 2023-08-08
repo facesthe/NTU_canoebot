@@ -51,6 +51,9 @@ lazy_static! {
     /// Local cache of sheet.
     pub static ref SHEET_CACHE: RwLock<AttdSheet> = Default::default();
 
+    /// "Wandering" cache.
+    pub static ref SHEET_CACHE_WANDERING: RwLock<AttdSheet> = Default::default();
+
     /// Local cache of trainig prog.
     /// Since each program sheet contains data for one entire year,
     /// this is pretty much all the data needed.
@@ -449,7 +452,6 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 
 /// Return the namelist struct. Accesses cache if hit.
 pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
-
     let config = get_config_type(date);
     let sheet_id = match config {
         crate::Config::Old => *config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
@@ -467,17 +469,30 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
         let read_lock = SHEET_CACHE.read().await;
         let in_cache = read_lock.contains_date(date.into());
 
-        if in_cache {
-            // if refresh {
-            //     drop(read_lock);
-            //     refresh_attd_sheet_cache(refresh).await.unwrap();
-            //     SHEET_CACHE.read().await.clone()
-            // } else {
-            read_lock.clone()
-            // }
-        } else {
-            let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
-            df.try_into().ok()?
+        let read_lock_wandering = SHEET_CACHE_WANDERING.read().await;
+        let in_wandering_cache = read_lock_wandering.contains_date(date.into());
+
+        match (in_cache, in_wandering_cache) {
+            (true, _) => {
+                read_lock.clone()
+            },
+            (false, true) => {
+                read_lock_wandering.clone()
+            },
+            (false, false) => {
+                drop(read_lock_wandering);
+                let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
+                let s: AttdSheet = df.try_into().ok()?;
+
+                let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
+
+                write_wandering.start = s.start;
+                write_wandering.end = s.end;
+                write_wandering.data = s.data;
+                write_wandering.fetch_time = s.fetch_time;
+
+                write_wandering.clone()
+            },
         }
     };
 
@@ -492,10 +507,10 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     );
 
     let today = chrono::Local::now().date_naive() + Duration::days(1);
-    let read_lock = SHEET_CACHE.read().await;
+    let read_cache = SHEET_CACHE.read().await;
 
     // check if cache lifetime limit has exceeded
-    if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
+    if (chrono::Local::now().naive_local() - read_cache.fetch_time).num_minutes()
         < *config::SHEETSCRAPER_CACHE_ATTD
     {
         if !force {
@@ -503,20 +518,44 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
         }
     }
 
-    drop(read_lock);
+    drop(read_cache);
     let config = get_config_type(today);
-
     let sheet_id = ATTENDANCE_SHEETS[config as usize];
     let sheet_name = calculate_sheet_name(today + Duration::days(1));
-    let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
 
+    let read_wandering = SHEET_CACHE_WANDERING.read().await;
+    let wandering_date = read_wandering.start;
+
+    drop(read_wandering);
+    let config = get_config_type(wandering_date);
+    let sheet_id_wandering = ATTENDANCE_SHEETS[config as usize];
+    let sheet_name_wandering = calculate_sheet_name(wandering_date);
+
+    let tasks = (
+        tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
+        tokio::spawn(g_sheets::get_as_dataframe(
+            sheet_id_wandering,
+            Some(sheet_name_wandering),
+        )),
+    );
+
+    let df = tasks.0.await.unwrap();
     let sheet: AttdSheet = df.try_into()?;
+
+    let df_wandering = tasks.1.await.unwrap();
+    let sheet_wandering: AttdSheet = df_wandering.try_into()?;
 
     let mut write_lock = SHEET_CACHE.write().await;
     write_lock.start = sheet.start;
     write_lock.end = sheet.end;
     write_lock.data = sheet.data;
     write_lock.fetch_time = sheet.fetch_time;
+
+    let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
+    write_wandering.start = sheet_wandering.start;
+    write_wandering.end = sheet_wandering.end;
+    write_wandering.data = sheet_wandering.data;
+    write_wandering.fetch_time = sheet_wandering.fetch_time;
 
     Ok(())
 }

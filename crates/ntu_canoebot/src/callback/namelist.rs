@@ -131,11 +131,19 @@ pub async fn namelist_get(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let date: NaiveDate = date.into();
 
-    if refresh {
-        ntu_canoebot_attd::refresh_attd_sheet_cache(true).await.unwrap();
+    let read_lock = SHEET_CACHE.read().await;
+    let in_cache = read_lock.contains_date(date.into());
+    drop(read_lock);
+
+    if refresh && in_cache {
+        ntu_canoebot_attd::refresh_attd_sheet_cache(true)
+            .await
+            .unwrap();
     }
 
-    let list = ntu_canoebot_attd::namelist(date, time_slot).await.ok_or(anyhow!(""))?;
+    let list = ntu_canoebot_attd::namelist(date, time_slot)
+        .await
+        .ok_or(anyhow!(""))?;
 
     // generate keyboard
     let prev = Callback::NameList(NameList::Get(

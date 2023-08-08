@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 
 use ntu_canoebot_config as config;
 
-use crate::{NameList, NAMES_CERTS, get_config_type};
+use crate::{get_config_type, NameList, NAMES_CERTS};
 
 lazy_static! {
     /// Logsheet lock. Prevents multiple submissions. Keeps track of
@@ -35,7 +35,7 @@ lazy_static! {
 /// Iterates infinitely
 struct LoopingCounter {
     size: usize,
-    curr: usize
+    curr: usize,
 }
 
 impl Iterator for LoopingCounter {
@@ -221,11 +221,12 @@ mod tests {
         println!("{:#?}", form);
     }
 
-
     /// Temp, remove after testing!
     #[tokio::test]
     async fn test_logsheet() {
-        super::send(chrono::Local::now().date_naive(), false).await.unwrap();
+        super::send(chrono::Local::now().date_naive(), false)
+            .await
+            .unwrap();
     }
 
     #[test]
