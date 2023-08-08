@@ -447,7 +447,42 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
     cell.to_string().trim_matches('\"').to_string()
 }
 
-pub async fn name_list() {}
+/// Return the namelist struct. Accesses cache if hit.
+pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
+
+    let config = get_config_type(date);
+    let sheet_id = match config {
+        crate::Config::Old => *config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
+        crate::Config::New => *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+    };
+
+    debug_println!("date: {}\nusing {:?} config", date, config);
+
+    let sheet_name = calculate_sheet_name(date);
+
+    debug_println!("sheet name: {}", sheet_name);
+
+    let sheet: AttdSheet = {
+        // check if cache matches up with this sheet
+        let read_lock = SHEET_CACHE.read().await;
+        let in_cache = read_lock.contains_date(date.into());
+
+        if in_cache {
+            // if refresh {
+            //     drop(read_lock);
+            //     refresh_attd_sheet_cache(refresh).await.unwrap();
+            //     SHEET_CACHE.read().await.clone()
+            // } else {
+            read_lock.clone()
+            // }
+        } else {
+            let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
+            df.try_into().ok()?
+        }
+    };
+
+    sheet.get_names(date, time_slot).await
+}
 
 /// Refresh the cached sheet
 pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {

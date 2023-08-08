@@ -131,47 +131,11 @@ pub async fn namelist_get(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let date: NaiveDate = date.into();
 
-    let config = get_config_type(date);
-    let sheet_id = match config {
-        ntu_canoebot_attd::Config::Old => *config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
-        ntu_canoebot_attd::Config::New => *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-    };
+    if refresh {
+        ntu_canoebot_attd::refresh_attd_sheet_cache(true).await.unwrap();
+    }
 
-    debug_println!("date: {}\nusing {:?} config", date, config);
-
-    let sheet_name = calculate_sheet_name(date);
-
-    debug_println!("sheet name: {}", sheet_name);
-
-    let sheet: AttdSheet = {
-        // check if cache matches up with this sheet
-        let read_lock = SHEET_CACHE.read().await;
-        let in_cache = read_lock.contains_date(date.into());
-
-        if in_cache {
-            if refresh {
-                drop(read_lock);
-                refresh_attd_sheet_cache(refresh).await.unwrap();
-                SHEET_CACHE.read().await.clone()
-            } else {
-                read_lock.clone()
-            }
-        } else {
-            let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
-            df.try_into().ok().ok_or(anyhow!(""))?
-        }
-    };
-
-    let list = sheet
-        .get_names(date, time_slot)
-        .await
-        .unwrap_or(ntu_canoebot_attd::NameList {
-            date,
-            time: time_slot,
-            names: Default::default(),
-            boats: None,
-            fetch_time: chrono::Local::now().naive_local(),
-        });
+    let list = ntu_canoebot_attd::namelist(date, time_slot).await.ok_or(anyhow!(""))?;
 
     // generate keyboard
     let prev = Callback::NameList(NameList::Get(
