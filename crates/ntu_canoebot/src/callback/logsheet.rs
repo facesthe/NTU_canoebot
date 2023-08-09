@@ -9,7 +9,7 @@ use chrono::NaiveDate;
 use ntu_canoebot_attd::SUBMIT_LOCK;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use teloxide::prelude::*;
+use teloxide::{prelude::*, types::ParseMode};
 
 use ntu_canoebot_config as config;
 
@@ -73,11 +73,12 @@ impl HandleCallback for LogSheet {
                 };
 
                 let text = format!(
-                    "Date: {}\nTime: {} to {}\nPaddlers: {}",
+                    "```\nDate: {}\nTime: {} to {}\nPaddlers: {}\nFetched:  {}```",
                     NaiveDate::from(*date),
                     start,
                     end,
-                    num_paddlers
+                    num_paddlers,
+                    name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
 
                 let send = Callback::LogSheet(LogSheet::Send(*date, *time_slot));
@@ -92,10 +93,12 @@ impl HandleCallback for LogSheet {
 
                 bot.edit_message_text(msg.chat.id, msg.id, text)
                     .reply_markup(keyboard)
+                    .parse_mode(ParseMode::MarkdownV2)
                     .await?;
             }
             LogSheet::Send(date, time_slot) => {
-                bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet").await;
+                bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet")
+                    .await;
 
                 let mut lock = SUBMIT_LOCK.write().await;
 
