@@ -49,6 +49,10 @@ impl HandleCallback for LogSheet {
             LogSheet::StartTime(date, time_slot, refresh) => {
                 replace_with_whitespace(bot.clone(), &msg, 1).await;
 
+                if *refresh {
+                    ntu_canoebot_attd::refresh_attd_sheet_cache(true).await;
+                }
+
                 let name_list = ntu_canoebot_attd::namelist((*date).into(), *time_slot)
                     .await
                     .ok_or(anyhow!("no namelist found"))?;
@@ -91,7 +95,7 @@ impl HandleCallback for LogSheet {
                     .await?;
             }
             LogSheet::Send(date, time_slot) => {
-                replace_with_whitespace(bot.clone(), &msg, 0).await;
+                bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet").await;
 
                 let mut lock = SUBMIT_LOCK.write().await;
 
