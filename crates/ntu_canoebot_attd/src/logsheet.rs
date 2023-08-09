@@ -3,7 +3,8 @@
 
 use std::collections::HashMap;
 
-use chrono::{Duration, NaiveDate};
+use chrono::{Duration, NaiveDate, NaiveTime};
+use g_forms::form::Response;
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
 use tokio::sync::RwLock;
@@ -34,7 +35,7 @@ lazy_static! {
 /// Looping counter for particulars
 /// Iterates infinitely
 struct LoopingCounter {
-    size: usize,
+    size: i64,
     curr: usize,
 }
 
@@ -44,7 +45,7 @@ impl Iterator for LoopingCounter {
     fn next(&mut self) -> Option<Self::Item> {
         let curr = self.curr;
 
-        if self.curr < self.size {
+        if (self.curr as i64) < self.size {
             self.curr += 1
         } else {
             self.curr = 0
@@ -60,7 +61,7 @@ impl LoopingCounter {
     /// The counter starts from 0.
     pub fn from_size(size: usize) -> Self {
         Self {
-            size: size - 1,
+            size: size as i64 - 1,
             curr: 0,
         }
     }
@@ -68,7 +69,7 @@ impl LoopingCounter {
 
 /// Sends a logsheet for a date and time.
 #[rustfmt::skip]
-pub async fn send(date: NaiveDate, session: bool) -> Result<(), ()> {
+pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
 
     let logsheet_id = *ntu_canoebot_config::FORMFILLER_FORM_ID;
 
@@ -93,16 +94,29 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<(), ()> {
 
     let not_certified = total_paddlers - certified;
 
+    debug_println!("total: {}\ncertified: {}\nnon-certified: {}", total_paddlers, certified, not_certified);
+    debug_println!("namelist struct: {:?}", name_list);
+
     let particulars: &HashMap<&'static str, String> = &*config::FORMFILLER_PARTICULARS;
     let part_idx = LOOPING_COUNTER.write().await.next().unwrap();
     let (exco_name, exco_number) = particulars.iter().skip(part_idx).next().unwrap();
 
 
     let start_time = {
-
+        let time = match session {
+            true => *config::FORMFILLER_TIMES_PM_START,
+            false => *config::FORMFILLER_TIMES_AM_START,
+        };
+        let time = time.time.unwrap();
+        NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
     };
     let end_time = {
-
+        let time = match session {
+            true => *config::FORMFILLER_TIMES_PM_END,
+            false => *config::FORMFILLER_TIMES_AM_END,
+        };
+        let time = time.time.unwrap();
+        NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
     };
 
     // TODO: extract out all consts under this comment to the config file.
@@ -114,14 +128,17 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<(), ()> {
     form.question(5).unwrap().fill_number(not_certified.into()).unwrap(); // number of non certified
     form.question(6).unwrap().fill_option(1).unwrap(); // paddling location
     form.question(7).unwrap().fill_date(date.and_time(chrono::Local::now().time())).unwrap(); // date of training
-    form.question(8).unwrap().fill_time(Default::default()).unwrap(); // start time
-    form.question(9).unwrap().fill_time(Default::default()).unwrap(); // end time
+    form.question(8).unwrap().fill_time(start_time).unwrap(); // start time
+    form.question(9).unwrap().fill_time(end_time).unwrap(); // end time
     form.question(10).unwrap().fill_option(0).unwrap(); // disclaimer agree
 
 
     debug_println!("form response: {:#?}", form);
 
-    Ok(())
+
+    form.submit().await
+    // Ok(Default::default())
+    // Err(())
 }
 
 #[cfg(test)]
@@ -222,11 +239,14 @@ mod tests {
     }
 
     /// Temp, remove after testing!
+    #[cfg(notset)]
     #[tokio::test]
     async fn test_logsheet() {
-        super::send(chrono::Local::now().date_naive(), false)
-            .await
-            .unwrap();
+        crate::init().await;
+
+        let res = super::send(chrono::Local::now().date_naive(), false).await;
+
+        println!("{:#?}", res);
     }
 
     #[test]
@@ -240,5 +260,11 @@ mod tests {
         assert_eq!(counter.next(), Some(4));
         assert_eq!(counter.next(), Some(0));
         assert_eq!(counter.next(), Some(1));
+
+        let mut counter = LoopingCounter::from_size(1);
+        assert_eq!(counter.next(), Some(0));
+        assert_eq!(counter.next(), Some(0));
+        assert_eq!(counter.next(), Some(0));
+        assert_eq!(counter.next(), Some(0));
     }
 }

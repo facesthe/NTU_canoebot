@@ -7,6 +7,7 @@ use std::{
 };
 
 use ntu_canoebot_util::debug_println;
+pub use reqwest::Response;
 use serde::Serialize;
 pub use serde_json::Number;
 
@@ -27,8 +28,8 @@ use crate::{
 ///
 ///
 /// ```
-pub trait Response {
-    fn response(&self) -> Option<String>;
+pub trait FormResponse {
+    fn form_response(&self) -> Option<String>;
 }
 
 /// This represents a form and all its contents
@@ -134,7 +135,7 @@ impl GoogleForm {
             .iter()
             .map(|qn| {
                 let qn_id = format!("entry.{}", qn.id);
-                let qn_resp = qn.response().unwrap_or(String::new());
+                let qn_resp = qn.form_response().unwrap_or(String::new());
 
                 (qn_id, qn_resp)
             })
@@ -188,18 +189,18 @@ impl DerefMut for QuestionHeader {
     }
 }
 
-impl Response for QuestionHeader {
-    fn response(&self) -> Option<String> {
+impl FormResponse for QuestionHeader {
+    fn form_response(&self) -> Option<String> {
         match &self.question_type {
-            QuestionType::ShortAnswer(qn) => qn.response(),
-            QuestionType::LongAnswer(qn) => qn.response(),
-            QuestionType::MultipleChoice(qn) => qn.response(),
-            QuestionType::DropDown(qn) => qn.response(),
-            QuestionType::CheckBox(qn) => qn.response(),
-            QuestionType::LinearScale(qn) => qn.response(),
+            QuestionType::ShortAnswer(qn) => qn.form_response(),
+            QuestionType::LongAnswer(qn) => qn.form_response(),
+            QuestionType::MultipleChoice(qn) => qn.form_response(),
+            QuestionType::DropDown(qn) => qn.form_response(),
+            QuestionType::CheckBox(qn) => qn.form_response(),
+            QuestionType::LinearScale(qn) => qn.form_response(),
             QuestionType::Grid => todo!(),
-            QuestionType::Date(qn) => qn.response(),
-            QuestionType::Time(qn) => qn.response(),
+            QuestionType::Date(qn) => qn.form_response(),
+            QuestionType::Time(qn) => qn.form_response(),
         }
     }
 }

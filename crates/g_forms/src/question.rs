@@ -8,7 +8,7 @@ use regex::Regex;
 use serde_json::Number;
 
 use crate::{
-    form::{InputValidation, QuestionType, Response, SelectionLimits, SingleSelection},
+    form::{FormResponse, InputValidation, QuestionType, SelectionLimits, SingleSelection},
     raw::{DateType, RawInputValidation, RawQuestionInfo, TimeType},
 };
 
@@ -261,8 +261,8 @@ impl TryFrom<Vec<RawQuestionInfo>> for Question<Time> {
 }
 
 /// Return the stringified response for a particular question
-impl<T: Clone + Debug + Default + IsQuestion> Response for Question<T> {
-    fn response(&self) -> Option<String> {
+impl<T: Clone + Debug + Default + IsQuestion> FormResponse for Question<T> {
+    fn form_response(&self) -> Option<String> {
         self.response.clone()
     }
 }
@@ -606,7 +606,7 @@ mod tests {
     use chrono::NaiveTime;
     use serde_json::Number;
 
-    use crate::form::Response;
+    use crate::form::FormResponse;
 
     use super::question_types::*;
     use super::Question;
@@ -616,13 +616,13 @@ mod tests {
     fn test_string_answers() {
         let mut qn_short = Question::<ShortAnswer>::default();
         qn_short.fill_number(Number::from(100)).unwrap();
-        let stringified = qn_short.response().unwrap();
+        let stringified = qn_short.form_response().unwrap();
         assert_eq!(stringified, "100");
 
         qn_short
             .fill_number(Number::from_f64(3.14).unwrap())
             .unwrap();
-        let stringified = qn_short.response().unwrap();
+        let stringified = qn_short.form_response().unwrap();
         assert_eq!(stringified, "3.14");
 
         let mut qn_date = Question::<Date>::default();
@@ -632,33 +632,33 @@ mod tests {
 
         qn_date.date_type = Some(crate::raw::DateType::Date);
         qn_date.fill_date(dt).unwrap();
-        let stringified = qn_date.response().unwrap();
+        let stringified = qn_date.form_response().unwrap();
         assert_eq!(stringified, "24/12");
 
         qn_date.date_type = Some(crate::raw::DateType::DateTime);
         qn_date.fill_date(dt).unwrap();
-        let stringified = qn_date.response().unwrap();
+        let stringified = qn_date.form_response().unwrap();
         assert_eq!(stringified, "24/12 09:18:00");
 
         qn_date.date_type = Some(crate::raw::DateType::DateTimeYear);
         qn_date.fill_date(dt).unwrap();
-        let stringified = qn_date.response().unwrap();
+        let stringified = qn_date.form_response().unwrap();
         assert_eq!(stringified, "24/12/1970 09:18:00");
 
         qn_date.date_type = Some(crate::raw::DateType::DateYear);
         qn_date.fill_date(dt).unwrap();
-        let stringified = qn_date.response().unwrap();
+        let stringified = qn_date.form_response().unwrap();
         assert_eq!(stringified, "24/12/1970");
 
         let mut qn_time = Question::<Time>::default();
         qn_time.time_type = Some(crate::raw::TimeType::Time);
         qn_time.fill_time(t).unwrap();
-        let stringified = qn_time.response().unwrap();
+        let stringified = qn_time.form_response().unwrap();
         assert_eq!(stringified, "09:18:00");
 
         qn_time.time_type = Some(crate::raw::TimeType::Duration);
         qn_time.fill_time(t).unwrap();
-        let stringified = qn_time.response().unwrap();
+        let stringified = qn_time.form_response().unwrap();
         assert_eq!(stringified, "09:18:27");
     }
 

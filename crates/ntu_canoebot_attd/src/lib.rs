@@ -473,12 +473,8 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
         let in_wandering_cache = read_lock_wandering.contains_date(date.into());
 
         match (in_cache, in_wandering_cache) {
-            (true, _) => {
-                read_lock.clone()
-            },
-            (false, true) => {
-                read_lock_wandering.clone()
-            },
+            (true, _) => read_lock.clone(),
+            (false, true) => read_lock_wandering.clone(),
             (false, false) => {
                 drop(read_lock_wandering);
                 let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
@@ -492,7 +488,7 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
                 write_wandering.fetch_time = s.fetch_time;
 
                 write_wandering.clone()
-            },
+            }
         }
     };
 

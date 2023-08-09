@@ -58,6 +58,7 @@ async fn update_config_from_df(
     let mut lock = SHORTENED_NAMES[config as usize].write().await;
     lock.clear();
     lock.extend(map);
+    drop(lock);
 
     // BOATS
     let boat_list = df
@@ -69,13 +70,19 @@ async fn update_config_from_df(
 
     let mut set: HashSet<String> = Default::default();
 
+    let short_name_lock = SHORTENED_NAMES[config as usize].read().await;
+
     for list in &boat_list {
         let filtered = list
             .iter()
             .filter_map(|cell| {
                 let name = dataframe_cell_to_string(cell);
                 if name.len() != 0 {
-                    Some(name)
+                    if short_name_lock.contains_key(&name) {
+                        short_name_lock.get(&name).cloned()
+                    } else {
+                        Some(name)
+                    }
                 } else {
                     None
                 }
@@ -90,6 +97,7 @@ async fn update_config_from_df(
     let mut lock = BOATS[config as usize].write().await;
     lock.clear();
     lock.extend(set);
+    drop(lock);
 
     // NAMES_CERTS
     let names_and_certs = df
@@ -118,7 +126,12 @@ async fn update_config_from_df(
                 Err(_) => return None,
             }
 
-            Some((name, status))
+            if short_name_lock.contains_key(&name) {
+                let short = short_name_lock.get(&name).unwrap();
+                Some((short.to_owned(), status))
+            } else {
+                Some((name, status))
+            }
         })
         .collect::<HashMap<String, bool>>();
 
@@ -127,6 +140,7 @@ async fn update_config_from_df(
     let mut lock = NAMES_CERTS[config as usize].write().await;
     lock.clear();
     lock.extend(filtered);
+    drop(lock);
 
     // BOAT_ALLOCATIONS
     let primary = boat_list[0];
@@ -147,7 +161,12 @@ async fn update_config_from_df(
 
             let alt_boat = if alt.len() == 0 { None } else { Some(alt) };
 
-            Some((name, (pri_boat, alt_boat)))
+            if short_name_lock.contains_key(&name) {
+                let short = short_name_lock.get(&name).unwrap();
+                Some((short.to_owned(), (pri_boat, alt_boat)))
+            } else {
+                Some((name, (pri_boat, alt_boat)))
+            }
         })
         .collect::<HashMap<String, (Option<String>, Option<String>)>>();
 
@@ -155,6 +174,7 @@ async fn update_config_from_df(
     let mut lock = BOAT_ALLOCATIONS[config as usize].write().await;
     lock.clear();
     lock.extend(allocations);
+    drop(lock);
 
     Ok(())
 }
@@ -166,5 +186,28 @@ pub async fn init() {
             g_sheets::get_as_dataframe(sheet_id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
                 .await;
         update_config_from_df(&df, idx.into()).await.unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test initializing all globals
+    #[tokio::test]
+    async fn test_init_statics() {
+        init().await;
+
+        let x = SHORTENED_NAMES[0].read().await;
+        println!("{:#?}", x);
+
+        let x = BOAT_ALLOCATIONS[0].read().await;
+        println!("{:#?}", x);
+
+        let x = NAMES_CERTS[0].read().await;
+        println!("{:#?}", x);
+
+        let x = BOATS[0].read().await;
+        println!("{:#?}", x);
     }
 }
