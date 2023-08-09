@@ -1,7 +1,7 @@
 //! Attendance fetch and formatting crate
 
 mod deconflict;
-mod logsheet;
+pub mod logsheet;
 mod update;
 
 use std::{collections::HashMap, fmt::Display, str::FromStr};
@@ -18,6 +18,7 @@ use polars::{
 };
 use tokio::sync::RwLock;
 
+pub use logsheet::SUBMIT_LOCK;
 pub use update::init;
 
 // most of these globals are initialized in init().

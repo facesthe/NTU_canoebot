@@ -19,7 +19,7 @@ lazy_static! {
     ///
     /// Element 0 is for AM sessions,
     /// Element 1 is for PM sessions.
-    static ref SUBMIT_LOCK: RwLock<(NaiveDate, NaiveDate)> = {
+    pub static ref SUBMIT_LOCK: RwLock<(NaiveDate, NaiveDate)> = {
         let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
 
         RwLock::new((yesterday, yesterday))

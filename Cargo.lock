@@ -1473,6 +1473,7 @@ dependencies = [
  "ntu_canoebot_util",
  "ntu_src",
  "pretty_env_logger",
+ "reqwest",
  "serde",
  "serde_json",
  "teloxide",

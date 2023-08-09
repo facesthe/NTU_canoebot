@@ -1,5 +1,6 @@
 pub mod booking;
 pub mod callbacks;
+mod logsheet;
 pub mod menu;
 mod namelist;
 pub mod src;
@@ -20,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
+pub use logsheet::logsheet_start;
 pub use namelist::namelist_get;
 pub use training::training_get;
 
@@ -46,6 +48,7 @@ pub enum Callback {
     Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
+    LogSheet(logsheet::LogSheet),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -107,6 +110,7 @@ impl HandleCallback for Callback {
             Callback::Src(call) => call.handle_callback(bot, query).await,
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
+            Callback::LogSheet(call) => call.handle_callback(bot, query).await,
 
             // testing
             Callback::Menu(call) => call.handle_callback(bot, query).await,

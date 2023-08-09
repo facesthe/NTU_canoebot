@@ -168,6 +168,9 @@ impl HandleCommand for Commands {
                 .await
                 // Ok(())
             }
+            Commands::Logsheet => {
+                callback::logsheet_start(chrono::Local::now().date_naive(), bot, &msg, false).await
+            }
 
             // test cmds
             Commands::Button(cmd) => cmd.handle_command(bot, msg, me).await,
