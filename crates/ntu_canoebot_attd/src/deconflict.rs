@@ -1,14 +1,10 @@
 //! Boat deconflict module
-#![allow(unused)]
 
-use std::{collections::BTreeMap, hash::Hash};
+use std::collections::BTreeMap;
 
 use lazy_static::__Deref;
 use ntu_canoebot_util::{debug_print, debug_println};
-use polars::{
-    apply_method_all_arrow_series,
-    export::ahash::{HashMap, HashSet},
-};
+use polars::export::ahash::{HashMap, HashSet};
 
 use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS};
 /// Boat allocation type
@@ -59,16 +55,16 @@ impl AllocResult {
         }
     }
 
-    /// Create an alloc where no boat can be assigned
-    /// to a person without creating conflicts
-    fn from_fail() -> Self {
-        Self {
-            boat: String::new(),
-            lock: false,
-            fail: true,
-            absent: false,
-        }
-    }
+    // /// Create an alloc where no boat can be assigned
+    // /// to a person without creating conflicts
+    // fn from_fail() -> Self {
+    //     Self {
+    //         boat: String::new(),
+    //         lock: false,
+    //         fail: true,
+    //         absent: false,
+    //     }
+    // }
 }
 
 impl NameList {
@@ -277,7 +273,7 @@ impl NameList {
 
         let read_lock = BOAT_ALLOCATIONS[config as usize].read().await;
 
-        let mut allo_set: HashSet<&str> = names
+        let allo_set: HashSet<&str> = names
             .iter()
             .map(|n| {
                 let allo = read_lock.get(n).unwrap();
@@ -306,7 +302,7 @@ impl NameList {
             names.iter().map(|n| (n.as_str(), None)).collect();
 
         // deconflict possible (sort of)
-        if names.len() >= allo_set.len() {
+        if names.len() <= allo_set.len() {
             // break when all have been allocated
             while !res.iter().all(|(_, v)| v.is_some()) {
                 let unallo_name = res
@@ -358,7 +354,7 @@ impl NameList {
                             let conflict = res
                                 .iter()
                                 .find_map(|(k, v)| match v {
-                                    Some(allocation) => Some((k.to_string(), v.clone().unwrap())),
+                                    Some(allocation) => Some((k.to_string(), allocation.clone())),
                                     None => None,
                                 })
                                 .unwrap();
@@ -420,7 +416,7 @@ impl NameList {
                 }
             }
 
-            let successful = res.iter().all(|(k, v)| match v {
+            let successful = res.iter().all(|(_, v)| match v {
                 Some(allo) => match (allo.absent, allo.fail) {
                     (false, false) => true,
                     _ => false,
@@ -470,8 +466,6 @@ impl NameList {
 
             return (allocated, false);
         }
-
-        todo!()
     }
 
     /// Mark matching elements in the boat list with an exclamation mark (!)
@@ -504,86 +498,6 @@ impl NameList {
                 None => (),
             }
         }
-    }
-}
-
-/// Find any matching elements
-fn find_matching<T>(slice: &[T]) -> HashSet<T> {
-    todo!()
-}
-
-impl BoatAllocations {
-    /// Perform a deconflict run
-    pub fn deconflict(&self) -> BTreeMap<String, String> {
-        let mut map = BTreeMap::<String, String>::default();
-
-        for (name, (pri, alt)) in self.iter() {
-            map.insert(name.to_owned(), pri.to_owned().unwrap());
-
-            let conflicts = Self::find_matching_values(&map);
-
-            if conflicts.len() == 0 {
-                continue;
-            } else {
-                // deconflict here
-
-                // iterating over previous, deconflicted data
-                // means that current data only has 1 conflict
-                let (conf_val, conf_keys) = conflicts.iter().next().unwrap();
-                let conf_a = &conf_keys[0];
-                let conf_b = &conf_keys[1];
-            }
-        }
-
-        map
-    }
-
-    /// Directly assign each person their primary boat,
-    /// ignoring any conflicts.
-    pub fn assign(&self) -> BTreeMap<String, Option<String>> {
-        self.iter()
-            .map(|(k, v)| (k.to_owned(), v.0.to_owned()))
-            .collect::<BTreeMap<String, Option<String>>>()
-    }
-
-    /// Looks for matching values and returns the value as key,
-    /// with keys as a vector of values
-    fn find_matching_values(map: &BTreeMap<String, String>) -> HashMap<String, Vec<String>> {
-        let mut set = HashSet::<String>::default();
-        let mut matching_map = HashMap::<String, Vec<String>>::default();
-
-        for (key, val) in map.iter() {
-            if set.contains(key) {
-                if matching_map.contains_key(val) {
-                    let v = matching_map.get_mut(val).unwrap();
-                    v.push(key.to_owned());
-                } else {
-                    matching_map.insert(val.to_owned(), vec![key.to_owned()]);
-                }
-            } else {
-                set.insert(key.to_owned());
-            }
-        }
-
-        matching_map
-    }
-}
-
-/// Checks if an iterator contains unique elements
-fn has_unique_elements<T, Element>(iter: T) -> bool
-where
-    T: IntoIterator<Item = Element>,
-
-    Element: Eq + Hash,
-{
-    let vec: Vec<Element> = iter.into_iter().collect();
-    let num_elements = vec.len();
-    let set: HashSet<Element> = vec.into_iter().collect();
-
-    if set.len() == num_elements {
-        true
-    } else {
-        false
     }
 }
 
@@ -644,6 +558,7 @@ mod tests {
         let config = get_config_type(date);
         let mut name_list = crate::namelist(date, false).await.unwrap();
         let deconf_res = name_list.assign_boats(true).await;
+        name_list.paddling().await.unwrap();
         let groups = NameList::find_matching(&name_list.names, config).await;
 
         println!("allocation success: {}", deconf_res);
@@ -651,6 +566,8 @@ mod tests {
         println!("deconf boat allocation: {}", name_list);
 
         name_list.assign_boats(false).await;
+        name_list.paddling().await.unwrap();
+
         println!("no deconf boat allocation: {}", name_list);
     }
 }

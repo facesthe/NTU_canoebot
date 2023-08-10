@@ -4,7 +4,7 @@ mod deconflict;
 pub mod logsheet;
 mod update;
 
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, error::Error, fmt::Display, str::FromStr};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
@@ -116,25 +116,20 @@ pub struct NameList {
     /// List of boats (if any) for a session
     pub boats: Option<Vec<Option<String>>>,
 
+    pub prog: Option<String>,
+
     pub fetch_time: NaiveDateTime,
 }
 
 /// Format the namelist for display
+/// If prog is [Option::Some], format according to config file
 impl Display for NameList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut lines: Vec<String> = Vec::new();
-
-        lines.push(self.date.format("%d %b %y").to_string());
-        lines.push(format!(
-            "{} {}",
-            self.date.format("%a"),
-            if self.time { "PM" } else { "AM" }
-        ));
-        lines.push(String::new());
-
+        // names + boat allocationss
         let main_list: Vec<String> = match &self.boats {
             Some(_boats) => {
-                let padding = self.names.iter().map(|name| name.len()).max().unwrap();
+                let padding = self.names.iter().map(|name| name.len()).max().unwrap_or(0);
 
                 self.names
                     .iter()
@@ -152,13 +147,76 @@ impl Display for NameList {
             None => self.names.iter().map(|name| name.to_owned()).collect(),
         };
 
-        lines.extend(main_list);
+        let fetch = format!("fetched at {}", self.fetch_time.format("%H:%M:%S"));
 
-        lines.push(String::new());
-        lines.push(format!("fetched at {}", self.fetch_time.format("%H:%M:%S")));
+        let res = match &self.prog {
+            Some(prog) => {
+                let template = *config::SHEETSCRAPER_PADDLING_FORMAT;
+                let sub_date = *config::SHEETSCRAPER_PADDLING_SUB_DATE;
+                let sub_allo = *config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
+                let sub_prog = *config::SHEETSCRAPER_PADDLING_SUB_PROG;
+                let sub_fetch = *config::SHEETSCRAPER_PADDLING_SUB_FETCH;
 
-        let res = lines.join("\n");
+                let date = self.date.format("%A %d %b ").to_string()
+                    + match self.time {
+                        false => "AM",
+                        true => "PM",
+                    };
+
+                let allo = main_list.join("\n");
+
+                let res = template
+                    .replace(sub_date, &date)
+                    .replace(sub_allo, &allo)
+                    .replace(sub_prog, &prog)
+                    .replace(sub_fetch, &fetch);
+
+                res
+            }
+            None => {
+                lines.push(self.date.format("%d %b %y").to_string());
+                lines.push(format!(
+                    "{} {}",
+                    self.date.format("%a"),
+                    if self.time { "PM" } else { "AM" }
+                ));
+                lines.push(String::new());
+                lines.extend(main_list);
+
+                lines.push(String::new());
+                lines.push(fetch);
+
+                let res = lines.join("\n");
+                res
+            }
+        };
+
         write!(f, "{}", res)
+    }
+}
+
+impl NameList {
+    /// Get namelist to fetch the prog for the day
+    pub async fn paddling(&mut self) -> Result<(), ()> {
+        let config = get_config_type(self.date);
+        let prog_lock = PROG_CACHE.read().await;
+
+        let prog_sheet = if prog_lock.contains_date(self.date) {
+            prog_lock.clone()
+        } else {
+            let sheet_id = PROGRAM_SHEETS[config as usize];
+            let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
+            let sheet: ProgSheet = df.try_into()?;
+            sheet
+        };
+
+        self.prog = Some(
+            prog_sheet
+                .get_program(self.date, false)
+                .unwrap_or("".to_string()),
+        );
+
+        Ok(())
     }
 }
 
@@ -293,6 +351,7 @@ impl AttdSheet {
             time: time_slot,
             names: filtered,
             boats: None,
+            prog: None,
             fetch_time: self.fetch_time,
         })
     }
@@ -550,6 +609,9 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
 
     let df_wandering = tasks.1.await.unwrap();
     let sheet_wandering: AttdSheet = df_wandering.try_into()?;
+
+    debug_println!("local cache fetch at: {}", sheet.fetch_time);
+    debug_println!("wandering cache fetch at: {}", sheet_wandering.fetch_time);
 
     let mut write_lock = SHEET_CACHE.write().await;
     write_lock.start = sheet.start;

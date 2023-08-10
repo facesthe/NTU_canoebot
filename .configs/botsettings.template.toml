@@ -82,7 +82,13 @@ attendance_sheet = "google sheets sheetid"
 program_sheet = "google sheets sheetid"
 
 [sheetscraper.paddling]
-format = "Paddling {date_str}\n\n{boatallo_no_date}\n\n{trainingam_prog}"
+format = "Paddling {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"
+# used for variable substitutions.
+# they should match with the format string above
+sub_date = "{date}"
+sub_boatallo = "{boatallo}"
+sub_prog = "{training_prog}"
+sub_fetch = "{fetch}"
 smm_measure = "" # no longer used
 
 

@@ -24,6 +24,7 @@ const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 pub use logsheet::logsheet_start;
 pub use namelist::namelist_get;
+pub use paddling::paddling_get;
 pub use training::training_get;
 
 use crate::frame::construct_keyboard_tuple;
@@ -49,6 +50,7 @@ pub enum Callback {
     Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
+    Padddling(paddling::Paddling),
     LogSheet(logsheet::LogSheet),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
@@ -111,6 +113,7 @@ impl HandleCallback for Callback {
             Callback::Src(call) => call.handle_callback(bot, query).await,
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
+            Callback::Padddling(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
 
             // testing

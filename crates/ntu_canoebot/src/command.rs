@@ -167,7 +167,18 @@ impl HandleCommand for Commands {
                     false,
                 )
                 .await
-                // Ok(())
+            }
+            Commands::Paddling => {
+                callback::paddling_get(
+                    (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
+                    false,
+                    true,
+                    false,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
             }
             Commands::Logsheet => {
                 callback::logsheet_start(chrono::Local::now().date_naive(), bot, &msg, false).await

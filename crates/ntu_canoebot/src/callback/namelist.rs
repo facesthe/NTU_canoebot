@@ -132,10 +132,9 @@ pub async fn namelist_get(
     let date: NaiveDate = date.into();
 
     let read_lock = SHEET_CACHE.read().await;
-    let in_cache = read_lock.contains_date(date.into());
     drop(read_lock);
 
-    if refresh && in_cache {
+    if refresh {
         ntu_canoebot_attd::refresh_attd_sheet_cache(true)
             .await
             .unwrap();
