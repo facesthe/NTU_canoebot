@@ -3,6 +3,7 @@ pub mod callbacks;
 mod logsheet;
 pub mod menu;
 mod namelist;
+mod paddling;
 pub mod src;
 mod training;
 

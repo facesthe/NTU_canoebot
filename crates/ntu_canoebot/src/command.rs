@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use ntu_canoebot_util::debug_println;
 use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
@@ -173,7 +174,24 @@ impl HandleCommand for Commands {
             }
 
             // test cmds
-            Commands::Button(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Button(cmd) => {
+                const UNDERLINE: char = '\u{FE2D}';
+
+                let rand = "lorem ipsum!\n*bold*?\n_italic_";
+                let rand_underline: String = rand
+                    .chars()
+                    .map(|c| [c, UNDERLINE])
+                    .collect::<Vec<[char; 2]>>()
+                    .concat()
+                    .iter()
+                    .collect();
+
+                bot.send_message(msg.chat.id, format!("```\n{}```", rand))
+                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .await?;
+                // cmd.handle_command(bot, msg, me).await
+                Ok(())
+            }
             Commands::Menu(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Feedback => Ok(()), // todo
             Commands::Calendar => {
@@ -251,6 +269,8 @@ async fn empty_command_handler(_bot: Bot, _msg: Message, _me: Me) {
         _msg.chat.id,
         _msg.from().unwrap().id
     );
+
+    debug_println!("message contents: {:?}", _msg.text());
 
     tokio::time::sleep(Duration::from_millis(500)).await;
 

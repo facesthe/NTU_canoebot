@@ -4,11 +4,13 @@
 use std::{collections::BTreeMap, hash::Hash};
 
 use lazy_static::__Deref;
-use ntu_canoebot_util::debug_println;
-use polars::export::ahash::{HashMap, HashSet};
+use ntu_canoebot_util::{debug_print, debug_println};
+use polars::{
+    apply_method_all_arrow_series,
+    export::ahash::{HashMap, HashSet},
+};
 
 use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS};
-
 /// Boat allocation type
 pub struct BoatAllocations {
     inner: BTreeMap<String, (Option<String>, Option<String>)>,
@@ -22,40 +24,127 @@ impl __Deref for BoatAllocations {
     }
 }
 
+/// This struct contains the boat allocation result.
+/// If lock is set to true, the boat assigned must no longer be changed.
+/// If fail is set to true, all other options have been used.
+#[derive(Clone, Debug, Default)]
+struct AllocResult {
+    boat: String,
+    /// Boat allocated must not be changed
+    lock: bool,
+    /// Allocation has failed
+    fail: bool,
+    /// Name does not have any boats to allocate
+    absent: bool,
+}
+
+impl AllocResult {
+    /// Pass in a boat name
+    fn from_boat(boat: String) -> Self {
+        Self {
+            boat,
+            lock: false,
+            fail: false,
+            absent: false,
+        }
+    }
+    /// Create a alloc where no boat has been
+    /// specified for a person
+    fn from_absent() -> Self {
+        Self {
+            boat: String::new(),
+            lock: false,
+            fail: false,
+            absent: true,
+        }
+    }
+
+    /// Create an alloc where no boat can be assigned
+    /// to a person without creating conflicts
+    fn from_fail() -> Self {
+        Self {
+            boat: String::new(),
+            lock: false,
+            fail: true,
+            absent: false,
+        }
+    }
+}
+
 impl NameList {
     /// Assign everyone their primary boats.
     /// If deconflict is set to true, perform deconflict.
     ///
-    /// Returns false when deconflict fails.
+    /// Returns false when operation fails.
     pub async fn assign_boats(&mut self, deconflict: bool) -> bool {
         let config = get_config_type(self.date);
 
-        match deconflict {
+        let allo_lock = BOAT_ALLOCATIONS[config as usize].read().await;
+
+        let assigned: Vec<Option<String>> = self
+            .names
+            .iter()
+            .map(|n| {
+                if allo_lock.contains_key(n) {
+                    let allo = allo_lock.get(n).unwrap();
+                    if let Some(pri) = allo.0.as_deref() {
+                        return Some(pri.to_owned());
+                    }
+                    if let Some(alt) = allo.1.as_deref() {
+                        return Some(alt.to_owned());
+                    }
+
+                    None
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        self.boats = Some(assigned);
+
+        let res = match deconflict {
             false => {
-                let allo_lock = BOAT_ALLOCATIONS[config as usize].read().await;
-
-                let assigned: Vec<Option<String>> = self
-                    .names
-                    .iter()
-                    .map(|n| {
-                        if allo_lock.contains_key(n) {
-                            allo_lock.get(n).unwrap().0.to_owned()
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                self.boats = Some(assigned);
                 return true;
             }
-            // generate a frequency count
             true => {
-                let potential_matches = Self::find_matching(&self.names, config);
+                let potential_matches = Self::find_matching(&self.names, config).await;
 
-                todo!()
+                let mut lookup: HashMap<&str, Option<String>> = Default::default();
+
+                let mut deconf_result: bool = true;
+                for matches in potential_matches.iter() {
+                    let (deconf_lookup, success) = Self::deconflict(matches, config).await;
+                    if !success {
+                        deconf_result = false;
+                    }
+                    lookup.extend(deconf_lookup);
+                }
+
+                debug_println!("deconf lookup: {:?}", lookup);
+
+                for idx in 0..self.names.len() {
+                    let name = &self.names[idx];
+                    if lookup.contains_key(name.as_str()) {
+                        let boat = lookup.get(name.as_str()).unwrap().clone();
+                        match &mut self.boats {
+                            Some(boatlist) => boatlist[idx] = boat,
+                            None => (),
+                        }
+                    }
+                }
+
+                deconf_result
             }
+        };
+        match &mut self.boats {
+            Some(boats) => {
+                Self::mark_matching(boats);
+            }
+            None => (),
         }
+
+        res
     }
 
     /// Group names that might potentially share the same boat
@@ -81,11 +170,15 @@ impl NameList {
 
             for (name, used) in remaining_names.iter_mut() {
                 let (pri, alt) = {
-                    let boats = read_lock.get(*name).unwrap();
-                    let p = boats.0.as_deref();
-                    let a = boats.1.as_deref();
+                    match read_lock.get(*name) {
+                        Some(boats) => {
+                            let p = boats.0.as_deref();
+                            let a = boats.1.as_deref();
 
-                    (p, a)
+                            (p, a)
+                        }
+                        None => (None, None),
+                    }
                 };
 
                 // empty case
@@ -157,10 +250,13 @@ impl NameList {
                 .collect();
             // debug_println!("removed {} names", group.len());
 
-            debug_println!("names: {:?}", names_set);
-            debug_println!("potential conflicts: {:?}", allo_set);
+            debug_print!("names: {:?} ", names_set);
+            debug_println!("conflicts: {:?}", allo_set);
 
-            groups.push(group);
+            // at least 1 is in each group
+            if group.len() > 1 {
+                groups.push(group);
+            }
         }
 
         // todo!();
@@ -169,15 +265,251 @@ impl NameList {
 
     /// Internal deconflict method.
     ///
-    /// Pass in a list of names and confg,
+    /// Pass in a list of names known to have a conflict and config,
     /// Returns a (hopefully) deconflicted list of boats and if the operation
     /// is successful.
     ///
-    async fn deconflict(names: &Vec<String>, config: Config) -> (Vec<Option<&str>>, bool) {
+    async fn deconflict(
+        names: &Vec<String>,
+        config: Config,
+    ) -> (HashMap<&str, Option<String>>, bool) {
         // identify names with the same boat
+
+        let read_lock = BOAT_ALLOCATIONS[config as usize].read().await;
+
+        let mut allo_set: HashSet<&str> = names
+            .iter()
+            .map(|n| {
+                let allo = read_lock.get(n).unwrap();
+                let (pri, alt) = { (allo.0.as_deref(), allo.1.as_deref()) };
+                match (pri, alt) {
+                    (None, None) => vec![],
+                    (None, Some(a)) => vec![a],
+                    (Some(p), None) => vec![p],
+                    (Some(p), Some(a)) => vec![p, a],
+                }
+            })
+            .collect::<Vec<Vec<&str>>>()
+            .concat()
+            .into_iter()
+            .collect();
+
+        // actual allocated set of boats.
+        // the bool marks if the allocation is fixed: true => fixed, false => not fixed
+        let mut curr_allo: HashSet<&str> = Default::default();
+
+        // initialize empty map
+        // this map contains the lookup table of a name to a boat and some others.
+        // all values must be the Option::Some variant for
+        // deconflict to complete.
+        let mut res: HashMap<&str, Option<AllocResult>> =
+            names.iter().map(|n| (n.as_str(), None)).collect();
+
+        // deconflict possible (sort of)
+        if names.len() >= allo_set.len() {
+            // break when all have been allocated
+            while !res.iter().all(|(_, v)| v.is_some()) {
+                let unallo_name = res
+                    .iter()
+                    .find_map(|(n, allo)| match allo {
+                        Some(_) => None,
+                        None => Some(n),
+                    })
+                    .cloned()
+                    .unwrap();
+
+                debug_println!("performing allocation for {}", unallo_name);
+
+                let avail_opts = read_lock.get(unallo_name).unwrap();
+
+                // first allocation
+                if curr_allo.len() == 0 {
+                    match (avail_opts.0.as_deref(), avail_opts.1.as_deref()) {
+                        (None, None) => {
+                            res.insert(&unallo_name, Some(AllocResult::from_absent()));
+                            // temp
+                        }
+                        (Some(pri), _) => {
+                            curr_allo.insert(pri);
+                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
+                        }
+                        (None, Some(alt)) => {
+                            curr_allo.insert(alt);
+                            res.insert(&unallo_name, Some(AllocResult::from_boat(alt.to_owned())));
+                        }
+                    }
+
+                    continue;
+                }
+
+                // deconf logic here
+                match (avail_opts.0.as_deref(), avail_opts.1.as_deref()) {
+                    // no boat allocation given in config
+                    (None, None) => {
+                        res.insert(&unallo_name, Some(AllocResult::from_absent()));
+                    }
+                    // primary boat already used
+                    (Some(pri), None) => {
+                        if !curr_allo.contains(pri) {
+                            curr_allo.insert(pri);
+                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
+                        } else {
+                            // find the offending boat and replace with this
+                            let conflict = res
+                                .iter()
+                                .find_map(|(k, v)| match v {
+                                    Some(allocation) => Some((k.to_string(), v.clone().unwrap())),
+                                    None => None,
+                                })
+                                .unwrap();
+
+                            let other = conflict.1;
+                            let mut allo = AllocResult::from_boat(pri.to_owned());
+
+                            // check if the conflicting person has dibs
+                            match other.lock {
+                                true => {
+                                    allo.fail = true;
+                                }
+                                false => {
+                                    // kick the other guy out
+                                    let other_allo = res.get_mut(conflict.0.as_str()).unwrap();
+                                    *other_allo = None;
+                                    allo.lock = true
+                                }
+                            }
+
+                            res.insert(&unallo_name, Some(allo));
+                        }
+                    }
+                    // alternate boat already used
+                    // this branch should not be taken
+                    // pri boats should exist before alt
+                    // people assigned only alt will be given the least priority
+                    (None, Some(alt)) => {
+                        let mut allo = AllocResult::from_boat(alt.to_owned());
+
+                        if !curr_allo.contains(alt) {
+                            curr_allo.insert(alt);
+                            res.insert(&unallo_name, Some(allo));
+                        } else {
+                            allo.fail = true;
+                            res.insert(&unallo_name, Some(allo));
+                        }
+                    }
+                    // both options available
+                    (Some(pri), Some(alt)) => {
+                        if !curr_allo.contains(pri) {
+                            curr_allo.insert(pri);
+                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
+                        } else if !curr_allo.contains(alt) {
+                            // lock in the alt
+                            curr_allo.insert(alt);
+                            let mut allo = AllocResult::from_boat(alt.to_owned());
+                            allo.lock = true;
+                            res.insert(&unallo_name, Some(allo));
+                        } else {
+                            // if both options are available and fail
+                            // placeholder
+                            // res.insert(&unallo_name, Some("unallocated".to_string()));
+                            let mut allo = AllocResult::from_boat(pri.to_owned());
+                            allo.fail = true;
+                            res.insert(&unallo_name, Some(allo));
+                        }
+                    }
+                }
+            }
+
+            let successful = res.iter().all(|(k, v)| match v {
+                Some(allo) => match (allo.absent, allo.fail) {
+                    (false, false) => true,
+                    _ => false,
+                },
+                None => false,
+            });
+
+            let actual_res = res
+                .into_iter()
+                .map(|(k, v)| {
+                    let allo = match v {
+                        Some(allocation) => {
+                            if allocation.absent {
+                                None
+                            } else {
+                                Some(allocation.boat)
+                            }
+                        }
+                        None => None,
+                    };
+
+                    (k, allo)
+                })
+                .collect();
+
+            return (actual_res, successful);
+        } else {
+            // deconflict defo not possible
+            debug_println!(
+                "deconflict definitely not possible: num names = {}, possible boats = {}",
+                names.len(),
+                allo_set.len()
+            );
+            let allocated: HashMap<&str, Option<String>> = names
+                .iter()
+                .map(|n| {
+                    let (pri, alt) = read_lock.get(n).unwrap();
+                    let allocated = match (pri, alt) {
+                        (None, None) => None,
+                        (Some(p), _) => Some(p.to_owned()),
+                        (None, Some(a)) => Some(a.to_owned()),
+                    };
+
+                    (n.as_str(), allocated)
+                })
+                .collect();
+
+            return (allocated, false);
+        }
 
         todo!()
     }
+
+    /// Mark matching elements in the boat list with an exclamation mark (!)
+    fn mark_matching(boat_list: &mut Vec<Option<String>>) {
+        const MARK: &str = "!";
+
+        let mut boat_set: HashSet<String> = Default::default();
+        let mut match_set: HashSet<String> = Default::default();
+
+        for boat in boat_list.iter() {
+            match boat {
+                Some(b) => {
+                    if boat_set.contains(b.as_str()) {
+                        match_set.insert(b.clone());
+                    } else {
+                        boat_set.insert(b.clone());
+                    }
+                }
+                None => (),
+            }
+        }
+
+        for boat in boat_list.iter_mut() {
+            match boat {
+                Some(b) => {
+                    if match_set.contains(b.as_str()) {
+                        *b = format!("!{}", b);
+                    }
+                }
+                None => (),
+            }
+        }
+    }
+}
+
+/// Find any matching elements
+fn find_matching<T>(slice: &[T]) -> HashSet<T> {
+    todo!()
 }
 
 impl BoatAllocations {
@@ -259,7 +591,7 @@ where
 mod tests {
     use chrono::NaiveDate;
 
-    use crate::{Config, NameList, BOAT_ALLOCATIONS, NAMES_CERTS};
+    use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS, NAMES_CERTS};
 
     #[tokio::test]
     async fn assign_no_deconflict() {
@@ -275,7 +607,7 @@ mod tests {
 
     /// Find matching groups against the whole config
     #[tokio::test]
-    async fn test_find_matching() {
+    async fn test_find_matching_all() {
         crate::init().await;
 
         let config = Config::New;
@@ -290,5 +622,35 @@ mod tests {
 
         println!("boat allocations:\n{:?}\n", read_lock);
         println!("potential conflicting groups:\n{:?}\n", groups);
+
+        println!("performing deconf");
+
+        let first_group = groups.first().unwrap();
+
+        for group in groups.iter() {
+            println!("deconflicting group: {:?}", group);
+            let res = NameList::deconflict(group, config).await;
+            println!("deconf result: {:?}", res);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_find_matching_today() {
+        crate::init().await;
+
+        let date = NaiveDate::from_ymd_opt(2023, 1, 14).unwrap();
+        // let date = NaiveDate::from_ymd_opt(2023, 7, 13).unwrap();
+        // let date = chrono::Local::now().date_naive();
+        let config = get_config_type(date);
+        let mut name_list = crate::namelist(date, false).await.unwrap();
+        let deconf_res = name_list.assign_boats(true).await;
+        let groups = NameList::find_matching(&name_list.names, config).await;
+
+        println!("allocation success: {}", deconf_res);
+        println!("potential conflicting groups: {:?}", groups);
+        println!("deconf boat allocation: {}", name_list);
+
+        name_list.assign_boats(false).await;
+        println!("no deconf boat allocation: {}", name_list);
     }
 }

@@ -21,6 +21,8 @@ use tokio::sync::RwLock;
 pub use logsheet::SUBMIT_LOCK;
 pub use update::init;
 
+const NO_ALLOCATION: &str = "NO BOAT";
+
 // most of these globals are initialized in init().
 lazy_static! {
     /// Attendance sheet lookup
@@ -141,7 +143,7 @@ impl Display for NameList {
                         format!(
                             "{:padding$}  {}",
                             n,
-                            b.clone().unwrap_or("unassigned".to_string()),
+                            b.clone().unwrap_or(NO_ALLOCATION.to_string()),
                             padding = padding
                         )
                     })
