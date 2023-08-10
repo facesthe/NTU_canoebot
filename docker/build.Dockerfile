@@ -7,6 +7,7 @@ WORKDIR /build/ntu_canoebot
 
 # build actual
 COPY . .
+RUN touch crates/ntu_canoebot_config/build.rs
 RUN cargo build --release
 RUN mkdir -p bin
 RUN cp target/x86_64-unknown-linux-musl/release/ntu_canoebot bin/ntu_canoebot

@@ -10,7 +10,6 @@ use teloxide::utils::command::BotCommands;
 
 use super::{Commands, HandleCommand};
 use crate::callback::Callback;
-use crate::frame;
 
 /// Unit struct to carry trait implementations.
 /// This separates and simplifies writing code: each command has it's own
