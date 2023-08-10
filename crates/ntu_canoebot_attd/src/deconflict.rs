@@ -1,6 +1,6 @@
 //! Boat deconflict module
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use ntu_canoebot_util::{debug_print, debug_println};
 
@@ -41,16 +41,26 @@ impl AllocResult {
         }
     }
 
-    // /// Create an alloc where no boat can be assigned
-    // /// to a person without creating conflicts
-    // fn from_fail() -> Self {
-    //     Self {
-    //         boat: String::new(),
-    //         lock: false,
-    //         fail: true,
-    //         absent: false,
-    //     }
-    // }
+    /// Create an alloc where no boat can be assigned
+    /// to a person without creating conflicts
+    fn from_fail(boat: String) -> Self {
+        Self {
+            boat,
+            lock: false,
+            fail: true,
+            absent: false,
+        }
+    }
+
+    /// Create an alloc where the boat assigned is locked
+    fn from_lock(boat: String) -> Self {
+        Self {
+            boat,
+            lock: false,
+            fail: true,
+            absent: false,
+        }
+    }
 }
 
 impl NameList {
@@ -150,76 +160,85 @@ impl NameList {
             names_set.clear();
             allo_set.clear();
 
-            for (name, used) in remaining_names.iter_mut() {
-                let (pri, alt) = {
-                    match read_lock.get(*name) {
-                        Some(boats) => {
-                            let p = boats.0.as_deref();
-                            let a = boats.1.as_deref();
+            for idx in 0..2 {
+                debug_println!("repetition {} of 2", idx);
+                for (name, used) in remaining_names.iter_mut() {
+                    let (pri, alt) = {
+                        match read_lock.get(*name) {
+                            Some(boats) => {
+                                let p = boats.0.as_deref();
+                                let a = boats.1.as_deref();
 
-                            (p, a)
+                                (p, a)
+                            }
+                            None => (None, None),
                         }
-                        None => (None, None),
-                    }
-                };
+                    };
 
-                // empty case
-                if names_set.len() == 0 {
-                    group.push(name.to_owned());
-                    names_set.insert(name);
-                    if let Some(_p) = pri {
-                        allo_set.insert(_p);
-                    }
-                    if let Some(_a) = alt {
-                        allo_set.insert(_a);
-                    }
-                }
-
-                match names_set.contains(name) {
-                    // name exists, pri and alt boats added to set
-                    true => {
+                    // empty case
+                    if names_set.len() == 0 {
                         *used = true;
 
-                        if let Some(primary) = pri {
-                            allo_set.insert(primary);
+                        group.push(name.to_owned());
+                        names_set.insert(name);
+                        if let Some(_p) = pri {
+                            allo_set.insert(_p);
                         }
-                        if let Some(alternate) = alt {
-                            allo_set.insert(alternate);
+                        if let Some(_a) = alt {
+                            allo_set.insert(_a);
                         }
-                    }
-                    // check if boats exist in allo set
-                    false => {
-                        let to_add = match (pri, alt) {
-                            (None, None) => false,
-                            (None, Some(a)) => {
-                                if allo_set.contains(a) {
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                            (Some(p), None) => {
-                                if allo_set.contains(p) {
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                            (Some(p), Some(a)) => {
-                                if allo_set.contains(p) || allo_set.contains(a) {
-                                    allo_set.insert(p);
-                                    allo_set.insert(a);
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        };
 
-                        if to_add {
+                        continue;
+                    }
+
+                    match names_set.contains(name) {
+                        // name exists, pri and alt boats added to set
+                        true => {
                             *used = true;
-                            names_set.insert(name);
-                            group.push(name.to_owned());
+
+                            if let Some(primary) = pri {
+                                allo_set.insert(primary);
+                            }
+                            if let Some(alternate) = alt {
+                                allo_set.insert(alternate);
+                            }
+                        }
+                        // check if boats exist in allo set
+                        false => {
+                            let to_add = match (pri, alt) {
+                                (None, None) => false,
+                                (None, Some(a)) => {
+                                    if allo_set.contains(a) {
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                                (Some(p), None) => {
+                                    if allo_set.contains(p) {
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                                (Some(p), Some(a)) => {
+                                    if allo_set.contains(p) || allo_set.contains(a) {
+                                        allo_set.insert(p);
+                                        allo_set.insert(a);
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                            };
+
+                            if to_add {
+                                *used = true;
+                                names_set.insert(name);
+                                // if !names_set.contains(name) {
+                                group.push(name.to_owned());
+                                // }
+                            }
                         }
                     }
                 }
@@ -284,7 +303,7 @@ impl NameList {
         // this map contains the lookup table of a name to a boat and some others.
         // all values must be the Option::Some variant for
         // deconflict to complete.
-        let mut res: HashMap<&str, Option<AllocResult>> =
+        let mut res: BTreeMap<&str, Option<AllocResult>> =
             names.iter().map(|n| (n.as_str(), None)).collect();
 
         // deconflict possible (sort of)
@@ -306,21 +325,34 @@ impl NameList {
 
                 // first allocation
                 if curr_allo.len() == 0 {
+                    let x;
                     match (avail_opts.0.as_deref(), avail_opts.1.as_deref()) {
                         (None, None) => {
+                            x = None;
                             res.insert(&unallo_name, Some(AllocResult::from_absent()));
                             // temp
                         }
-                        (Some(pri), _) => {
+                        (Some(pri), opt) => {
+                            x = Some(pri);
                             curr_allo.insert(pri);
-                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
+                            let mut allo = AllocResult::from_boat(pri.to_owned());
+
+                            if let None = opt {
+                                allo.lock = true;
+                            }
+
+                            res.insert(&unallo_name, Some(allo));
                         }
                         (None, Some(alt)) => {
+                            x = Some(alt);
                             curr_allo.insert(alt);
-                            res.insert(&unallo_name, Some(AllocResult::from_boat(alt.to_owned())));
+
+                            let mut allo = AllocResult::from_boat(alt.to_owned());
+                            allo.lock = true;
+                            res.insert(&unallo_name, Some(allo));
                         }
                     }
-
+                    debug_println!("allocating {} to: {:?}", unallo_name, x);
                     continue;
                 }
 
@@ -328,19 +360,27 @@ impl NameList {
                 match (avail_opts.0.as_deref(), avail_opts.1.as_deref()) {
                     // no boat allocation given in config
                     (None, None) => {
+                        debug_println!("no allocaions for {}", unallo_name);
                         res.insert(&unallo_name, Some(AllocResult::from_absent()));
                     }
-                    // primary boat already used
+                    // primary boat only, dibs
                     (Some(pri), None) => {
+                        debug_println!("primary boat available for {}", unallo_name);
                         if !curr_allo.contains(pri) {
                             curr_allo.insert(pri);
-                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
+                            res.insert(&unallo_name, Some(AllocResult::from_lock(pri.to_owned())));
                         } else {
                             // find the offending boat and replace with this
                             let conflict = res
                                 .iter()
                                 .find_map(|(k, v)| match v {
-                                    Some(allocation) => Some((k.to_string(), allocation.clone())),
+                                    Some(allocation) => {
+                                        if allocation.boat == pri {
+                                            Some((k.to_string(), allocation.clone()))
+                                        } else {
+                                            None
+                                        }
+                                    }
                                     None => None,
                                 })
                                 .unwrap();
@@ -364,39 +404,128 @@ impl NameList {
                             res.insert(&unallo_name, Some(allo));
                         }
                     }
-                    // alternate boat already used
+                    // alternate boat only
                     // this branch should not be taken
                     // pri boats should exist before alt
                     // people assigned only alt will be given the least priority
                     (None, Some(alt)) => {
-                        let mut allo = AllocResult::from_boat(alt.to_owned());
-
+                        debug_println!("alternate boat available for {}", unallo_name);
                         if !curr_allo.contains(alt) {
                             curr_allo.insert(alt);
-                            res.insert(&unallo_name, Some(allo));
+                            res.insert(&unallo_name, Some(AllocResult::from_boat(alt.to_owned())));
                         } else {
-                            allo.fail = true;
-                            res.insert(&unallo_name, Some(allo));
+                            res.insert(&unallo_name, Some(AllocResult::from_fail(alt.to_owned())));
                         }
                     }
                     // both options available
                     (Some(pri), Some(alt)) => {
-                        if !curr_allo.contains(pri) {
-                            curr_allo.insert(pri);
-                            res.insert(&unallo_name, Some(AllocResult::from_boat(pri.to_owned())));
-                        } else if !curr_allo.contains(alt) {
-                            // lock in the alt
-                            curr_allo.insert(alt);
-                            let mut allo = AllocResult::from_boat(alt.to_owned());
-                            allo.lock = true;
-                            res.insert(&unallo_name, Some(allo));
-                        } else {
-                            // if both options are available and fail
-                            // placeholder
-                            // res.insert(&unallo_name, Some("unallocated".to_string()));
-                            let mut allo = AllocResult::from_boat(pri.to_owned());
-                            allo.fail = true;
-                            res.insert(&unallo_name, Some(allo));
+                        debug_println!("both boats available for {}", unallo_name);
+                        // check conflicts
+                        match (curr_allo.contains(pri), curr_allo.contains(alt)) {
+                            // need to kick people out
+                            (true, true) => {
+                                let pri_conflict = res
+                                    .iter()
+                                    .find_map(|(k, v)| match v {
+                                        Some(allocation) => {
+                                            if allocation.boat == pri {
+                                                Some((k.to_string(), allocation.clone()))
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        None => None,
+                                    })
+                                    .unwrap();
+
+                                let alt_conflict = res
+                                    .iter()
+                                    .find_map(|(k, v)| match v {
+                                        Some(allocation) => {
+                                            if allocation.boat == alt {
+                                                Some((k.to_string(), allocation.clone()))
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        None => None,
+                                    })
+                                    .unwrap();
+
+                                // which person do we kick out?
+                                let kicked;
+
+                                match (pri_conflict.1.lock, alt_conflict.1.lock) {
+                                    (true, true) => {
+                                        // all locked
+                                        res.insert(
+                                            unallo_name,
+                                            Some(AllocResult::from_fail(pri.to_owned())),
+                                        );
+
+                                        kicked = None;
+                                    }
+                                    (true, false) => {
+                                        res.insert(
+                                            unallo_name,
+                                            Some(AllocResult::from_lock(alt.to_owned())),
+                                        );
+
+                                        kicked = Some(alt_conflict.0);
+                                    }
+                                    (false, true) => {
+                                        // curr_al
+                                        res.insert(
+                                            unallo_name,
+                                            Some(AllocResult::from_lock(pri.to_owned())),
+                                        );
+
+                                        kicked = Some(pri_conflict.0);
+                                    }
+                                    (false, false) => {
+                                        // this branch is causing problems
+                                        res.insert(
+                                            unallo_name,
+                                            Some(AllocResult::from_lock(alt.to_owned())),
+                                        );
+
+                                        kicked = Some(alt_conflict.0);
+                                    }
+                                }
+
+                                if let Some(to_kick) = kicked {
+                                    debug_println!(
+                                        "kicking out {}, taking in {}",
+                                        to_kick,
+                                        unallo_name
+                                    );
+                                    let other_allo = res.get_mut(to_kick.as_str()).unwrap();
+                                    *other_allo = None;
+                                }
+                            }
+
+                            (true, false) => {
+                                // res
+                                curr_allo.insert(alt);
+                                res.insert(
+                                    unallo_name,
+                                    Some(AllocResult::from_lock(alt.to_owned())),
+                                );
+                            }
+                            (false, true) => {
+                                curr_allo.insert(pri);
+                                res.insert(
+                                    unallo_name,
+                                    Some(AllocResult::from_lock(pri.to_owned())),
+                                );
+                            }
+                            (false, false) => {
+                                curr_allo.insert(pri);
+                                res.insert(
+                                    unallo_name,
+                                    Some(AllocResult::from_boat(pri.to_owned())),
+                                );
+                            }
                         }
                     }
                 }
@@ -520,7 +649,7 @@ mod tests {
 
         let groups = NameList::find_matching(&names, config).await;
 
-        println!("boat allocations:\n{:?}\n", read_lock);
+        // println!("boat allocations:\n{:?}\n", read_lock);
         println!("potential conflicting groups:\n{:?}\n", groups);
 
         println!("performing deconf");
