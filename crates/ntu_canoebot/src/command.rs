@@ -8,10 +8,8 @@
 //! to send a message, that message should be sent inside the trait method.
 
 pub mod commands;
-pub mod src;
 
 use std::error::Error;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -20,11 +18,12 @@ use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 
+use crate::callback::src::src_menu_create;
 use crate::callback::{self, Callback};
 use crate::frame::{calendar_month_gen, calendar_year_gen};
 
 /// Main commands
-#[derive(BotCommands, Clone)]
+#[derive(BotCommands, Clone, Debug)]
 #[command(rename_rule = "lowercase", description = "Supported commands:")]
 pub enum Commands {
     #[command(description = "View this help message")]
@@ -48,7 +47,7 @@ pub enum Commands {
     Reload,
 
     #[command(description = "view SRC facilities")]
-    Src(src::Src),
+    Src,
 
     #[command(description = "see who's going training")]
     Namelist,
@@ -141,7 +140,15 @@ impl HandleCommand for Commands {
         match &self {
             Commands::Help(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Start(cmd) => cmd.handle_command(bot, msg, me).await,
-            Commands::Src(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Src => {
+                let (text, keyboard) = src_menu_create();
+
+                bot.send_message(msg.chat.id, text)
+                    .reply_markup(keyboard)
+                    .await?;
+
+                Ok(())
+            }
             Commands::Reload => {
                 ntu_canoebot_attd::init().await;
                 bot.send_message(msg.chat.id, "configs updated").await?;
@@ -258,6 +265,7 @@ pub async fn message_handler(
         if let Some(text) = msg.text() {
             match Commands::parse(text, me.username()) {
                 Ok(_cmd) => {
+                    log::info!("{:?}", _cmd);
                     let cloned = _cmd.clone();
                     tokio::task::spawn(async move { cloned.handle_command(bot, msg, me).await });
                 }
@@ -283,9 +291,7 @@ async fn empty_command_handler(_bot: Bot, _msg: Message, _me: Me) {
 
     debug_println!("message contents: {:?}", _msg.text());
 
-    tokio::time::sleep(Duration::from_millis(500)).await;
-
     // delete the unknown message sent by user
-    _bot.delete_message(_msg.chat.id, _msg.id).await.unwrap();
-    // do nothing for now
+    // tokio::time::sleep(Duration::from_millis(500)).await;
+    // _bot.delete_message(_msg.chat.id, _msg.id).await.unwrap();
 }

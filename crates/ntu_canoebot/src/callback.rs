@@ -299,6 +299,7 @@ pub async fn callback_handler(
             }
         };
 
+        log::info!("{:?}", _callback_data);
         _callback_data.handle_callback(bot, query).await.unwrap();
     });
 
