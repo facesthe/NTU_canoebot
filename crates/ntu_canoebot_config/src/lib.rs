@@ -41,6 +41,7 @@
 //! ```
 #![recursion_limit = "256"]
 
+#![allow(unused)]
 include!("../generated.rs");
 
 #[cfg(test)]
