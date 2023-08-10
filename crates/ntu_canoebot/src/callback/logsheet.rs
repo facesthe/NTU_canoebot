@@ -1,5 +1,4 @@
 //! Logsheet logic goes here
-#![allow(unused)]
 
 use std::error::Error;
 
@@ -42,15 +41,15 @@ impl HandleCallback for LogSheet {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            LogSheet::Start(date) => {
-                logsheet_start(chrono::Local::now().date_naive(), bot, msg, true).await?
-            }
+            LogSheet::Start(date) => logsheet_start((*date).into(), bot, msg, true).await?,
 
             LogSheet::StartTime(date, time_slot, refresh) => {
-                replace_with_whitespace(bot.clone(), &msg, 1).await;
+                replace_with_whitespace(bot.clone(), &msg, 2).await?;
 
                 if *refresh {
-                    ntu_canoebot_attd::refresh_attd_sheet_cache(true).await;
+                    ntu_canoebot_attd::refresh_attd_sheet_cache(true)
+                        .await
+                        .unwrap();
                 }
 
                 let name_list = ntu_canoebot_attd::namelist((*date).into(), *time_slot)
@@ -84,12 +83,12 @@ impl HandleCallback for LogSheet {
                 let send = Callback::LogSheet(LogSheet::Send(*date, *time_slot));
                 let refresh = Callback::LogSheet(LogSheet::StartTime(*date, *time_slot, true));
                 let cancel = Callback::LogSheet(LogSheet::Cancel(*date, *time_slot));
+                let back = Callback::LogSheet(LogSheet::Start(*date));
 
-                let keyboard = construct_keyboard_tuple([[
-                    ("send", send),
-                    (REFRESH, refresh),
-                    ("cancel", cancel),
-                ]]);
+                let keyboard = construct_keyboard_tuple([
+                    vec![("send", send), (REFRESH, refresh), ("cancel", cancel)],
+                    vec![("back", back)],
+                ]);
 
                 bot.edit_message_text(msg.chat.id, msg.id, text)
                     .reply_markup(keyboard)
@@ -98,7 +97,7 @@ impl HandleCallback for LogSheet {
             }
             LogSheet::Send(date, time_slot) => {
                 bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet")
-                    .await;
+                    .await?;
 
                 let mut lock = SUBMIT_LOCK.write().await;
 

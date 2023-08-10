@@ -112,7 +112,7 @@ pub struct NameList {
     pub names: Vec<String>,
 
     /// List of boats (if any) for a session
-    pub boats: Option<Vec<String>>,
+    pub boats: Option<Vec<Option<String>>>,
 
     pub fetch_time: NaiveDateTime,
 }
@@ -137,7 +137,14 @@ impl Display for NameList {
                 self.names
                     .iter()
                     .zip(_boats.iter())
-                    .map(|(n, b)| format!("{:padding$}  {}", n, b, padding = padding))
+                    .map(|(n, b)| {
+                        format!(
+                            "{:padding$}  {}",
+                            n,
+                            b.clone().unwrap_or("unassigned".to_string()),
+                            padding = padding
+                        )
+                    })
                     .collect()
             }
             None => self.names.iter().map(|name| name.to_owned()).collect(),
