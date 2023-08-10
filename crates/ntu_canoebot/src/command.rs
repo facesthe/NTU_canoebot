@@ -33,16 +33,15 @@ pub enum Commands {
     #[command(description = "Start your interaction with this bot")]
     Start(commands::Start),
 
+    #[command(description = "off")]
     Calendar,
 
     // prefix, description, rename, parse_with, separator
     #[command(description = "off")]
     Button(commands::Button),
 
+    // #[command(description = "give feedback")]
     #[command(description = "off")]
-    Menu(commands::Menu),
-
-    #[command(description = "give feedback")]
     Feedback,
 
     #[command(description = "reload boat configs")]
@@ -64,10 +63,12 @@ pub enum Commands {
     Logsheet,
 
     // secondary commands
-    #[command(description = "Simple wikipedia search")]
+    // #[command(description = "Simple wikipedia search")]
+    #[command(description = "off")]
     What,
 
-    #[command(description = "Simple urban dictionary search")]
+    // #[command(description = "Simple urban dictionary search")]
+    #[command(description = "off")]
     WhatActually,
 }
 
@@ -185,11 +186,11 @@ impl HandleCommand for Commands {
             }
 
             // test cmds
-            Commands::Button(cmd) => {
+            Commands::Button(_cmd) => {
                 const UNDERLINE: char = '\u{FE2D}';
 
                 let rand = "lorem ipsum!\n*bold*?\n_italic_";
-                let rand_underline: String = rand
+                let _rand_underline: String = rand
                     .chars()
                     .map(|c| [c, UNDERLINE])
                     .collect::<Vec<[char; 2]>>()
@@ -203,7 +204,6 @@ impl HandleCommand for Commands {
                 // cmd.handle_command(bot, msg, me).await
                 Ok(())
             }
-            Commands::Menu(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Feedback => Ok(()), // todo
             Commands::Calendar => {
                 let keyboard = calendar_month_gen(

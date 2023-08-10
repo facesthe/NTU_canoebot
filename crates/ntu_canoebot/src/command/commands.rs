@@ -63,7 +63,7 @@ impl HandleCommand for Start {
         _msg: Message,
         _me: Me,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -88,34 +88,6 @@ impl HandleCommand for Button {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         bot.send_message(msg.chat.id, "Here is your button")
             .reply_markup(single_inline_button("button", Callback::Empty))
-            .await?;
-
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Menu {}
-
-impl FromStr for Menu {
-    type Err = String;
-
-    fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        Ok(Menu {})
-    }
-}
-
-#[async_trait]
-impl HandleCommand for Menu {
-    async fn handle_command(
-        &self,
-        bot: Bot,
-        msg: Message,
-        _me: Me,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // send a message, do some processing, etc.
-        bot.send_message(msg.chat.id, "Choose from the options below:")
-            .reply_markup(frame::main_menu())
             .await?;
 
         Ok(())

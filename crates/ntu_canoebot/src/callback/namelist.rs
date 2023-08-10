@@ -6,9 +6,7 @@ use std::error::Error;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::{
-    calculate_sheet_name, get_config_type, refresh_attd_sheet_cache, AttdSheet, SHEET_CACHE,
-};
+use ntu_canoebot_attd::SHEET_CACHE;
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
@@ -19,8 +17,6 @@ use crate::{
 };
 
 use super::{replace_with_whitespace, Callback, Date, HandleCallback};
-
-use ntu_canoebot_config as config;
 
 /// Callbacks for /namelist
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

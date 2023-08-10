@@ -1,7 +1,5 @@
-pub mod booking;
 pub mod callbacks;
 mod logsheet;
-pub mod menu;
 mod namelist;
 mod paddling;
 pub mod src;
@@ -15,8 +13,6 @@ use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
-pub use booking::Booking;
-pub use menu::Menu;
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
@@ -46,7 +42,6 @@ const BLANK_BLOCK: char = '\u{2588}';
 pub enum Callback {
     BigData(callbacks::BigData),
     Empty,
-    Menu(menu::Menu),
     Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
@@ -117,7 +112,6 @@ impl HandleCallback for Callback {
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
 
             // testing
-            Callback::Menu(call) => call.handle_callback(bot, query).await,
             Callback::BigData(call) => call.handle_callback(bot, query).await,
 
             // to catch unimpl'd callbacks

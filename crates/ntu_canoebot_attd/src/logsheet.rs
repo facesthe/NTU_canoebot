@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 use ntu_canoebot_config as config;
 
-use crate::{get_config_type, NameList, NAMES_CERTS};
+use crate::{get_config_type, NAMES_CERTS};
 
 lazy_static! {
     /// Logsheet lock. Prevents multiple submissions. Keeps track of

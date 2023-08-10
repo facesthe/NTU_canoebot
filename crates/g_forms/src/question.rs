@@ -1,4 +1,5 @@
 //! Implementations for the [Question] data type.
+#![allow(unused)]
 
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 

@@ -4,7 +4,7 @@ mod deconflict;
 pub mod logsheet;
 mod update;
 
-use std::{collections::HashMap, error::Error, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
@@ -495,24 +495,24 @@ pub fn calculate_sheet_name(date: NaiveDate) -> String {
     actual_sheet_date.format("%b-%Y").to_string()
 }
 
-async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
-    let change = {
-        let d = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
-        NaiveDate::from_ymd_opt(d.year as i32, d.month as u32, d.day as u32).unwrap()
-    };
+// async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
+//     let change = {
+//         let d = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
+//         NaiveDate::from_ymd_opt(d.year as i32, d.month as u32, d.day as u32).unwrap()
+//     };
 
-    let sheet = if date >= change {
-        Config::New
-    } else {
-        Config::Old
-    };
+//     let sheet = if date >= change {
+//         Config::New
+//     } else {
+//         Config::Old
+//     };
 
-    let sheet_name = calculate_sheet_name(date);
+//     let sheet_name = calculate_sheet_name(date);
 
-    let df = g_sheets::get_as_dataframe(ATTENDANCE_SHEETS[sheet as usize], Some(sheet_name)).await;
+//     let df = g_sheets::get_as_dataframe(ATTENDANCE_SHEETS[sheet as usize], Some(sheet_name)).await;
 
-    Some(df)
-}
+//     Some(df)
+// }
 
 /// Convert an [AnyValue] type to a string.
 fn dataframe_cell_to_string(cell: AnyValue) -> String {

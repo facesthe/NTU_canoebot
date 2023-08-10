@@ -1,4 +1,5 @@
 //! Public form structs
+#![allow(unused)]
 
 use std::{
     fmt::Debug,
@@ -12,7 +13,7 @@ use serde::Serialize;
 pub use serde_json::Number;
 
 use crate::{
-    question::{question_types::*, IsQuestion, Question},
+    question::{question_types::*, Question},
     raw::{
         DateType, FormQuestion, RawFormData, RawInputValidation, RawQuestion, RawQuestionInfo,
         TimeType,

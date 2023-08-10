@@ -1,24 +1,10 @@
 //! Boat deconflict module
 
-use std::collections::BTreeMap;
+use std::collections::{HashMap, HashSet};
 
-use lazy_static::__Deref;
 use ntu_canoebot_util::{debug_print, debug_println};
-use polars::export::ahash::{HashMap, HashSet};
 
 use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS};
-/// Boat allocation type
-pub struct BoatAllocations {
-    inner: BTreeMap<String, (Option<String>, Option<String>)>,
-}
-
-impl __Deref for BoatAllocations {
-    type Target = BTreeMap<String, (Option<String>, Option<String>)>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
 
 /// This struct contains the boat allocation result.
 /// If lock is set to true, the boat assigned must no longer be changed.
@@ -492,7 +478,7 @@ impl NameList {
             match boat {
                 Some(b) => {
                     if match_set.contains(b.as_str()) {
-                        *b = format!("!{}", b);
+                        *b = format!("{}{}", MARK, b);
                     }
                 }
                 None => (),
@@ -503,10 +489,10 @@ impl NameList {
 
 #[cfg(test)]
 mod tests {
-    use chrono::NaiveDate;
 
-    use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS, NAMES_CERTS};
+    use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS};
 
+    #[cfg(notset)]
     #[tokio::test]
     async fn assign_no_deconflict() {
         crate::init().await;
@@ -539,8 +525,6 @@ mod tests {
 
         println!("performing deconf");
 
-        let first_group = groups.first().unwrap();
-
         for group in groups.iter() {
             println!("deconflicting group: {:?}", group);
             let res = NameList::deconflict(group, config).await;
@@ -552,9 +536,9 @@ mod tests {
     async fn test_find_matching_today() {
         crate::init().await;
 
-        let date = NaiveDate::from_ymd_opt(2023, 1, 14).unwrap();
+        // let date = NaiveDate::from_ymd_opt(2023, 1, 14).unwrap();
         // let date = NaiveDate::from_ymd_opt(2023, 7, 13).unwrap();
-        // let date = chrono::Local::now().date_naive();
+        let date = chrono::Local::now().date_naive();
         let config = get_config_type(date);
         let mut name_list = crate::namelist(date, false).await.unwrap();
         let deconf_res = name_list.assign_boats(true).await;

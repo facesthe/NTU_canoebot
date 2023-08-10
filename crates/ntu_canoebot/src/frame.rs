@@ -8,8 +8,6 @@
 use chrono::{Datelike, Duration, NaiveDate};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
-use crate::callback::booking::{self, Booking};
-use crate::callback::menu::Menu;
 use crate::callback::Callback;
 use crate::callback::Date;
 use crate::frame::common_buttons::{BACK, DATE, TIME, WEEKDAYS};
@@ -237,34 +235,6 @@ fn month_padding(year: i32, month: u32) -> (u32, u32) {
     let padding_end = 7 - end_day.num_days_from_sunday();
 
     (padding_start, padding_end % 7)
-}
-
-/// The main menu
-pub fn main_menu() -> InlineKeyboardMarkup {
-    let button_names = [["booking"], ["status"]];
-
-    let callback_data = [
-        [Callback::Menu(Menu::Booking(Booking::Here))],
-        [Callback::Menu(Menu::Status)],
-    ];
-
-    construct_keyboard(button_names, callback_data)
-}
-
-/// The booking menu
-/// Function params still WIP
-pub fn booking_menu(_uuid: u128) -> InlineKeyboardMarkup {
-    let callback_names = [vec!["BTP", "BTE"], vec![common_buttons::BACK]];
-
-    let callback_data = [
-        vec![
-            Callback::Menu(Menu::Booking(Booking::BTP(booking::BTP {}))),
-            Callback::Menu(Menu::Booking(Booking::BTE(booking::BTE {}))),
-        ],
-        vec![Callback::Menu(Menu::Here)],
-    ];
-
-    construct_keyboard(callback_names, callback_data)
 }
 
 /// Common navigation buttons for namelist, training, etc

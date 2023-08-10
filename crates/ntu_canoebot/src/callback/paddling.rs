@@ -1,18 +1,14 @@
-#![allow(unused)]
-
 use std::error::Error;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use bincode::de;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::{get_config_type, PROG_CACHE};
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{
     calendar_month_gen, calendar_year_gen,
-    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH, TIME},
+    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH},
     construct_keyboard_tuple,
 };
 
@@ -41,7 +37,7 @@ impl HandleCallback for Paddling {
 
         match self {
             Paddling::Get(date, time_slot, deconflict, refresh) => {
-                replace_with_whitespace(bot.clone(), msg, 3).await;
+                replace_with_whitespace(bot.clone(), msg, 3).await?;
                 paddling_get(
                     (*date).into(),
                     *time_slot,
@@ -132,11 +128,9 @@ pub async fn paddling_get(
         ];
 
         for handle in handles {
-            handle.await.unwrap();
+            let _ = handle.await.unwrap();
         }
     }
-
-    let config = get_config_type(date_n);
 
     let mut name_list = ntu_canoebot_attd::namelist(date_n, time_slot)
         .await

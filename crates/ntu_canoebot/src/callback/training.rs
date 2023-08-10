@@ -2,9 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::{
-    get_config_type, refresh_attd_sheet_cache, refresh_prog_sheet_cache, ProgSheet, PROG_CACHE,
-};
+use ntu_canoebot_attd::{get_config_type, refresh_prog_sheet_cache, ProgSheet, PROG_CACHE};
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 

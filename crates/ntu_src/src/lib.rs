@@ -9,6 +9,7 @@
 //! }
 //! ```
 //!
+#![allow(unused)]
 
 use std::{fmt::Display, ops::DerefMut, str::FromStr, sync::Arc};
 
