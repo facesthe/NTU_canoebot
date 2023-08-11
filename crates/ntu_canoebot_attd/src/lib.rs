@@ -272,15 +272,16 @@ impl TryFrom<DataFrame> for AttdSheet {
         let start = NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT)
             .ok()
             .ok_or(())?;
-        let days_in_sheet = filtered.get_columns().len() / 2 + 1;
+        let days_in_sheet = calculate_sheet_name(start).1;
 
+        debug_println!("filtered cols: {}", filtered.get_columns().len());
         debug_println!("days in sheet: {}", days_in_sheet);
 
         Ok(Self {
             fetch_time: chrono::Local::now().naive_local(),
             data: filtered,
             start,
-            end: start + Duration::days(days_in_sheet as i64), // temp
+            end: start + Duration::days(days_in_sheet - 1), // temp
         })
     }
 }
@@ -461,12 +462,13 @@ pub fn get_config_type(date: NaiveDate) -> Config {
 }
 
 /// Calculate the sheet name from some rules.
+/// Also returns the number of days for that sheet.
 ///
 /// They are:
 /// - A sheet always starts on Monday and ends on Sunday
 /// - The sheet must end on the last Sunday of a month
 /// - A sheet is named MMM-YYYY
-pub fn calculate_sheet_name(date: NaiveDate) -> String {
+pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
     let last_day = {
         let next_month;
         let next_year;
@@ -484,35 +486,51 @@ pub fn calculate_sheet_name(date: NaiveDate) -> String {
     let day = last_day.weekday();
     let days_after = day.number_from_monday() % 7;
 
-    let last_sunday = last_day.day() - days_after;
+    let delta_sunday = last_day.day() - days_after;
 
-    let actual_sheet_date = if date.day() > last_sunday {
+    let actual_sheet_date = if date.day() > delta_sunday {
         last_day + Duration::days(1)
     } else {
         last_day
     };
 
-    actual_sheet_date.format("%b-%Y").to_string()
+    // first day of month
+    let month_start =
+        NaiveDate::from_ymd_opt(actual_sheet_date.year(), actual_sheet_date.month(), 1).unwrap();
+
+    // dist from first day of month to the prev months' monday
+    let prev_mon_delta = month_start.weekday().num_days_from_monday();
+
+    // dist from last day of month to last sunday
+    let last_day = {
+        let next_month;
+        let next_year;
+
+        if actual_sheet_date.month() == 12 {
+            next_month = 1;
+            next_year = actual_sheet_date.year() + 1;
+        } else {
+            next_month = actual_sheet_date.month() + 1;
+            next_year = actual_sheet_date.year();
+        }
+
+        NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap() - Duration::days(1)
+    };
+
+    let days_aft_last_sunday = last_day.weekday().num_days_from_sunday();
+    let sheet_start = month_start - Duration::days(prev_mon_delta as i64);
+    let sheet_end = last_day - Duration::days(days_aft_last_sunday as i64);
+    let num_sheet_days = (sheet_end - sheet_start).num_days() + 1;
+
+    debug_println!("actual sheet date: {}", actual_sheet_date);
+    debug_println!("date {} start: {}, end: {}", date, sheet_start, sheet_end);
+
+    (
+        actual_sheet_date.format("%b-%Y").to_string(),
+        num_sheet_days,
+    )
+    // todo!()
 }
-
-// async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
-//     let change = {
-//         let d = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
-//         NaiveDate::from_ymd_opt(d.year as i32, d.month as u32, d.day as u32).unwrap()
-//     };
-
-//     let sheet = if date >= change {
-//         Config::New
-//     } else {
-//         Config::Old
-//     };
-
-//     let sheet_name = calculate_sheet_name(date);
-
-//     let df = g_sheets::get_as_dataframe(ATTENDANCE_SHEETS[sheet as usize], Some(sheet_name)).await;
-
-//     Some(df)
-// }
 
 /// Convert an [AnyValue] type to a string.
 fn dataframe_cell_to_string(cell: AnyValue) -> String {
@@ -529,7 +547,7 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
 
     debug_println!("date: {}\nusing {:?} config", date, config);
 
-    let sheet_name = calculate_sheet_name(date);
+    let (sheet_name, _) = calculate_sheet_name(date);
 
     debug_println!("sheet name: {}", sheet_name);
 
@@ -561,6 +579,8 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
         }
     };
 
+    debug_println!("sheet from: {} to {}", sheet.start, sheet.end);
+
     sheet.get_names(date, time_slot).await
 }
 
@@ -586,7 +606,7 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     drop(read_cache);
     let config = get_config_type(today);
     let sheet_id = ATTENDANCE_SHEETS[config as usize];
-    let sheet_name = calculate_sheet_name(today + Duration::days(1));
+    let (sheet_name, _) = calculate_sheet_name(today + Duration::days(1));
 
     let read_wandering = SHEET_CACHE_WANDERING.read().await;
     let wandering_date = read_wandering.start;
@@ -594,7 +614,7 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     drop(read_wandering);
     let config = get_config_type(wandering_date);
     let sheet_id_wandering = ATTENDANCE_SHEETS[config as usize];
-    let sheet_name_wandering = calculate_sheet_name(wandering_date);
+    let (sheet_name_wandering, _) = calculate_sheet_name(wandering_date);
 
     let tasks = (
         tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
@@ -711,7 +731,7 @@ mod tests {
 
         let today = chrono::Local::now().date_naive();
 
-        let sheet_name = calculate_sheet_name(today);
+        let (sheet_name, _) = calculate_sheet_name(today);
 
         println!("sheet name: {}", &sheet_name);
 
@@ -767,55 +787,84 @@ mod tests {
     fn test_date_calculation() {
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2022, 12, 28).unwrap()),
-            "Jan-2023"
+            ("Jan-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 01, 28).unwrap()),
-            "Jan-2023"
+            ("Jan-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 01, 30).unwrap()),
+            ("Feb-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 02, 28).unwrap()),
-            "Mar-2023"
+            ("Mar-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 03, 28).unwrap()),
-            "Apr-2023"
+            ("Apr-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 04, 28).unwrap()),
-            "Apr-2023"
+            ("Apr-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 05, 28).unwrap()),
-            "May-2023"
+            ("May-2023".to_string(), 28)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 05, 29).unwrap()),
+            ("Jun-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 06, 28).unwrap()),
-            "Jul-2023"
+            ("Jul-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 07, 28).unwrap()),
-            "Jul-2023"
+            ("Jul-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 07, 31).unwrap()),
+            ("Aug-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 08, 28).unwrap()),
-            "Sep-2023"
+            ("Sep-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 09, 28).unwrap()),
-            "Oct-2023"
+            ("Oct-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 10, 28).unwrap()),
-            "Oct-2023"
+            ("Oct-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 10, 30).unwrap()),
+            ("Nov-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 11, 28).unwrap()),
-            "Dec-2023"
+            ("Dec-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 12, 28).unwrap()),
-            "Dec-2023"
+            ("Dec-2023".to_string(), 35)
         );
+    }
+
+    /// Check that num days per sheet is always a multiple of 7
+    #[test]
+    fn test_num_days_calculation() {
+        let start = chrono::Local::now().date_naive();
+
+        for d in 0..365 {
+            let day = start + Duration::days(d);
+            let num_days = calculate_sheet_name(day).1;
+            assert_eq!(num_days % 7, 0);
+            assert_ne!(num_days, 0);
+        }
     }
 }
