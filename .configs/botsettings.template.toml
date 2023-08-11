@@ -3,6 +3,9 @@
 # These override files should be named:
 # - botsettings.template.debug.toml (if you want to test with alternate settings)
 # - botsettings.template.deploy.toml (must exist)
+
+use = false
+
 [canoebot]
 apikey = ""
 exco_chat = 0 # chat id, numeric

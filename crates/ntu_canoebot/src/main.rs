@@ -17,6 +17,17 @@ async fn main() {
     std::env::set_var("TELOXIDE_TOKEN", config::CANOEBOT_APIKEY.to_string());
 
     pretty_env_logger::init();
+
+    // this variable is set only when an override file is present (debug/deploy config).
+    // we can use this to check if defaults have been overriden
+    match *config::USE {
+        true => (),
+        false => {
+            log::error!("no config file specified. Bot cannot start.");
+            std::process::exit(1);
+        }
+    }
+
     let bot = Bot::from_env();
 
     tokio::task::spawn(start_events());
