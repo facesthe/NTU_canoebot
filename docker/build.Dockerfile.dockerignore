@@ -1,0 +1,16 @@
+.git/
+.venv/
+.vscode/
+__pycache__/
+data/
+docker/
+
+docker-compose.yml
+Makefile
+LICENSE
+README.md
+.gitattributes
+.gitignore
+
+# big bois
+/target

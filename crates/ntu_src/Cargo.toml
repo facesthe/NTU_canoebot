@@ -1,0 +1,20 @@
+[package]
+name = "ntu_src"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ntu_canoebot_util = {path = "../ntu_canoebot_util"}
+ntu_canoebot_config = {path = "../ntu_canoebot_config"}
+
+tokio = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+reqwest = {workspace = true}
+chrono = {workspace = true}
+lazy_static = {workspace =  true}
+toml = {workspace = true}
+
+table-extract = "0.2.3"

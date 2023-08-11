@@ -36,10 +36,40 @@ getnames_ver = 2
 use_deconflict = true
 deconflict_ver = 2
 deconflict_recursion_limit = 5
+configuration_sheet = "configs"
+# format string for date cell in top left of sheet
+date_format = "%d-%b-%y"
+date_format_prog = "%Y-%m-%d"
 
 # switch from old -> new ON this date
 # it defaults to sheetscraper.new if this is not overriden
 changeover_date = 1970-01-01
+
+# cache lifetimes, in minutes
+[sheetscraper.cache]
+attd = 30
+prog = 30
+
+[sheeetscraper.layout]
+# fencing = rows/cols of the sheet that are cut out prior to processing
+fencing.left = 1
+fencing.top = 2
+
+# non-data columns before each 7-day block
+block_pre_padding = 3
+
+[sheetscraper.columns]
+# attendance sheet cols
+attd.name = "name"
+attd.short_name = "shortname"
+attd.boat_primary = "boat_1"
+attd.boat_alternate = "boat_2"
+attd.certification = "1_star"
+
+# prog sheet cols
+prog.date = "Date"
+prog.am = "AM program"
+prog.pm = "PM program"
 
 # previous AY configuration
 [sheetscraper.old]
@@ -52,18 +82,25 @@ attendance_sheet = "google sheets sheetid"
 program_sheet = "google sheets sheetid"
 
 [sheetscraper.paddling]
-format = "Paddling {date_str}\n\n{boatallo_no_date}\n\n{trainingam_prog}"
+format = "Paddling {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"
+# used for variable substitutions.
+# they should match with the format string above
+sub_date = "{date}"
+sub_boatallo = "{boatallo}"
+sub_prog = "{training_prog}"
+sub_fetch = "{fetch}"
 smm_measure = "" # no longer used
+
 
 [formfiller]
 form_id = "SCF logsheet form id"
 
 [formfiller.times.am]
-start   = "07:30"
-end     = "10:00"
+start   = 07:30:00
+end     = 10:00:00
 [formfiller.times.pm]
-start   = "14:30"
-end     = "17:30"
+start   = 14:30:00
+end     = 17:30:00
 
 # key-value pairs of "name": "mobile number, string"
 [formfiller.particulars]
@@ -72,6 +109,11 @@ end     = "17:30"
 # don't think this is used anymore
 [traininglog]
 form_id = ""
+
+
+[src]
+# cache refresh interval
+cache_refresh = 30
 
 
 [events.daily.logsheet_prompt]
