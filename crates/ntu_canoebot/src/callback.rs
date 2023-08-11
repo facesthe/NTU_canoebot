@@ -290,17 +290,20 @@ pub async fn callback_handler(
         // answer the callback query once at the top
         bot.answer_callback_query(&query.id).await.unwrap();
 
-        let _callback_data: Callback = {
+        let callback_data: Callback = {
             if let Some(data) = &query.data {
                 let data_vec = data.as_bytes().to_owned();
-                (&data_vec).try_into().unwrap()
+                match (&data_vec).try_into() {
+                    Ok(d) => d,
+                    Err(_) => Callback::Empty,
+                }
             } else {
                 Callback::Empty
             }
         };
 
-        log::info!("{:?}", _callback_data);
-        _callback_data.handle_callback(bot, query).await.unwrap();
+        log::info!("{:?}", callback_data);
+        callback_data.handle_callback(bot, query).await.unwrap();
     });
 
     Ok(())

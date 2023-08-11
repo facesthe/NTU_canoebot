@@ -264,10 +264,9 @@ pub async fn message_handler(
     tokio::spawn(async {
         if let Some(text) = msg.text() {
             match Commands::parse(text, me.username()) {
-                Ok(_cmd) => {
-                    log::info!("{:?}", _cmd);
-                    let cloned = _cmd.clone();
-                    tokio::task::spawn(async move { cloned.handle_command(bot, msg, me).await });
+                Ok(cmd) => {
+                    log::info!("{:?}", cmd);
+                    cmd.handle_command(bot, msg, me).await.unwrap();
                 }
 
                 Err(_err) => {

@@ -25,6 +25,7 @@ async fn main() {
         .branch(Update::filter_message().endpoint(message_handler))
         .branch(Update::filter_callback_query().endpoint(callback_handler));
 
+    log::info!("startup");
     Dispatcher::builder(bot, handler)
         .enable_ctrlc_handler()
         .build()
