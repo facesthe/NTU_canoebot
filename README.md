@@ -1,71 +1,42 @@
 # NTU canoebot
-If you are able to access this repo, you are able to download and host your own bot!
+A bot that automates daily tasks for NTU Canoe Sprint
 
 ---
 
 ## Prerequisites
 
+- [Install rust](https://rustup.rs)
+
+- [Install docker engine](https://docs.docker.com/engine/install/)
+
+---
+
+## Building
+Before building, [configure settings first.](#configuring-settings)
+
+
+### Dev
 ```sh
-# For Debian/Ubuntu
-sudo apt install python3-venv
-
-# lxml dependency
-sudo apt install libxslt-dev
-
-# For Raspberry Pis (3B and up, zero 2)
-sudo apt install libatlas-base-dev
+cargo run
 ```
 
-### Docker
-[Install docker engine](https://docs.docker.com/engine/install/)
+### Deploy
+```sh
+# if you have make on your system
+make    # build
+make up # run
 
----
-
-## Installing
-This bot is designed to work on Linux-based systems E.g. Debian, Arch, WSL.
-
-### For dev
-
-Install if you are running the bot locally without a container:
-
-`bash .scripts/install_venv.sh`
-
-### For end-users
-
-1. clone this repository:
-
-    `git clone https://github.com/cruzerngz/NTU_canoebot.git`
-
-
-2. Navigate to the repository using:
-
-    `cd /path/to/this/repo`
-
-3. Create config file
-
-    Copy the file `.configs/botsettings.template.d.toml` to
-    `.configs/botsettings.template.deploy.toml` and follow the instructions inside.
-    [More info here.](#configuring-settings)
-
-4. Build and run container
-
-    `docker compose build`
-
-    `docker compose up -d`
-
----
-
-## Uninstalling
-Navigate to the source directory and run:
-
-`bash .scripts/uninstall.sh`
-
-This removes all installed bash aliases, crontabs and the python virtual environment.
-
----
+# if you don't have make on your system
+docker build -t ntu_canoebot_cache -f docker/cache.Dockerfile .
+docker compose build
+docker compose up -d
+```
 
 ## Configuring settings
-Before starting the bot, it needs to be set up to point to all the necessary Google resource IDs in order to function properly.
+Before building the bot, it needs to be set up with an API key and to point to all necessary Google resource IDs in order to function properly.
+
+These keys are used to generate code at compile-time for the bot,
+so that all configuration data is "baked" into the executable.
 
 Create 2 copies of `botsettings.template.d.toml`:
 - `botsettings.template.deploy.toml` (mandatory)
@@ -80,31 +51,13 @@ Altogether there should now be 4 'template' TOML files inside `.configs`:
 - `botsettings.template.deploy.toml` (mandatory)
 - `botsettings.template.debug.toml` (optional)
 
-To use either `debug` or `deploy` configuration, set the "use" key to true:
+To use either `debug` or `deploy` configuration, set the "use" key to true and rebuild:
 ```toml
 # set to true to use this config
 use = true
 
 # ... the rest
 ```
-
----
-
-<!-- ## Usage: command line
-After running the install script there should be 8 new bash aliases added to your `~/.bash_aliases` file:
-
-You will need to run `source ~/.bash_aliases` once in order for these to show up.
-
-| alias | description |
-| --- | --- |
-| `canoebotrestart` | Used to start/restart the bot. Any modifications to code/configs should be reflected on restart. |
-| `canoebotstop` | Used to stop the bot. |
-| `canoebotlog` | Used to show a rolling log output by the bot. Log file located at `.scripts/canoebot.log`. |
-| `canoebotupdate` | Performs a git pull with depth 2 from branch "main". |
-| `canoebotdeploy` | Switches the bot to deploy settings, API keys, etc. |
-| `canoebotdebug` | Switches the bot to debug settings, API keys, etc. **Default setting.** |
-| `canoebotvenventer` | Enter the bot's python virtual environment |
-| `canoebotvenvexit` | Exit the python virtual environment. | -->
 
 ---
 
@@ -117,15 +70,39 @@ These are the current list of public commands available. Copy and paste these wh
     what - what is it?
     whatactually - what is it actually?
     src - view SRC facilities
-    countdown - days left to ITCC
     namelist - see who's going training
     training - view training program
     paddling - full paddling attendance
-    weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
+
+<!-- countdown - days left to ITCC -->
+<!-- weeklybreakdown - attendance breakdown -->
 
 ---
 
 <!-- ## Usage: interaction
 
 <img src=".media/canoebot_interaction_512p.gif" alt="Interacting with the bot" width="400"/> -->
+
+## FAQ
+
+### Why did you compile the configuration file into the program? Can't you use an .env file instead for faster rebuilds?
+An `.env` file points a key to a string value. Non-string values loose their type information.
+
+Key-value pairs in the config preserve their type information using some codegen trickery, so errors will reveal themselves at compile time instead of runtime.
+
+Changes to config files will trigger a rebuild of the [codegen crate](./crates/ntu_canoebot_config/).
+
+### Why did you switch from python to rust?
+Having switched from deploying directly on a VM to using containers, I wanted to create a smaller container image.
+
+The python image is over 300MB in size, while the rust image turned out to be less then 16MB.
+
+The rust version uses less memory too, ~30MB compared to ~150MB.
+
+### Why are there 2 dockerfiles?
+Rust has long compile times. Without a cache layer, rebuilding an image downloads and recompiles the same crates more than once.
+
+A solution to this problem is to create a cache layer populated with only cargo manifest files and dummy entry points (`main.rs`, `lib.rs`, `build.rs`). This layer will only need to be rebuilt if any cargo manifest file changes.
+
+TL;DR: build cache layer reduces recompilation time
