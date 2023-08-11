@@ -192,6 +192,27 @@ class gForm():
         else:
             return 0
 
+
+    def simulate_submit(self):
+        '''Simulate a form submission, printing the entire request to stdout.'''
+
+        url = f'https://docs.google.com/forms/d/e/{self.formID}/formResponse'
+        for key in self.fJSON['formfields'].keys():
+            if self.fJSON['formfields'][key] is None:
+                self.fJSON['formfields'][key] = ''
+
+        r = rq.Request('POST', url=url, data=self.form)
+        req = r.prepare()
+
+        print('{}\n{}\r\n{}\r\n\r\n{}'.format(
+            '-----------START-----------',
+            req.method + ' ' + req.url,
+            '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
+            req.body,
+        ))
+
+        return
+
     def __get_raw_json(self, formID):
         '''Pulls the raw form data, with minimal formatting'''
         url = f'https://docs.google.com/forms/d/e/{formID}/viewform'
