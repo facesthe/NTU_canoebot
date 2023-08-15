@@ -19,11 +19,20 @@ pub enum Paddling {
     /// Perform a lookup, cached.
     ///
     /// Date, time_slot, deconflict, refresh
-    Get(Date, bool, bool, bool),
+    Get {
+        date: Date,
+        time_slot: bool,
+        deconflict: bool,
+        refresh: bool,
+    },
 
-    MonthSelect(Date),
+    MonthSelect {
+        date: Date,
+    },
 
-    YearSelect(Date),
+    YearSelect {
+        date: Date,
+    },
 }
 
 #[async_trait]
@@ -36,7 +45,12 @@ impl HandleCallback for Paddling {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            Paddling::Get(date, time_slot, deconflict, refresh) => {
+            Paddling::Get {
+                date,
+                time_slot,
+                deconflict,
+                refresh,
+            } => {
                 replace_with_whitespace(bot.clone(), msg, 3).await?;
                 paddling_get(
                     (*date).into(),
@@ -49,22 +63,29 @@ impl HandleCallback for Paddling {
                 )
                 .await?;
             }
-            Paddling::MonthSelect(date) => {
+            Paddling::MonthSelect { date } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
 
                 let days: Vec<Callback> = (0..31)
                     .into_iter()
                     .map(|d| {
                         let day: Date = (start + Duration::days(d)).into();
-                        Callback::Padddling(Paddling::Get(day, false, true, false))
+                        Callback::Padddling(Paddling::Get {
+                            date: day,
+                            time_slot: false,
+                            deconflict: true,
+                            refresh: false,
+                        })
                     })
                     .collect();
 
-                let next =
-                    Callback::Padddling(Paddling::MonthSelect((start + Duration::days(33)).into()));
-                let prev =
-                    Callback::Padddling(Paddling::MonthSelect((start - Duration::days(1)).into()));
-                let year = Callback::Padddling(Paddling::YearSelect(date.clone()));
+                let next = Callback::Padddling(Paddling::MonthSelect {
+                    date: (start + Duration::days(33)).into(),
+                });
+                let prev = Callback::Padddling(Paddling::MonthSelect {
+                    date: (start - Duration::days(1)).into(),
+                });
+                let year = Callback::Padddling(Paddling::YearSelect { date: date.clone() });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -72,7 +93,7 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Paddling::YearSelect(date) => {
+            Paddling::YearSelect { date } => {
                 let months: Vec<Callback> = (0..12)
                     .into_iter()
                     .map(|m| {
@@ -82,20 +103,24 @@ impl HandleCallback for Paddling {
                             day: 1,
                         };
 
-                        Callback::Padddling(Paddling::MonthSelect(month))
+                        Callback::Padddling(Paddling::MonthSelect { date: month })
                     })
                     .collect();
 
-                let next = Callback::Padddling(Paddling::YearSelect(Date {
-                    year: date.year + 1,
-                    month: 1,
-                    day: 1,
-                }));
-                let prev = Callback::Padddling(Paddling::YearSelect(Date {
-                    year: date.year - 1,
-                    month: 1,
-                    day: 1,
-                }));
+                let next = Callback::Padddling(Paddling::YearSelect {
+                    date: Date {
+                        year: date.year + 1,
+                        month: 1,
+                        day: 1,
+                    },
+                });
+                let prev = Callback::Padddling(Paddling::YearSelect {
+                    date: Date {
+                        year: date.year - 1,
+                        month: 1,
+                        day: 1,
+                    },
+                });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
@@ -140,24 +165,39 @@ pub async fn paddling_get(
     name_list.paddling().await.unwrap();
 
     let d: Date = date.into();
-    let prev = Callback::Padddling(Paddling::Get(
-        (date_n - Duration::days(1)).into(),
+    let prev = Callback::Padddling(Paddling::Get {
+        date: (date_n - Duration::days(1)).into(),
         time_slot,
         deconflict,
-        false,
-    ));
-    let next = Callback::Padddling(Paddling::Get(
-        (date_n + Duration::days(1)).into(),
+        refresh: false,
+    });
+    let next = Callback::Padddling(Paddling::Get {
+        date: (date_n + Duration::days(1)).into(),
         time_slot,
         deconflict,
-        false,
-    ));
+        refresh: false,
+    });
 
     // switch between deconf modes
-    let refresh = Callback::Padddling(Paddling::Get(d, time_slot, deconflict, true));
-    let switch = Callback::Padddling(Paddling::Get(d, time_slot, !deconflict, false));
-    let time = Callback::Padddling(Paddling::Get(d, !time_slot, deconflict, false));
-    let month = Callback::Padddling(Paddling::MonthSelect(d));
+    let refresh = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot,
+        deconflict,
+        refresh: true,
+    });
+    let switch = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot,
+        deconflict: !deconflict,
+        refresh: false,
+    });
+    let time = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot: !time_slot,
+        deconflict,
+        refresh: false,
+    });
+    let month = Callback::Padddling(Paddling::MonthSelect { date: d });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
     let time_label = if time_slot { "AM" } else { "PM" };
