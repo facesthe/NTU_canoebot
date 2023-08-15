@@ -12,7 +12,10 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use ntu_canoebot_config as config;
 
-use crate::frame::{common_buttons::REFRESH, construct_keyboard_tuple};
+use crate::frame::{
+    common_buttons::{REFRESH, TIME_AM, TIME_PM},
+    construct_keyboard_tuple,
+};
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
 
@@ -127,8 +130,8 @@ impl HandleCallback for LogSheet {
                 let curr: NaiveDate = (*date).into();
 
                 let time = match time_slot {
-                    false => "AM",
-                    true => "PM",
+                    false => TIME_AM,
+                    true => TIME_PM,
                 };
 
                 // common message header used for responses below
@@ -180,8 +183,8 @@ impl HandleCallback for LogSheet {
             }
             LogSheet::Cancel { date, time_slot } => {
                 let time = match time_slot {
-                    false => "AM",
-                    true => "PM",
+                    false => TIME_AM,
+                    true => TIME_PM,
                 };
 
                 let text = format!("Logsheet: {} {} cancelled", NaiveDate::from(*date), time);
@@ -213,7 +216,7 @@ pub async fn logsheet_start(
         refresh: false,
     });
 
-    let keyboard = construct_keyboard_tuple([[("AM", am), ("PM", pm)]]);
+    let keyboard = construct_keyboard_tuple([[(TIME_AM, am), (TIME_PM, pm)]]);
 
     let text = format!("Logsheet: {}", date);
     match is_callback {

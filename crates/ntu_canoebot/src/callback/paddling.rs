@@ -8,7 +8,7 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{
     calendar_month_gen, calendar_year_gen,
-    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH},
+    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH, TIME_AM, TIME_PM},
     construct_keyboard_tuple,
 };
 
@@ -17,11 +17,11 @@ use super::{message_from_callback_query, replace_with_whitespace, Callback, Date
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Paddling {
     /// Perform a lookup, cached.
-    ///
-    /// Date, time_slot, deconflict, refresh
     Get {
         date: Date,
+        /// true == AM, false == PM
         time_slot: bool,
+        /// perform deconflict
         deconflict: bool,
         refresh: bool,
     },
@@ -200,7 +200,7 @@ pub async fn paddling_get(
     let month = Callback::Padddling(Paddling::MonthSelect { date: d });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
-    let time_label = if time_slot { "AM" } else { "PM" };
+    let time_label = if time_slot { TIME_AM } else { TIME_PM };
 
     let keyboard = construct_keyboard_tuple([
         vec![

@@ -146,7 +146,7 @@ pub async fn training_get(
     let slot = Callback::Training(Training::Get(date.into(), !time_slot, false));
     let calendar = Callback::Training(Training::MonthSelect(date.into()));
 
-    let keyboard = date_am_pm_navigation(date, refresh, next, prev, slot, calendar);
+    let keyboard = date_am_pm_navigation(date, refresh, next, prev, slot, calendar, !time_slot);
 
     let contents = format!("```\n{}```", prog);
     match is_callback {

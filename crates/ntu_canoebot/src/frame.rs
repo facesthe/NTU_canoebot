@@ -12,6 +12,8 @@ use crate::callback::Callback;
 use crate::callback::Date;
 use crate::frame::common_buttons::{BACK, DATE, TIME, WEEKDAYS};
 
+use self::common_buttons::TIME_AM;
+use self::common_buttons::TIME_PM;
 use self::common_buttons::{BACK_ARROW, BLANK, FORWARD_ARROW, MONTHS, REFRESH, UNDERLINE};
 
 /// Construct a keyboard from two 2D arrays/vec consisting of the callback
@@ -250,6 +252,7 @@ pub fn date_am_pm_navigation(
     prev: Callback,
     time_slot: Callback,
     calendar: Callback,
+    time_slot_bool: bool,
 ) -> InlineKeyboardMarkup {
     let navi_row = vec![
         (BACK_ARROW, prev),
@@ -257,7 +260,19 @@ pub fn date_am_pm_navigation(
         (FORWARD_ARROW, next),
     ];
 
-    let other_row = vec![(TIME, time_slot), (DATE, calendar)];
+    let other_row = vec![
+        (
+            {
+                if time_slot_bool {
+                    TIME_PM
+                } else {
+                    TIME_AM
+                }
+            },
+            time_slot,
+        ),
+        (DATE, calendar),
+    ];
 
     construct_keyboard_tuple([navi_row, other_row])
 }
@@ -272,6 +287,9 @@ pub mod common_buttons {
 
     pub const TIME: &str = "time";
     pub const DATE: &str = "date";
+
+    pub const TIME_AM: &str = "AM";
+    pub const TIME_PM: &str = "PM";
 
     pub const WEEKDAYS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     pub const MONTHS: [&str; 12] = [

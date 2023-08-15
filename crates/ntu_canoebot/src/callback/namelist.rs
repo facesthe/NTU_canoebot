@@ -22,10 +22,6 @@ use super::{replace_with_whitespace, Callback, Date, HandleCallback};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum NameList {
     /// Get the namelist for a particular date
-    /// Args:
-    /// - Fetch date
-    /// - time slot
-    /// - cache refresh?
     Get {
         date: Date,
         time_slot: bool,
@@ -192,7 +188,7 @@ pub async fn namelist_get(
     });
 
     let calendar = Callback::NameList(NameList::MonthSelect { date: date.into() });
-    let keyboard = date_am_pm_navigation(date, refresh, next, prev, time, calendar);
+    let keyboard = date_am_pm_navigation(date, refresh, next, prev, time, calendar, !time_slot);
 
     let contents = format!("```\n{}```", list);
 
