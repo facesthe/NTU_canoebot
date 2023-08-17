@@ -16,7 +16,10 @@ async fn main() {
     std::env::set_var("RUST_LOG", config::LOGGER_LOG_LEVEL.to_string());
     std::env::set_var("TELOXIDE_TOKEN", config::CANOEBOT_APIKEY.to_string());
 
-    pretty_env_logger::init();
+    pretty_env_logger::formatted_timed_builder()
+        .parse_filters(*config::LOGGER_LOG_LEVEL)
+        .default_format()
+        .init();
 
     // this variable is set only when an override file is present (debug/deploy config).
     // we can use this to check if defaults have been overriden

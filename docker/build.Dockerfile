@@ -23,12 +23,6 @@ RUN upx --lzma /bin/ntu_canoebot
 # alpine image
 FROM alpine:latest
 
-# ARG teloxide_token
-# ARG rust_log
-
-# ENV TELOXIDE_TOKEN=$teloxide_token
-# ENV RUST_LOG=$rust_log
-
 ENV TZ=Asia/Singapore
 RUN apk add --no-cache tzdata
 COPY --from=COMPRESSOR /bin/ntu_canoebot /usr/local/bin/ntu_canoebot
