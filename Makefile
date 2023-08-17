@@ -25,3 +25,6 @@ save: build
 
 info:
 	$(info $$manifest is [${manifest}])
+
+logs:
+	docker compose logs -f --tail 10
