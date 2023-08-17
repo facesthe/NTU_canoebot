@@ -9,7 +9,7 @@ use polars::prelude::DataFrame;
 
 use crate::{
     dataframe_cell_to_string, Config, ATTENDANCE_SHEETS, BOATS, BOAT_ALLOCATIONS, NAMES_CERTS,
-    SHORTENED_NAMES,
+    PROGRAM_SHEETS, SHORTENED_NAMES,
 };
 use ntu_canoebot_config as config;
 
@@ -182,10 +182,38 @@ async fn update_config_from_df(
 /// Initialize/reload from the configs sheet
 pub async fn init() {
     for (idx, sheet_id) in ATTENDANCE_SHEETS.iter().enumerate() {
-        let df =
-            g_sheets::get_as_dataframe(sheet_id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
-                .await;
-        update_config_from_df(&df, idx.into()).await.unwrap()
+        let conf: Config = idx.into();
+
+        log::info!(
+            "attd sheet {:?}: {:?}",
+            conf,
+            if matches!(sheet_id, Some(_)) {
+                "Some(_)"
+            } else {
+                "None"
+            }
+        );
+        match sheet_id {
+            Some(id) => {
+                let df =
+                    g_sheets::get_as_dataframe(id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
+                        .await;
+                update_config_from_df(&df, idx.into()).await.unwrap()
+            }
+            None => {}
+        }
+    }
+    for (idx, sheet_id) in PROGRAM_SHEETS.iter().enumerate() {
+        let conf: Config = idx.into();
+        log::info!(
+            "prog sheet: {:?}: {:?}",
+            conf,
+            if matches!(sheet_id, Some(_)) {
+                "Some(_)"
+            } else {
+                "None"
+            }
+        );
     }
 }
 

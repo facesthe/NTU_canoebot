@@ -16,7 +16,7 @@ use polars::{
     prelude::{AnyValue, DataFrame},
     series::Series,
 };
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockWriteGuard};
 
 pub use logsheet::SUBMIT_LOCK;
 pub use update::init;
@@ -26,15 +26,27 @@ const NO_ALLOCATION: &str = "NO BOAT";
 // most of these globals are initialized in init().
 lazy_static! {
     /// Attendance sheet lookup
-    static ref ATTENDANCE_SHEETS: [&'static str; 2] = [
-        &*config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
-        &*config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+    static ref ATTENDANCE_SHEETS: [Option<&'static str>; 2] = [
+        match config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
+        },
+        match config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
+        },
     ];
 
     /// Program sheet lookup
-    static ref PROGRAM_SHEETS: [&'static str; 2] = [
-        &*config::SHEETSCRAPER_OLD_PROGRAM_SHEET,
-        &*config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
+    static ref PROGRAM_SHEETS: [Option<&'static str>; 2] = [
+        match config::SHEETSCRAPER_OLD_PROGRAM_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
+        },
+        match config::SHEETSCRAPER_NEW_PROGRAM_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
+        },
     ];
 
     /// Lookup table of names and their 1-star certificate status.
@@ -196,19 +208,20 @@ impl Display for NameList {
 }
 
 impl NameList {
+    pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
+        Self {
+            date,
+            time: time_slot,
+            names: Default::default(),
+            boats: Default::default(),
+            prog: Default::default(),
+            fetch_time: chrono::Local::now().naive_local(),
+        }
+    }
+
     /// Get namelist to fetch the prog for the day
     pub async fn paddling(&mut self) -> Result<(), ()> {
-        let config = get_config_type(self.date);
-        let prog_lock = PROG_CACHE.read().await;
-
-        let prog_sheet = if prog_lock.contains_date(self.date) {
-            prog_lock.clone()
-        } else {
-            let sheet_id = PROGRAM_SHEETS[config as usize];
-            let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
-            let sheet: ProgSheet = df.try_into()?;
-            sheet
-        };
+        let prog_sheet = training_prog(self.date).await;
 
         self.prog = Some(
             prog_sheet
@@ -287,6 +300,17 @@ impl TryFrom<DataFrame> for AttdSheet {
 }
 
 impl AttdSheet {
+    pub fn from_date(date: NaiveDate) -> Self {
+        let (start, end) = calculate_month_start_end(date);
+
+        Self {
+            fetch_time: chrono::Local::now().naive_local(),
+            data: Default::default(),
+            start,
+            end,
+        }
+    }
+
     /// Returns a list of names for a particular date and time.
     /// Returns [Option::None] if the date given is outside the sheet range.
     ///
@@ -304,7 +328,10 @@ impl AttdSheet {
             delta * 2 + 1
         };
 
-        let names = &self.data[0];
+        let names = &self
+            .data
+            .column(&self.data.get_column_names().get(0)?)
+            .ok()?;
         let selected = &self
             .data
             .column(&self.data.get_column_names().get(offset)?)
@@ -376,7 +403,7 @@ impl TryFrom<DataFrame> for ProgSheet {
         let (sheet_start, sheet_end) = {
             let date_col = value
                 .column(*config::SHEETSCRAPER_COLUMNS_PROG_DATE)
-                .unwrap();
+                .map_err(|_| ())?;
 
             // debug_println!()
 
@@ -387,8 +414,10 @@ impl TryFrom<DataFrame> for ProgSheet {
             debug_println!("end: {}", end);
 
             (
-                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
-                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
+                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                    .map_err(|_| ())?,
+                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                    .map_err(|_| ())?,
             )
         };
 
@@ -402,6 +431,17 @@ impl TryFrom<DataFrame> for ProgSheet {
 }
 
 impl ProgSheet {
+    pub fn from_date(date: NaiveDate) -> Self {
+        let (start, end) = calculate_month_start_end(date);
+
+        Self {
+            fetch_time: chrono::Local::now().naive_local(),
+            data: Default::default(),
+            start,
+            end,
+        }
+    }
+
     /// Returns the training prog for a given date
     pub fn get_program(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
         let delta = (date - self.start).num_days();
@@ -420,7 +460,7 @@ impl ProgSheet {
 
     /// Returns the formatted training prog, formatted for display as a message
     pub fn get_formatted_prog(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
-        let prog_contents = self.get_program(date, time_slot)?;
+        let prog_contents = self.get_program(date, time_slot).unwrap_or("".to_string());
 
         let mut lines = Vec::new();
 
@@ -471,7 +511,7 @@ pub fn calculate_month_start_end(date: NaiveDate) -> (NaiveDate, NaiveDate) {
         let delta = month_last.weekday().num_days_from_sunday();
 
         let next_month_cutoff = month_last - Duration::days(delta as i64);
-        println!("next month cutoff: {}", next_month_cutoff);
+        debug_println!("next month cutoff: {}", next_month_cutoff);
 
         if date > next_month_cutoff {
             month_last + Duration::days(1)
@@ -479,8 +519,6 @@ pub fn calculate_month_start_end(date: NaiveDate) -> (NaiveDate, NaiveDate) {
             date
         }
     };
-
-    // debug_println!("date {} belongs in {}", date, date_block);
 
     let month_end = calculate_last_day(date_block);
     let month_start = NaiveDate::from_ymd_opt(date_block.year(), date_block.month(), 1).unwrap();
@@ -537,10 +575,7 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 /// Return the namelist struct. Accesses cache if hit.
 pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
     let config = get_config_type(date);
-    let sheet_id = match config {
-        crate::Config::Old => *config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
-        crate::Config::New => *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-    };
+    let sheet_id = ATTENDANCE_SHEETS[config as usize];
 
     debug_println!("date: {}\nusing {:?} config", date, config);
 
@@ -561,15 +596,20 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
             (false, true) => read_lock_wandering.clone(),
             (false, false) => {
                 drop(read_lock_wandering);
-                let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
-                let s: AttdSheet = df.try_into().ok()?;
+
+                let sheet = {
+                    match sheet_id {
+                        Some(id) => {
+                            let df = g_sheets::get_as_dataframe(id, Some(sheet_name)).await;
+                            let s: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
+                            s
+                        }
+                        None => AttdSheet::from_date(date),
+                    }
+                };
 
                 let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
-
-                write_wandering.start = s.start;
-                write_wandering.end = s.end;
-                write_wandering.data = s.data;
-                write_wandering.fetch_time = s.fetch_time;
+                update_attd_cache(sheet, &mut write_wandering);
 
                 write_wandering.clone()
             }
@@ -581,7 +621,37 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
     sheet.get_names(date, time_slot).await
 }
 
-/// Refresh the cached sheet
+/// Finds the training program for a given date and time slot. Accesses the cache
+/// if hit.
+pub async fn training_prog(date: NaiveDate) -> ProgSheet {
+    let config = get_config_type(date);
+    let sheet_id = PROGRAM_SHEETS[config as usize];
+
+    let read_lock = PROG_CACHE.read().await;
+    let prog_sheet = if read_lock.contains_date(date) {
+        read_lock.clone()
+    } else {
+        match sheet_id {
+            Some(id) => {
+                let df = g_sheets::get_as_dataframe(id, Option::<&str>::None).await;
+                let sheet: ProgSheet = df.try_into().unwrap_or(ProgSheet::from_date(date));
+                sheet
+            }
+            None => ProgSheet::from_date(date),
+        }
+    };
+
+    prog_sheet
+}
+
+fn update_attd_cache(sheet: AttdSheet, cache_lock: &mut RwLockWriteGuard<'_, AttdSheet>) {
+    cache_lock.start = sheet.start;
+    cache_lock.end = sheet.end;
+    cache_lock.data = sheet.data;
+    cache_lock.fetch_time = sheet.fetch_time;
+}
+
+/// Refresh the main cached and wandering sheet
 pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     debug_println!(
         "refreshing attd sheet cache at: {}",
@@ -603,7 +673,7 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     drop(read_cache);
     let config = get_config_type(today);
     let sheet_id = ATTENDANCE_SHEETS[config as usize];
-    let (sheet_name, _) = calculate_sheet_name(today + Duration::days(1));
+    let (sheet_name, _) = calculate_sheet_name(today);
 
     let read_wandering = SHEET_CACHE_WANDERING.read().await;
     let wandering_date = read_wandering.start;
@@ -613,34 +683,73 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     let sheet_id_wandering = ATTENDANCE_SHEETS[config as usize];
     let (sheet_name_wandering, _) = calculate_sheet_name(wandering_date);
 
-    let tasks = (
-        tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
-        tokio::spawn(g_sheets::get_as_dataframe(
-            sheet_id_wandering,
-            Some(sheet_name_wandering),
-        )),
-    );
+    let mut cache_lock = SHEET_CACHE.write().await;
+    let mut cache_lock_wand = SHEET_CACHE_WANDERING.write().await;
 
-    let df = tasks.0.await.unwrap();
-    let sheet: AttdSheet = df.try_into()?;
+    match (sheet_id, sheet_id_wandering) {
+        (None, None) => (),
+        (None, Some(wand)) => {
+            let df = g_sheets::get_as_dataframe(wand, Some(sheet_name_wandering)).await;
+            let sheet_wand: AttdSheet = df
+                .try_into()
+                .unwrap_or(AttdSheet::from_date(wandering_date));
+            update_attd_cache(sheet_wand, &mut cache_lock_wand);
+        }
+        (Some(id), None) => {
+            let df = g_sheets::get_as_dataframe(id, Some(sheet_name)).await;
+            let sheet = df.try_into().unwrap_or(AttdSheet::from_date(today));
+            update_attd_cache(sheet, &mut cache_lock);
+        }
+        (Some(id), Some(id_wand)) => {
+            let tasks = (
+                tokio::spawn(g_sheets::get_as_dataframe(id, Some(sheet_name))),
+                tokio::spawn(g_sheets::get_as_dataframe(
+                    id_wand,
+                    Some(sheet_name_wandering),
+                )),
+            );
 
-    let df_wandering = tasks.1.await.unwrap();
-    let sheet_wandering: AttdSheet = df_wandering.try_into()?;
+            let df = tasks.0.await.unwrap();
+            let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(today));
 
-    debug_println!("local cache fetch at: {}", sheet.fetch_time);
-    debug_println!("wandering cache fetch at: {}", sheet_wandering.fetch_time);
+            let df_wandering = tasks.1.await.unwrap();
+            let sheet_wandering: AttdSheet = df_wandering
+                .try_into()
+                .unwrap_or(AttdSheet::from_date(wandering_date));
 
-    let mut write_lock = SHEET_CACHE.write().await;
-    write_lock.start = sheet.start;
-    write_lock.end = sheet.end;
-    write_lock.data = sheet.data;
-    write_lock.fetch_time = sheet.fetch_time;
+            update_attd_cache(sheet, &mut cache_lock);
+            update_attd_cache(sheet_wandering, &mut cache_lock_wand);
+        }
+    }
 
-    let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
-    write_wandering.start = sheet_wandering.start;
-    write_wandering.end = sheet_wandering.end;
-    write_wandering.data = sheet_wandering.data;
-    write_wandering.fetch_time = sheet_wandering.fetch_time;
+    // let tasks = (
+    //     tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
+    //     tokio::spawn(g_sheets::get_as_dataframe(
+    //         sheet_id_wandering,
+    //         Some(sheet_name_wandering),
+    //     )),
+    // );
+
+    // let df = tasks.0.await.unwrap();
+    // let sheet: AttdSheet = df.try_into()?;
+
+    // let df_wandering = tasks.1.await.unwrap();
+    // let sheet_wandering: AttdSheet = df_wandering.try_into()?;
+
+    // debug_println!("local cache fetch at: {}", sheet.fetch_time);
+    // debug_println!("wandering cache fetch at: {}", sheet_wandering.fetch_time);
+
+    // let mut write_lock = SHEET_CACHE.write().await;
+    // write_lock.start = sheet.start;
+    // write_lock.end = sheet.end;
+    // write_lock.data = sheet.data;
+    // write_lock.fetch_time = sheet.fetch_time;
+
+    // let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
+    // write_wandering.start = sheet_wandering.start;
+    // write_wandering.end = sheet_wandering.end;
+    // write_wandering.data = sheet_wandering.data;
+    // write_wandering.fetch_time = sheet_wandering.fetch_time;
 
     Ok(())
 }
@@ -652,7 +761,7 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
         chrono::Local::now().time()
     );
 
-    let today = chrono::Local::now().naive_local() + Duration::days(1);
+    let today = chrono::Local::now().date_naive() + Duration::days(1);
     let read_lock = PROG_CACHE.read().await;
 
     if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
@@ -664,12 +773,20 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     }
 
     drop(read_lock);
-    let config = get_config_type(today.date());
+    let config = get_config_type(today);
     let sheet_id = PROGRAM_SHEETS[config as usize];
 
-    let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
+    let sheet = {
+        match sheet_id {
+            Some(id) => {
+                let df = g_sheets::get_as_dataframe(id, Option::<&str>::None).await;
+                let sheet: ProgSheet = df.try_into().unwrap_or(ProgSheet::from_date(today));
 
-    let sheet: ProgSheet = df.try_into()?;
+                sheet
+            }
+            None => ProgSheet::from_date(today),
+        }
+    };
 
     let mut write_lock = PROG_CACHE.write().await;
 

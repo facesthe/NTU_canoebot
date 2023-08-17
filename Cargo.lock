@@ -1489,6 +1489,7 @@ dependencies = [
  "g_forms",
  "g_sheets",
  "lazy_static",
+ "log",
  "ntu_canoebot_config",
  "ntu_canoebot_util",
  "polars",

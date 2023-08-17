@@ -3,7 +3,6 @@
 
 use std::error::Error;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
 use ntu_canoebot_attd::SHEET_CACHE;
@@ -154,7 +153,7 @@ pub async fn namelist_get(
 
     let list = ntu_canoebot_attd::namelist(date, time_slot)
         .await
-        .ok_or(anyhow!(""))?;
+        .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(date, time_slot));
 
     // generate keyboard
     let prev = Callback::NameList(NameList::Get {

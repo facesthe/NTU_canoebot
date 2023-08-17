@@ -75,14 +75,16 @@ prog.am = "AM program"
 prog.pm = "PM program"
 
 # previous AY configuration
+# 0-sized strings = unfilled
 [sheetscraper.old]
-attendance_sheet = "google sheets sheetid"
-program_sheet = "google sheets sheetid"
+attendance_sheet = ""
+program_sheet = ""
 
 # new AY configuration
+# 0-sized strings = unfilled
 [sheetscraper.new]
-attendance_sheet = "google sheets sheetid"
-program_sheet = "google sheets sheetid"
+attendance_sheet = ""
+program_sheet = ""
 
 [sheetscraper.paddling]
 format = "Paddling {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"

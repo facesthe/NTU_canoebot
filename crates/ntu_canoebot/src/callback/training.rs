@@ -2,15 +2,13 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::{get_config_type, refresh_prog_sheet_cache, ProgSheet, PROG_CACHE};
+use ntu_canoebot_attd::PROG_CACHE;
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{calendar_month_gen, calendar_year_gen, date_am_pm_navigation};
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
-
-use ntu_canoebot_config as config;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Training {
@@ -106,31 +104,18 @@ pub async fn training_get(
     is_callback: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let date: NaiveDate = date.into();
-    let sheet_id = match get_config_type(date) {
-        ntu_canoebot_attd::Config::Old => *config::SHEETSCRAPER_OLD_PROGRAM_SHEET,
-        ntu_canoebot_attd::Config::New => *config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
-    };
 
-    let sheet: ProgSheet = {
-        let read_lock = PROG_CACHE.read().await;
-        match read_lock.contains_date(date) {
-            true => {
-                if refresh {
-                    drop(read_lock);
-                    refresh_prog_sheet_cache(true).await.unwrap();
-                    PROG_CACHE.read().await.clone()
-                } else {
-                    read_lock.clone()
-                }
-            }
-            false => {
-                let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
-                df.try_into().unwrap()
-            }
-        }
-    };
+    let cache_lock = PROG_CACHE.read().await;
+    if cache_lock.contains_date(date) && refresh {
+        ntu_canoebot_attd::refresh_prog_sheet_cache(true)
+            .await
+            .unwrap();
+    }
 
-    let prog = sheet.get_formatted_prog(date, time_slot).unwrap();
+    let sheet = ntu_canoebot_attd::training_prog(date).await;
+    let prog = sheet
+        .get_formatted_prog(date, time_slot)
+        .unwrap_or("".to_string());
 
     let refresh = Callback::Training(Training::Get(date.into(), time_slot, true));
     let next = Callback::Training(Training::Get(

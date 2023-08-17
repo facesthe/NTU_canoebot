@@ -1,8 +1,8 @@
 use std::error::Error;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
+use ntu_canoebot_attd::NameList;
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
@@ -159,7 +159,7 @@ pub async fn paddling_get(
 
     let mut name_list = ntu_canoebot_attd::namelist(date_n, time_slot)
         .await
-        .ok_or(anyhow!("failed to get namelist"))?;
+        .unwrap_or(NameList::from_date_time(date, time_slot));
 
     name_list.assign_boats(deconflict).await;
     name_list.paddling().await.unwrap();

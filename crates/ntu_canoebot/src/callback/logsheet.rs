@@ -63,9 +63,13 @@ impl HandleCallback for LogSheet {
                         .unwrap();
                 }
 
-                let name_list = ntu_canoebot_attd::namelist((*date).into(), *time_slot)
+                let date_naive = (*date).into();
+
+                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot)
                     .await
-                    .ok_or(anyhow!("no namelist found"))?;
+                    .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
+                        date_naive, *time_slot,
+                    ));
 
                 let num_paddlers = name_list.names.len();
 

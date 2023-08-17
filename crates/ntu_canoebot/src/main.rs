@@ -48,8 +48,9 @@ async fn main() {
 async fn start_events() {
     const REFRESH_INTERVAL: u32 = 10;
 
+    ntu_canoebot_attd::init().await;
+
     tokio::task::spawn(SRC_CACHE.fill_all());
-    tokio::task::spawn(ntu_canoebot_attd::init());
     tokio::task::spawn(ntu_canoebot_attd::refresh_attd_sheet_cache(true));
     tokio::task::spawn(ntu_canoebot_attd::refresh_prog_sheet_cache(true));
 
