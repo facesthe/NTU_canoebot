@@ -461,6 +461,59 @@ pub fn get_config_type(date: NaiveDate) -> Config {
     }
 }
 
+/// Calculate the start and end of a block.
+///
+/// - start day is always a monday
+/// - end day is always a sunday
+pub fn calculate_month_start_end(date: NaiveDate) -> (NaiveDate, NaiveDate) {
+    let date_block = {
+        let month_last = calculate_last_day(date);
+        let delta = month_last.weekday().num_days_from_sunday();
+
+        let next_month_cutoff = month_last - Duration::days(delta as i64);
+        println!("next month cutoff: {}", next_month_cutoff);
+
+        if date > next_month_cutoff {
+            month_last + Duration::days(1)
+        } else {
+            date
+        }
+    };
+
+    // debug_println!("date {} belongs in {}", date, date_block);
+
+    let month_end = calculate_last_day(date_block);
+    let month_start = NaiveDate::from_ymd_opt(date_block.year(), date_block.month(), 1).unwrap();
+
+    let end_delta = month_end.weekday().num_days_from_sunday();
+    let start_delta = month_start.weekday().num_days_from_monday();
+
+    (
+        (month_start - Duration::days(start_delta as i64)),
+        (month_end - Duration::days(end_delta as i64)),
+    )
+}
+
+/// Calculate the last day of a month
+pub fn calculate_last_day(date: NaiveDate) -> NaiveDate {
+    let last_day = {
+        let next_y;
+        let next_m;
+
+        if date.month() == 12 {
+            next_m = 1;
+            next_y = date.year() + 1;
+        } else {
+            next_m = date.month() + 1;
+            next_y = date.year();
+        }
+
+        NaiveDate::from_ymd_opt(next_y, next_m, 1).unwrap() - Duration::days(1)
+    };
+
+    last_day
+}
+
 /// Calculate the sheet name from some rules.
 /// Also returns the number of days for that sheet.
 ///
@@ -469,67 +522,11 @@ pub fn get_config_type(date: NaiveDate) -> Config {
 /// - The sheet must end on the last Sunday of a month
 /// - A sheet is named MMM-YYYY
 pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
-    let last_day = {
-        let next_month;
-        let next_year;
+    let (start, end) = calculate_month_start_end(date);
+    let num_days = (end - start).num_days() + 1;
+    let sheet_name = end.format("%b-%Y").to_string();
 
-        if date.month() == 12 {
-            next_month = 1;
-            next_year = date.year() + 1;
-        } else {
-            next_month = date.month() + 1;
-            next_year = date.year();
-        }
-
-        NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap() - Duration::days(1)
-    };
-    let day = last_day.weekday();
-    let days_after = day.number_from_monday() % 7;
-
-    let delta_sunday = last_day.day() - days_after;
-
-    let actual_sheet_date = if date.day() > delta_sunday {
-        last_day + Duration::days(1)
-    } else {
-        last_day
-    };
-
-    // first day of month
-    let month_start =
-        NaiveDate::from_ymd_opt(actual_sheet_date.year(), actual_sheet_date.month(), 1).unwrap();
-
-    // dist from first day of month to the prev months' monday
-    let prev_mon_delta = month_start.weekday().num_days_from_monday();
-
-    // dist from last day of month to last sunday
-    let last_day = {
-        let next_month;
-        let next_year;
-
-        if actual_sheet_date.month() == 12 {
-            next_month = 1;
-            next_year = actual_sheet_date.year() + 1;
-        } else {
-            next_month = actual_sheet_date.month() + 1;
-            next_year = actual_sheet_date.year();
-        }
-
-        NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap() - Duration::days(1)
-    };
-
-    let days_aft_last_sunday = last_day.weekday().num_days_from_sunday();
-    let sheet_start = month_start - Duration::days(prev_mon_delta as i64);
-    let sheet_end = last_day - Duration::days(days_aft_last_sunday as i64);
-    let num_sheet_days = (sheet_end - sheet_start).num_days() + 1;
-
-    debug_println!("actual sheet date: {}", actual_sheet_date);
-    debug_println!("date {} start: {}, end: {}", date, sheet_start, sheet_end);
-
-    (
-        actual_sheet_date.format("%b-%Y").to_string(),
-        num_sheet_days,
-    )
-    // todo!()
+    (sheet_name, num_days)
 }
 
 /// Convert an [AnyValue] type to a string.
@@ -781,6 +778,43 @@ mod tests {
         let prog = sheet.get_program(today, false);
 
         println!("{:?}", prog);
+    }
+
+    fn create_date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    #[test]
+    fn test_calculate_month_start_end() {
+        let date = create_date(2023, 1, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2022, 12, 26));
+        assert_eq!(end, create_date(2023, 1, 29));
+
+        let date = create_date(2023, 2, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 2, 27));
+        assert_eq!(end, create_date(2023, 3, 26));
+
+        let date = create_date(2023, 3, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 3, 27));
+        assert_eq!(end, create_date(2023, 4, 30));
+
+        let date = create_date(2023, 4, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 3, 27));
+        assert_eq!(end, create_date(2023, 4, 30));
+
+        let date = create_date(2023, 5, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 5, 1));
+        assert_eq!(end, create_date(2023, 5, 28));
+
+        let date = create_date(2023, 6, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 6, 26));
+        assert_eq!(end, create_date(2023, 7, 30));
     }
 
     #[test]
