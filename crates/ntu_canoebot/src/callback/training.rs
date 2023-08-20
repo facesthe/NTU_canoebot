@@ -15,11 +15,15 @@ pub enum Training {
     /// Query with a date and time slot.
     ///
     /// Force a cache refresh with the last bool.
-    Get(Date, bool, bool),
+    Get {
+        date: Date,
+        time_slot: bool,
+        refresh: bool,
+    },
     /// Month calendar
-    MonthSelect(Date),
+    MonthSelect { date: Date },
     /// Year calendar
-    YearSelect(Date),
+    YearSelect { date: Date },
 }
 
 #[async_trait]
@@ -32,11 +36,15 @@ impl HandleCallback for Training {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            Training::Get(date, time_slot, refresh) => {
+            Training::Get {
+                date,
+                time_slot,
+                refresh,
+            } => {
                 replace_with_whitespace(bot.clone(), &msg, 2).await?;
                 training_get(*date, *time_slot, *refresh, bot, msg, true).await?;
             }
-            Training::MonthSelect(date) => {
+            Training::MonthSelect { date } => {
                 let start =
                     NaiveDate::from_ymd_opt(date.year.into(), date.month.into(), 1).unwrap();
 
@@ -44,15 +52,21 @@ impl HandleCallback for Training {
                     .into_iter()
                     .map(|idx| {
                         let day = start + Duration::days(idx);
-                        Callback::Training(Training::Get(day.into(), false, false))
+                        Callback::Training(Training::Get {
+                            date: day.into(),
+                            time_slot: false,
+                            refresh: false,
+                        })
                     })
                     .collect();
 
-                let year = Callback::Training(Training::YearSelect(*date));
-                let next =
-                    Callback::Training(Training::MonthSelect((start + Duration::days(33)).into()));
-                let prev: Callback =
-                    Callback::Training(Training::MonthSelect((start - Duration::days(1)).into()));
+                let year = Callback::Training(Training::YearSelect { date: *date });
+                let next = Callback::Training(Training::MonthSelect {
+                    date: (start + Duration::days(33)).into(),
+                });
+                let prev: Callback = Callback::Training(Training::MonthSelect {
+                    date: (start - Duration::days(1)).into(),
+                });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -60,28 +74,34 @@ impl HandleCallback for Training {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Training::YearSelect(date) => {
+            Training::YearSelect { date } => {
                 let months: Vec<Callback> = (1..=12)
                     .into_iter()
                     .map(|m| {
-                        Callback::Training(Training::MonthSelect(Date {
-                            year: date.year,
-                            month: m,
-                            day: 1,
-                        }))
+                        Callback::Training(Training::MonthSelect {
+                            date: Date {
+                                year: date.year,
+                                month: m,
+                                day: 1,
+                            },
+                        })
                     })
                     .collect();
 
-                let next = Callback::Training(Training::YearSelect(Date {
-                    year: date.year + 1,
-                    month: date.month,
-                    day: date.day,
-                }));
-                let prev = Callback::Training(Training::YearSelect(Date {
-                    year: date.year - 1,
-                    month: date.month,
-                    day: date.day,
-                }));
+                let next = Callback::Training(Training::YearSelect {
+                    date: Date {
+                        year: date.year + 1,
+                        month: date.month,
+                        day: date.day,
+                    },
+                });
+                let prev = Callback::Training(Training::YearSelect {
+                    date: Date {
+                        year: date.year - 1,
+                        month: date.month,
+                        day: date.day,
+                    },
+                });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
@@ -117,19 +137,27 @@ pub async fn training_get(
         .get_formatted_prog(date, time_slot)
         .unwrap_or("".to_string());
 
-    let refresh = Callback::Training(Training::Get(date.into(), time_slot, true));
-    let next = Callback::Training(Training::Get(
-        (date + Duration::days(1)).into(),
+    let refresh = Callback::Training(Training::Get {
+        date: date.into(),
         time_slot,
-        false,
-    ));
-    let prev = Callback::Training(Training::Get(
-        (date - Duration::days(1)).into(),
+        refresh: true,
+    });
+    let next = Callback::Training(Training::Get {
+        date: (date + Duration::days(1)).into(),
         time_slot,
-        false,
-    ));
-    let slot = Callback::Training(Training::Get(date.into(), !time_slot, false));
-    let calendar = Callback::Training(Training::MonthSelect(date.into()));
+        refresh: false,
+    });
+    let prev = Callback::Training(Training::Get {
+        date: (date - Duration::days(1)).into(),
+        time_slot,
+        refresh: false,
+    });
+    let slot = Callback::Training(Training::Get {
+        date: date.into(),
+        time_slot: !time_slot,
+        refresh: false,
+    });
+    let calendar = Callback::Training(Training::MonthSelect { date: date.into() });
 
     let keyboard = date_am_pm_navigation(date, refresh, next, prev, slot, calendar, !time_slot);
 

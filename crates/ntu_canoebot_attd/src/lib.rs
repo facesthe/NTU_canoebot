@@ -212,15 +212,18 @@ impl Display for NameList {
 
 /// The attendance breakdown for a particular week,
 /// Monday to Sunday
+///
 /// Shows:
-/// - date
+/// - dates
 /// - total paddlers
 /// - exco paddlers
+/// - fetch time
 #[derive(Clone, Debug, Default)]
 pub struct Breakdown {
     start: NaiveDate,
     num_total: [u16; 7],
     num_exco: [u16; 7],
+    fetch_time: NaiveDateTime,
 }
 
 impl Display for Breakdown {
@@ -286,6 +289,9 @@ impl Display for Breakdown {
                 width_c = max_c
             ));
         }
+
+        resp_vec.push(String::new());
+        resp_vec.push(format!("fetched at {}", self.fetch_time.format("%H:%M:%S")));
 
         let res = resp_vec.join("\n");
 
@@ -746,9 +752,9 @@ pub async fn training_prog(date: NaiveDate) -> ProgSheet {
 
 /// Returns the attendance breakdown for a particular week,
 /// from Mon to Sun
-pub async fn breakdown(date: NaiveDate) -> Breakdown {
+pub async fn breakdown(date: NaiveDate, time_slot: bool) -> Breakdown {
     let cache_lock = SHEET_CACHE.read().await;
-    let wand_lock = SHEET_CACHE_WANDERING.read().await;
+    let mut wand_lock = SHEET_CACHE_WANDERING.write().await;
     let sheet = {
         match (
             cache_lock.contains_date(date),
@@ -764,8 +770,8 @@ pub async fn breakdown(date: NaiveDate) -> Breakdown {
                     Some(sheet) => {
                         let df = g_sheets::get_as_dataframe(sheet, Some(sheet_name)).await;
                         let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
-
-                        sheet
+                        update_attd_cache(sheet, &mut wand_lock);
+                        wand_lock.clone()
                     }
                     None => AttdSheet::from_date(date),
                 }
@@ -783,13 +789,15 @@ pub async fn breakdown(date: NaiveDate) -> Breakdown {
             let sheet_clone = sheet_ref.clone();
             tokio::spawn(async move {
                 let day = first_day + Duration::days(d);
-                (day, sheet_clone.get_names(day, false).await)
+                (day, sheet_clone.get_names(day, time_slot).await)
             })
         })
         .collect::<Vec<_>>();
 
     let mut breakdown = Breakdown::default();
+    breakdown.fetch_time = sheet_ref.fetch_time;
     breakdown.start = first_day;
+
     let config = get_config_type(date);
     let exco_lock = EXCO_NAMES[config as usize].read().await;
 
@@ -893,35 +901,6 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
         }
     }
 
-    // let tasks = (
-    //     tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
-    //     tokio::spawn(g_sheets::get_as_dataframe(
-    //         sheet_id_wandering,
-    //         Some(sheet_name_wandering),
-    //     )),
-    // );
-
-    // let df = tasks.0.await.unwrap();
-    // let sheet: AttdSheet = df.try_into()?;
-
-    // let df_wandering = tasks.1.await.unwrap();
-    // let sheet_wandering: AttdSheet = df_wandering.try_into()?;
-
-    // debug_println!("local cache fetch at: {}", sheet.fetch_time);
-    // debug_println!("wandering cache fetch at: {}", sheet_wandering.fetch_time);
-
-    // let mut write_lock = SHEET_CACHE.write().await;
-    // write_lock.start = sheet.start;
-    // write_lock.end = sheet.end;
-    // write_lock.data = sheet.data;
-    // write_lock.fetch_time = sheet.fetch_time;
-
-    // let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
-    // write_wandering.start = sheet_wandering.start;
-    // write_wandering.end = sheet_wandering.end;
-    // write_wandering.data = sheet_wandering.data;
-    // write_wandering.fetch_time = sheet_wandering.fetch_time;
-
     Ok(())
 }
 
@@ -993,11 +972,10 @@ mod tests {
     async fn test_breakdown() {
         init().await;
 
-        let bd = breakdown(chrono::Local::now().date_naive()).await;
+        let bd = breakdown(chrono::Local::now().date_naive(), false).await;
+        println!("{}", bd);
 
-
-        // let bd = Breakdown::default();
-
+        let bd = breakdown(chrono::Local::now().date_naive(), true).await;
         println!("{}", bd);
     }
 

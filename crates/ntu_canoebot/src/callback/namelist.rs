@@ -5,7 +5,6 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::SHEET_CACHE;
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
@@ -141,9 +140,6 @@ pub async fn namelist_get(
     is_callback: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let date: NaiveDate = date.into();
-
-    let read_lock = SHEET_CACHE.read().await;
-    drop(read_lock);
 
     if refresh {
         ntu_canoebot_attd::refresh_attd_sheet_cache(true)

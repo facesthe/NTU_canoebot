@@ -1,3 +1,4 @@
+mod breakdown;
 pub mod callbacks;
 mod logsheet;
 mod namelist;
@@ -18,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
+pub use breakdown::breakdown_get;
 pub use logsheet::logsheet_start;
 pub use namelist::namelist_get;
 pub use paddling::paddling_get;
@@ -46,6 +48,7 @@ pub enum Callback {
     NameList(namelist::NameList),
     Training(training::Training),
     Padddling(paddling::Paddling),
+    Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
@@ -109,6 +112,7 @@ impl HandleCallback for Callback {
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
             Callback::Padddling(call) => call.handle_callback(bot, query).await,
+            Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
 
             // testing
@@ -122,6 +126,13 @@ impl HandleCallback for Callback {
         }
     }
 }
+
+// /// Trait for initializing an object from a date.
+// pub trait FromDate {
+//     type Output;
+
+//     fn from_date(date: NaiveDate) -> Self::Output;
+// }
 
 /// Date struct passed inside callbacks
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]

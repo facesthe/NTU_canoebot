@@ -58,6 +58,9 @@ pub enum Commands {
     #[command(description = "full paddling attendance")]
     Paddling,
 
+    #[command(description = "show weekly paddling statistics")]
+    WeeklyBreakdown,
+
     #[command(description = "send SCF logsheet")]
     Logsheet,
 
@@ -181,6 +184,17 @@ impl HandleCommand for Commands {
                     (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
                     false,
                     true,
+                    false,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
+            }
+            Commands::WeeklyBreakdown => {
+                callback::breakdown_get(
+                    chrono::Local::now().date_naive(),
+                    false,
                     false,
                     bot,
                     &msg,
