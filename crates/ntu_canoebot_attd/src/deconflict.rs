@@ -455,7 +455,12 @@ impl NameList {
 
                                 // which person do we kick out?
                                 let kicked;
-                                debug_println!("{} has conflicts: {:?}, {:?}", unallo_name, pri_conflict, alt_conflict);
+                                debug_println!(
+                                    "{} has conflicts: {:?}, {:?}",
+                                    unallo_name,
+                                    pri_conflict,
+                                    alt_conflict
+                                );
                                 match (pri_conflict.1.lock, alt_conflict.1.lock) {
                                     (true, true) => {
                                         debug_println!("no options left for {}", unallo_name);
@@ -487,7 +492,11 @@ impl NameList {
                                         kicked = Some(pri_conflict.0);
                                     }
                                     (false, false) => {
-                                        debug_println!("assigning {} to {} without locking", unallo_name, pri);
+                                        debug_println!(
+                                            "assigning {} to {} without locking",
+                                            unallo_name,
+                                            pri
+                                        );
                                         // this branch is causing problems
                                         res.insert(
                                             unallo_name,

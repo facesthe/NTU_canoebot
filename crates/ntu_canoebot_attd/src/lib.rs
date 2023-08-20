@@ -4,7 +4,7 @@ mod deconflict;
 pub mod logsheet;
 mod update;
 
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
@@ -73,6 +73,9 @@ lazy_static! {
     /// Since each program sheet contains data for one entire year,
     /// this is pretty much all the data needed.
     pub static ref PROG_CACHE: RwLock<ProgSheet> = Default::default();
+
+    /// Set of names that are part of the EXCO
+    pub static ref EXCO_NAMES: [RwLock<HashSet<String>>; 2] = Default::default();
 
 }
 
@@ -207,6 +210,103 @@ impl Display for NameList {
     }
 }
 
+/// The attendance breakdown for a particular week,
+/// Monday to Sunday
+/// Shows:
+/// - date
+/// - total paddlers
+/// - exco paddlers
+#[derive(Clone, Debug, Default)]
+pub struct Breakdown {
+    start: NaiveDate,
+    num_total: [u16; 7],
+    num_exco: [u16; 7],
+}
+
+impl Display for Breakdown {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const DATE: &str = "date";
+        const TOTAL: &str = "total";
+        const EXCO: &str = "exco";
+
+        let dates: Vec<String> = (0..7)
+            .into_iter()
+            .map(|add| {
+                (self.start + Duration::days(add))
+                    .format("%a %d %b")
+                    .to_string()
+            })
+            .collect();
+
+        let (max_a, max_b, max_c) = {
+            let col_a = dates.iter().map(|d| d.len()).max().unwrap();
+            let col_a = col_a.max(DATE.len());
+
+            let col_b = self
+                .num_total
+                .iter()
+                .map(|num| num_digits(*num as i64))
+                .max()
+                .unwrap();
+            let col_b = col_b.max(TOTAL.len());
+
+            let col_c = self
+                .num_exco
+                .iter()
+                .map(|num| num_digits(*num as i64))
+                .max()
+                .unwrap();
+            let col_c = col_c.max(EXCO.len());
+
+            (col_a, col_b, col_c)
+        };
+
+        let mut resp_vec: Vec<String> = Vec::new();
+        resp_vec.push(format!(
+            "{:<width_a$} {:<width_b$} {:<width_c$}",
+            DATE,
+            TOTAL,
+            EXCO,
+            width_a = max_a,
+            width_b = max_b,
+            width_c = max_c
+        ));
+
+        for (date, (total, exco)) in dates
+            .iter()
+            .zip(self.num_total.iter().zip(self.num_exco.iter()))
+        {
+            resp_vec.push(format!(
+                "{:<width_a$} {:>width_b$} {:>width_c$}",
+                date,
+                total,
+                exco,
+                width_a = max_a,
+                width_b = max_b,
+                width_c = max_c
+            ));
+        }
+
+        let res = resp_vec.join("\n");
+
+        write!(f, "{}", res)
+    }
+}
+
+fn num_digits(mut number: i64) -> usize {
+    if number == 0 {
+        return 1;
+    }
+
+    let mut res = 0;
+    while number != 0 {
+        number /= 10;
+        res += 1;
+    }
+
+    res
+}
+
 impl NameList {
     pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
         Self {
@@ -247,7 +347,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let cols_to_drop: Vec<&str> = value
             .get_column_names()
             .iter()
-            .zip((0..*config::SHEEETSCRAPER_LAYOUT_FENCING_LEFT).into_iter())
+            .zip((0..*config::SHEETSCRAPER_LAYOUT_FENCING_LEFT).into_iter())
             .map(|(col, _)| *col)
             .collect();
 
@@ -256,7 +356,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let inter_1 = value.drop_many(&cols_to_drop);
 
         let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
-        let inter_2 = inter_1.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
+        let inter_2 = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_FENCING_TOP, length);
         let name_column = &inter_2[0];
 
         // remove non-data columns
@@ -266,9 +366,9 @@ impl TryFrom<DataFrame> for AttdSheet {
             .skip(1)
             .filter_map(|(idx, col)| {
                 let window_index =
-                    (idx - 1) % (14 + *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
+                    (idx - 1) % (14 + *config::SHEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
 
-                if window_index < *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
+                if window_index < *config::SHEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
                     None
                 } else {
                     Some(col.to_owned())
@@ -644,6 +744,77 @@ pub async fn training_prog(date: NaiveDate) -> ProgSheet {
     prog_sheet
 }
 
+/// Returns the attendance breakdown for a particular week,
+/// from Mon to Sun
+pub async fn breakdown(date: NaiveDate) -> Breakdown {
+    let cache_lock = SHEET_CACHE.read().await;
+    let wand_lock = SHEET_CACHE_WANDERING.read().await;
+    let sheet = {
+        match (
+            cache_lock.contains_date(date),
+            wand_lock.contains_date(date),
+        ) {
+            (true, _) => cache_lock.clone(),
+            (false, true) => wand_lock.clone(),
+            (false, false) => {
+                let config = get_config_type(date);
+                let sheet_name = calculate_sheet_name(date).0;
+
+                match ATTENDANCE_SHEETS[config as usize] {
+                    Some(sheet) => {
+                        let df = g_sheets::get_as_dataframe(sheet, Some(sheet_name)).await;
+                        let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
+
+                        sheet
+                    }
+                    None => AttdSheet::from_date(date),
+                }
+            }
+        }
+    };
+
+    let first_day = date - Duration::days(date.weekday().num_days_from_monday() as i64);
+
+    let sheet_ref = Arc::new(sheet);
+
+    let jobs_vec = (0..7)
+        .into_iter()
+        .map(|d| {
+            let sheet_clone = sheet_ref.clone();
+            tokio::spawn(async move {
+                let day = first_day + Duration::days(d);
+                (day, sheet_clone.get_names(day, false).await)
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let mut breakdown = Breakdown::default();
+    breakdown.start = first_day;
+    let config = get_config_type(date);
+    let exco_lock = EXCO_NAMES[config as usize].read().await;
+
+    for (idx, job) in jobs_vec.into_iter().enumerate() {
+        let (day, names) = job.await.unwrap();
+        let nlist = match names {
+            Some(list) => list,
+            None => NameList::from_date_time(day, false),
+        };
+
+        let num_total = nlist.names.len();
+        breakdown.num_total[idx] = num_total as u16;
+
+        let num_exco: usize = nlist
+            .names
+            .iter()
+            .map(|name| if exco_lock.contains(name) { 1 } else { 0 })
+            .sum();
+
+        breakdown.num_exco[idx] = num_exco as u16;
+    }
+
+    breakdown
+}
+
 fn update_attd_cache(sheet: AttdSheet, cache_lock: &mut RwLockWriteGuard<'_, AttdSheet>) {
     cache_lock.start = sheet.start;
     cache_lock.end = sheet.end;
@@ -809,17 +980,40 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn test_num_digits() {
+        assert_eq!(num_digits(1), 1);
+        assert_eq!(num_digits(9), 1);
+        assert_eq!(num_digits(10), 2);
+        assert_eq!(num_digits(99), 2);
+        assert_eq!(num_digits(100), 3);
+    }
+
+    #[tokio::test]
+    async fn test_breakdown() {
+        init().await;
+
+        let bd = breakdown(chrono::Local::now().date_naive()).await;
+
+
+        // let bd = Breakdown::default();
+
+        println!("{}", bd);
+    }
+
     #[tokio::test]
     async fn get_sheet() {
         let mut df = g_sheets::get_as_dataframe(
             *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-            Some("Aug-2023"),
+            Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET),
         )
         .await;
 
-        let out_file = File::create("attd.csv").unwrap();
-        let csv_writer = CsvWriter::new(out_file);
-        csv_writer.has_header(true).finish(&mut df).unwrap();
+        println!("{:?}", df.column("is_exco"));
+
+        // let out_file = File::create("attd.csv").unwrap();
+        // let csv_writer = CsvWriter::new(out_file);
+        // csv_writer.has_header(true).finish(&mut df).unwrap();
     }
 
     #[tokio::test]

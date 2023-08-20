@@ -14,7 +14,10 @@ cache:
 build: cache
 	docker compose build
 
-up: build
+up:
+	docker compose up -d
+
+buildup: build
 	docker compose up -d
 
 down:

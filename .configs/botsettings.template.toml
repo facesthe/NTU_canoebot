@@ -53,7 +53,7 @@ changeover_date = 1970-01-01
 attd = 30
 prog = 30
 
-[sheeetscraper.layout]
+[sheetscraper.layout]
 # fencing = rows/cols of the sheet that are cut out prior to processing
 fencing.left = 1
 fencing.top = 2
@@ -68,6 +68,7 @@ attd.short_name = "shortname"
 attd.boat_primary = "boat_1"
 attd.boat_alternate = "boat_2"
 attd.certification = "1_star"
+attd.exco = "is_exco"
 
 # prog sheet cols
 prog.date = "Date"

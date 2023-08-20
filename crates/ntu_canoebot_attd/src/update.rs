@@ -8,8 +8,8 @@ use std::{
 use polars::prelude::DataFrame;
 
 use crate::{
-    dataframe_cell_to_string, Config, ATTENDANCE_SHEETS, BOATS, BOAT_ALLOCATIONS, NAMES_CERTS,
-    PROGRAM_SHEETS, SHORTENED_NAMES,
+    dataframe_cell_to_string, Config, ATTENDANCE_SHEETS, BOATS, BOAT_ALLOCATIONS, EXCO_NAMES,
+    NAMES_CERTS, PROGRAM_SHEETS, SHORTENED_NAMES,
 };
 use ntu_canoebot_config as config;
 
@@ -176,6 +176,41 @@ async fn update_config_from_df(
     lock.extend(allocations);
     drop(lock);
 
+    let exco_id = df.column(&*config::SHEETSCRAPER_COLUMNS_ATTD_EXCO).unwrap();
+    let short_lock = SHORTENED_NAMES[config as usize].read().await;
+
+    let exco_names = names
+        .iter()
+        .zip(exco_id.iter())
+        .filter_map(|(name, if_exco)| {
+            let name = dataframe_cell_to_string(name);
+            let if_exco = match dataframe_cell_to_string(if_exco).parse::<u8>() {
+                Ok(value) => {
+                    if value == 1 {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Err(_) => false,
+            };
+
+            if if_exco {
+                if short_lock.contains_key(&name) {
+                    Some(short_lock.get(&name).cloned().unwrap())
+                } else {
+                    Some(name)
+                }
+            } else {
+                None
+            }
+        });
+
+    let mut lock = EXCO_NAMES[config as usize].write().await;
+    lock.clear();
+    lock.extend(exco_names);
+    drop(lock);
+
     Ok(())
 }
 
@@ -236,6 +271,9 @@ mod tests {
         println!("{:#?}", x);
 
         let x = BOATS[0].read().await;
+        println!("{:#?}", x);
+
+        let x = EXCO_NAMES[1].read().await;
         println!("{:#?}", x);
     }
 }
