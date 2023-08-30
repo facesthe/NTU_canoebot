@@ -199,7 +199,13 @@ impl HandleCommand for Commands {
                 .await
             }
             Commands::Land => {
-                callback::land_get(bot, &msg, chrono::Local::now().date_naive(), false).await
+                callback::land_get(
+                    bot,
+                    &msg,
+                    chrono::Local::now().date_naive() + chrono::Duration::days(1),
+                    false,
+                )
+                .await
             }
             Commands::WeeklyBreakdown => {
                 callback::breakdown_get(

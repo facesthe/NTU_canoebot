@@ -12,7 +12,7 @@ use crate::{
     frame::{
         calendar_month_gen, calendar_year_gen,
         common_buttons::{BACK_ARROW, BLANK, DATE, FORWARD_ARROW, REFRESH},
-        construct_keyboard_tuple, date_am_pm_navigation,
+        construct_keyboard_tuple,
     },
 };
 
