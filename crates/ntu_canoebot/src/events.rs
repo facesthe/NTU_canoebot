@@ -67,10 +67,14 @@ pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
             Callback::LogSheet(crate::callback::LogSheet::Start { date: now.into() }),
         )]]);
 
-        bot.send_message(ChatId(chat_id), "logsheet")
+        let res = bot
+            .send_message(ChatId(chat_id), "logsheet")
             .reply_markup(keyboard)
-            .await
-            .map_err(|_| ())?;
+            .await;
+
+        if let Err(e) = res {
+            log::info!("chat id invalid: {}", e)
+        }
     }
 
     Ok(())
@@ -91,10 +95,14 @@ pub async fn attendance_prompt(bot: Bot) -> Result<(), ()> {
             }),
         )]]);
 
-        bot.send_message(ChatId(chat_id), "paddling")
+        let res = bot
+            .send_message(ChatId(chat_id), "paddling")
             .reply_markup(keyboard)
-            .await
-            .map_err(|_| ())?;
+            .await;
+
+        if let Err(e) = res {
+            log::info!("chat id invalid: {}", e)
+        }
     }
 
     Ok(())
@@ -114,10 +122,14 @@ pub async fn breakdown_prompt(bot: Bot) -> Result<(), ()> {
             }),
         )]]);
 
-        bot.send_message(ChatId(chat_id), "breakdown")
+        let res = bot
+            .send_message(ChatId(chat_id), "breakdown")
             .reply_markup(keyboard)
-            .await
-            .map_err(|_| ())?;
+            .await;
+
+        if let Err(e) = res {
+            log::info!("chat id invalid: {}", e)
+        }
     }
 
     Ok(())

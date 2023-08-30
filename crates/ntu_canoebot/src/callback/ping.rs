@@ -39,7 +39,10 @@ impl HandleCallback for Ping {
         bot.edit_message_text(msg.chat.id, msg.id, text).await?;
         tokio::time::sleep(Duration::from_secs(10)).await;
         bot.delete_message(msg.chat.id, msg.id).await?;
-        bot.delete_message(msg.chat.id, MessageId(msg_id)).await?;
+        let res = bot.delete_message(msg.chat.id, MessageId(msg_id)).await;
+        if let Err(e) = res {
+            log::info!("unable to delete user message: {}", e)
+        }
         Ok(())
     }
 }
