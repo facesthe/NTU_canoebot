@@ -1,5 +1,6 @@
 mod breakdown;
 pub mod callbacks;
+mod land;
 mod logsheet;
 mod namelist;
 mod paddling;
@@ -21,6 +22,7 @@ use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 pub use breakdown::{breakdown_get, Breakdown};
+pub use land::land_get;
 pub use logsheet::{logsheet_start, LogSheet};
 pub use namelist::namelist_get;
 pub use paddling::{paddling_get, Paddling};
@@ -49,6 +51,7 @@ pub enum Callback {
     NameList(namelist::NameList),
     Training(training::Training),
     Padddling(paddling::Paddling),
+    Land(land::Land),
     Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
     Ping(ping::Ping),
@@ -114,6 +117,7 @@ impl HandleCallback for Callback {
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
             Callback::Padddling(call) => call.handle_callback(bot, query).await,
+            Callback::Land(call) => call.handle_callback(bot, query).await,
             Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
             Callback::Ping(call) => call.handle_callback(bot, query).await,

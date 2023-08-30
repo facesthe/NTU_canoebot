@@ -20,6 +20,7 @@ use teloxide::utils::command::BotCommands;
 
 use crate::callback::src::src_menu_create;
 use crate::callback::{self, Callback};
+use crate::frame::common_buttons::BLANK;
 use crate::frame::{calendar_month_gen, calendar_year_gen};
 
 /// Main commands
@@ -52,11 +53,14 @@ pub enum Commands {
     #[command(description = "see who's going training")]
     Namelist,
 
-    #[command(description = "view training program  ")]
+    #[command(description = "view training program")]
     Training,
 
     #[command(description = "full paddling attendance")]
     Paddling,
+
+    #[command(description = "land training")]
+    Land,
 
     #[command(description = "show weekly paddling statistics")]
     WeeklyBreakdown,
@@ -194,6 +198,9 @@ impl HandleCommand for Commands {
                 )
                 .await
             }
+            Commands::Land => {
+                callback::land_get(bot, &msg, chrono::Local::now().date_naive(), false).await
+            }
             Commands::WeeklyBreakdown => {
                 callback::breakdown_get(
                     chrono::Local::now().date_naive(),
@@ -300,7 +307,10 @@ pub async fn message_handler(
 
 /// Handler for plain text messages
 async fn empty_command_handler(_bot: Bot, _msg: Message, _me: Me) {
-    log::trace!("doing nothing for command: {}", _msg.text().unwrap_or(""));
+    log::trace!(
+        "doing nothing for command: {}",
+        _msg.text().unwrap_or(BLANK)
+    );
     log::trace!(
         "Chat id: {}, User id: {}",
         _msg.chat.id,

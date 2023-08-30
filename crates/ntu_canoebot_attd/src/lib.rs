@@ -116,11 +116,22 @@ pub struct ProgSheet {
     end: NaiveDate,
 }
 
+/// Training session type
+#[derive(Clone, Copy, Debug, Default)]
+pub enum Session {
+    #[default]
+    Paddling,
+    Land,
+}
+
 /// Namelist object
 #[derive(Clone, Debug)]
 pub struct NameList {
     /// Namelist date
     pub date: NaiveDate,
+
+    /// Session type
+    pub session: Session,
 
     /// Time slot
     pub time: bool,
@@ -167,6 +178,7 @@ impl Display for NameList {
         let res = match &self.prog {
             Some(prog) => {
                 let template = *config::SHEETSCRAPER_PADDLING_FORMAT;
+                let sub_session = *config::SHEETSCRAPER_PADDLING_SUB_SESSION;
                 let sub_date = *config::SHEETSCRAPER_PADDLING_SUB_DATE;
                 let sub_allo = *config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
                 let sub_prog = *config::SHEETSCRAPER_PADDLING_SUB_PROG;
@@ -181,6 +193,7 @@ impl Display for NameList {
                 let allo = main_list.join("\n");
 
                 let res = template
+                    .replace(sub_session, format!("{:?}", self.session).as_str())
                     .replace(sub_date, &date)
                     .replace(sub_allo, &allo)
                     .replace(sub_prog, &prog)
@@ -317,6 +330,7 @@ impl NameList {
     pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
         Self {
             date,
+            session: Default::default(),
             time: time_slot,
             names: Default::default(),
             boats: Default::default(),
@@ -482,6 +496,7 @@ impl AttdSheet {
 
         Some(NameList {
             date,
+            session: Session::Paddling,
             time: time_slot,
             names: filtered,
             boats: None,
@@ -700,7 +715,7 @@ pub fn calculate_land_sheet_name(date: NaiveDate) -> String {
         }
     };
 
-    format!("gym-{}/{}", acad_year, sem)
+    format!("gym-{}{}", acad_year, sem)
 }
 
 /// Convert an [AnyValue] type to a string.
@@ -877,11 +892,15 @@ pub async fn land(date: NaiveDate) -> NameList {
 
     debug_println!("to drop cols: {:?}", cols_to_drop);
 
-    let inter_1 = df.drop_many(&cols_to_drop);
+    let df_fenced = df.drop_many(&cols_to_drop);
 
-    let length = inter_1.iter().map(|series| series.len()).max().unwrap_or(0);
-    let df_fenced = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
+    // let length = df_fenced.iter().map(|series| series.len()).max().unwrap_or(0);
+
+    // debug_println!("{}", inter_1);
+    // let df_fenced = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
     let name_column = &df_fenced[0];
+
+    // debug_println!("{}", df_fenced);
 
     let day = date.weekday().num_days_from_monday();
     let offset = day * 2 + 1;
@@ -916,6 +935,7 @@ pub async fn land(date: NaiveDate) -> NameList {
 
     NameList {
         date,
+        session: Session::Land,
         time: true,
         names: filtered,
         boats: None,
@@ -1296,6 +1316,9 @@ mod tests {
 
     #[test]
     fn test_calculate_land_sheet_name() {
+        let sess = Session::default();
+        println!("{:?}", sess);
+
         let year = chrono::Local::now().date_naive().year();
         for i in (1..=12).into_iter() {
             let date = NaiveDate::from_ymd_opt(year, i, 1).unwrap();
@@ -1308,7 +1331,8 @@ mod tests {
     #[tokio::test]
     async fn test_asd() {
         init().await;
-        let res = land(chrono::Local::now().date_naive()).await;
+        let mut res = land(chrono::Local::now().date_naive() + Duration::days(1)).await;
+        res.fill_prog(true).await.unwrap();
         println!("{}", res);
     }
 }

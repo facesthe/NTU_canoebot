@@ -8,7 +8,9 @@ use chrono::{Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
-use crate::frame::{calendar_month_gen, calendar_year_gen, date_am_pm_navigation};
+use crate::frame::{
+    calendar_month_gen, calendar_year_gen, common_buttons::BLANK, date_am_pm_navigation,
+};
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
 
@@ -94,7 +96,7 @@ impl HandleCallback for Breakdown {
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
-                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(" "))
+                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
                     .reply_markup(keyboard)
                     .await?;
             }

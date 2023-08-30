@@ -8,7 +8,7 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{
     calendar_month_gen, calendar_year_gen,
-    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH, TIME_AM, TIME_PM},
+    common_buttons::{BACK_ARROW, BLANK, DATE, FORWARD_ARROW, REFRESH, TIME_AM, TIME_PM},
     construct_keyboard_tuple,
 };
 
@@ -124,7 +124,7 @@ impl HandleCallback for Paddling {
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
-                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(""))
+                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
                     .reply_markup(keyboard)
                     .await?;
             }

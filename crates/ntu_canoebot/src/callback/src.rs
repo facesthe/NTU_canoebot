@@ -17,7 +17,7 @@ use crate::{
     callback::{self, Callback},
     frame::{
         calendar_month_gen, calendar_year_gen,
-        common_buttons::{BACK, BACK_ARROW, FORWARD_ARROW},
+        common_buttons::{BACK, BACK_ARROW, BLANK, FORWARD_ARROW},
         common_descriptions::MENU,
         construct_keyboard_tuple, fold_buttons,
     },
@@ -227,7 +227,7 @@ async fn src_year_select(
     let keyboard = calendar_year_gen(date.into(), &buttons, next, prev, back);
     let msg = message_from_callback_query(&query)?;
 
-    bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(" "))
+    bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
         .reply_markup(keyboard)
         .await?;
 

@@ -92,9 +92,10 @@ attendance_sheet = ""
 program_sheet = ""
 
 [sheetscraper.paddling]
-format = "Paddling {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"
+format = "{session} {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"
 # used for variable substitutions.
 # they should match with the format string above
+sub_session = "{session}"
 sub_date = "{date}"
 sub_boatallo = "{boatallo}"
 sub_prog = "{training_prog}"

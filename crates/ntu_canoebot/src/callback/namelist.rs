@@ -11,7 +11,7 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use crate::{
     callback::message_from_callback_query,
-    frame::{calendar_month_gen, calendar_year_gen, date_am_pm_navigation},
+    frame::{calendar_month_gen, calendar_year_gen, common_buttons::BLANK, date_am_pm_navigation},
 };
 
 use super::{replace_with_whitespace, Callback, Date, HandleCallback};
@@ -119,7 +119,7 @@ impl HandleCallback for NameList {
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
-                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(" "))
+                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
                     .reply_markup(keyboard)
                     .await?;
             }
