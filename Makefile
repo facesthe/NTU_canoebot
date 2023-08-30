@@ -9,7 +9,7 @@ manifest = $(shell find -name "Cargo.*" -type f)
 default: build
 
 cache:
-	docker build -t ntu_canoebot_cache -f docker/cache.Dockerfile .
+	docker build -t ${image_name}_cache -f docker/cache.Dockerfile .
 
 build: cache
 	docker compose build
@@ -23,7 +23,7 @@ buildup: build
 down:
 	docker compose down
 
-save: build
+save:
 	docker save --output $(image_name).tar $(image_name)
 
 info:
