@@ -162,7 +162,7 @@ pub async fn paddling_get(
         .unwrap_or(NameList::from_date_time(date, time_slot));
 
     name_list.assign_boats(deconflict).await;
-    name_list.paddling().await.unwrap();
+    name_list.fill_prog(false).await.unwrap();
 
     let d: Date = date.into();
     let prev = Callback::Padddling(Paddling::Get {

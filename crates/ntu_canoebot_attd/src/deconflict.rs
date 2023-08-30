@@ -687,7 +687,7 @@ mod tests {
         let config = get_config_type(date);
         let mut name_list = crate::namelist(date, false).await.unwrap();
         let deconf_res = name_list.assign_boats(true).await;
-        name_list.paddling().await.unwrap();
+        name_list.fill_prog(false).await.unwrap();
         let groups = NameList::find_matching(&name_list.names, config).await;
 
         println!("allocation success: {}", deconf_res);
@@ -695,7 +695,7 @@ mod tests {
         println!("deconf boat allocation: {}", name_list);
 
         name_list.assign_boats(false).await;
-        name_list.paddling().await.unwrap();
+        name_list.fill_prog(false).await.unwrap();
 
         println!("no deconf boat allocation: {}", name_list);
     }

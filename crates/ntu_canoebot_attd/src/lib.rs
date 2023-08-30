@@ -325,13 +325,13 @@ impl NameList {
         }
     }
 
-    /// Get namelist to fetch the prog for the day
-    pub async fn paddling(&mut self) -> Result<(), ()> {
+    /// Get namelist to fetch the prog for the day, for a given time slot
+    pub async fn fill_prog(&mut self, time_slot: bool) -> Result<(), ()> {
         let prog_sheet = training_prog(self.date).await;
 
         self.prog = Some(
             prog_sheet
-                .get_program(self.date, false)
+                .get_program(self.date, time_slot)
                 .unwrap_or("".to_string()),
         );
 
@@ -353,7 +353,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let cols_to_drop: Vec<&str> = value
             .get_column_names()
             .iter()
-            .zip((0..*config::SHEETSCRAPER_LAYOUT_FENCING_LEFT).into_iter())
+            .zip((0..*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT).into_iter())
             .map(|(col, _)| *col)
             .collect();
 
@@ -362,7 +362,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let inter_1 = value.drop_many(&cols_to_drop);
 
         let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
-        let inter_2 = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_FENCING_TOP, length);
+        let inter_2 = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP, length);
         let name_column = &inter_2[0];
 
         // remove non-data columns
@@ -372,9 +372,9 @@ impl TryFrom<DataFrame> for AttdSheet {
             .skip(1)
             .filter_map(|(idx, col)| {
                 let window_index =
-                    (idx - 1) % (14 + *config::SHEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
+                    (idx - 1) % (14 + *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING) as usize;
 
-                if window_index < *config::SHEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
+                if window_index < *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize {
                     None
                 } else {
                     Some(col.to_owned())
@@ -673,6 +673,36 @@ pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
     (sheet_name, num_days)
 }
 
+/// Calculates the sheet name for lang prog.
+///
+/// This is a very simple function as makes some assumptions about
+/// the semester structure that NTU has.
+pub fn calculate_land_sheet_name(date: NaiveDate) -> String {
+    const FIRST_SEM_MONTH: u32 = 8; // AY starts in August
+
+    let acad_year: String = {
+        let year = if date.month() >= FIRST_SEM_MONTH {
+            date.year()
+        } else {
+            date.year() - 1
+        };
+
+        format!("{}", year % 100)
+    };
+
+    let sem: String = {
+        let month = date.month();
+
+        if month >= FIRST_SEM_MONTH {
+            "S1".to_string()
+        } else {
+            "S2".to_string()
+        }
+    };
+
+    format!("gym-{}/{}", acad_year, sem)
+}
+
 /// Convert an [AnyValue] type to a string.
 fn dataframe_cell_to_string(cell: AnyValue) -> String {
     cell.to_string().trim_matches('\"').to_string()
@@ -727,7 +757,7 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
     sheet.get_names(date, time_slot).await
 }
 
-/// Finds the training program for a given date and time slot. Accesses the cache
+/// Finds the training program for a given date. Accesses the cache
 /// if hit.
 pub async fn training_prog(date: NaiveDate) -> ProgSheet {
     let config = get_config_type(date);
@@ -821,6 +851,75 @@ pub async fn breakdown(date: NaiveDate, time_slot: bool) -> Breakdown {
     }
 
     breakdown
+}
+
+/// Returns the land program, taking names from the gym sheet.
+///
+/// No cache for this one, it's barely used.
+///
+/// All data processing is performed inside here.
+pub async fn land(date: NaiveDate) -> NameList {
+    let config = get_config_type(date);
+    let sheet_name = calculate_land_sheet_name(date);
+
+    let df = match ATTENDANCE_SHEETS[config as usize] {
+        Some(sheet_id) => g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await,
+        None => return NameList::from_date_time(date, true),
+    };
+
+    // trim sides of data
+    let cols_to_drop: Vec<&str> = df
+        .get_column_names()
+        .iter()
+        .zip((0..*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_LEFT).into_iter())
+        .map(|(col, _)| *col)
+        .collect();
+
+    debug_println!("to drop cols: {:?}", cols_to_drop);
+
+    let inter_1 = df.drop_many(&cols_to_drop);
+
+    let length = inter_1.iter().map(|series| series.len()).max().unwrap_or(0);
+    let df_fenced = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
+    let name_column = &df_fenced[0];
+
+    let day = date.weekday().num_days_from_monday();
+    let offset = day * 2 + 1;
+
+    let attd_column = df_fenced
+        .column(df_fenced.get_column_names().get(offset as usize).unwrap())
+        .unwrap();
+
+    debug_println!("{}", attd_column);
+
+    let read_lock = SHORTENED_NAMES[config as usize].read().await;
+
+    let filtered: Vec<String> = attd_column.iter().enumerate().filter_map(|(idx, cell)| {
+        let contents = dataframe_cell_to_string(cell);
+        if contents == "Y" {
+            let name = name_column.get(idx).unwrap();
+            let key = dataframe_cell_to_string(name);
+            debug_println!("name: {}", key);
+            if read_lock.contains_key(&key) {
+                read_lock.get(&key).cloned()
+            } else {
+                Some(key)
+            }
+        } else {
+            None
+        }
+    }).collect();
+
+    NameList {
+        date,
+        time: true,
+        names: filtered,
+        boats: None,
+        prog: None,
+        fetch_time: chrono::Local::now().naive_local(),
+    }
+
+    // println!("{}", df);
 }
 
 fn update_attd_cache(sheet: AttdSheet, cache_lock: &mut RwLockWriteGuard<'_, AttdSheet>) {
@@ -1189,5 +1288,23 @@ mod tests {
             assert_eq!(num_days % 7, 0);
             assert_ne!(num_days, 0);
         }
+    }
+
+    #[test]
+    fn test_calculate_land_sheet_name() {
+        let year = chrono::Local::now().date_naive().year();
+        for i in (1..=12).into_iter() {
+            let date = NaiveDate::from_ymd_opt(year, i, 1).unwrap();
+
+            let sheet_name = calculate_land_sheet_name(date);
+            println!("{} -> {}", date, sheet_name)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_asd() {
+        init().await;
+        let res = land(chrono::Local::now().date_naive()).await;
+        println!("{}", res);
     }
 }

@@ -53,13 +53,17 @@ changeover_date = 1970-01-01
 attd = 30
 prog = 30
 
-[sheetscraper.layout]
+[sheetscraper.layout.attd]
 # fencing = rows/cols of the sheet that are cut out prior to processing
 fencing.left = 1
 fencing.top = 2
 
 # non-data columns before each 7-day block
 block_pre_padding = 3
+
+[sheetscraper.layout.land]
+fencing.left = 1
+fencing.top = 2
 
 [sheetscraper.columns]
 # attendance sheet cols
@@ -75,13 +79,13 @@ prog.date = "Date"
 prog.am = "AM program"
 prog.pm = "PM program"
 
-# previous AY configuration
+# sheet ids for previous AY configuration
 # 0-sized strings = unfilled
 [sheetscraper.old]
 attendance_sheet = ""
 program_sheet = ""
 
-# new AY configuration
+# sheet ids for new AY configuration
 # 0-sized strings = unfilled
 [sheetscraper.new]
 attendance_sheet = ""
