@@ -121,4 +121,23 @@ async fn start_events() {
 
         tokio::task::spawn(attendance_event);
     }
+
+    if *config::EVENTS_WEEKLY_BREAKDOWN_ENABLE {
+        let prompt_time = config::EVENTS_WEEKLY_BREAKDOWN_TIME.time.unwrap();
+        let breakdown_event = tokio_schedule::every(1)
+            .week()
+            .on(chrono::Weekday::Wed)
+            .at(
+                prompt_time.hour as u32,
+                prompt_time.minute as u32,
+                prompt_time.second as u32,
+            )
+            .perform(|| async {
+                events::breakdown_prompt(BOT.clone())
+                    .await
+                    .expect("breakdown prompt failed")
+            });
+
+        tokio::task::spawn(breakdown_event);
+    }
 }

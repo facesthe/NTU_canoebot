@@ -59,6 +59,8 @@ fn message_from_chat_id(chat_id: i64) -> Message {
 /// Send the logsheet to exco chat
 pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
+        log::info!("");
+
         let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
             "logsheet",
@@ -76,8 +78,9 @@ pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
 
 pub async fn attendance_prompt(bot: Bot) -> Result<(), ()> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
-        let now = chrono::Local::now().date_naive();
+        log::info!("");
 
+        let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
             "paddling",
             Callback::Padddling(crate::callback::Paddling::Get {
@@ -97,4 +100,25 @@ pub async fn attendance_prompt(bot: Bot) -> Result<(), ()> {
     Ok(())
 }
 
-pub async fn breakdown_prompt(bot: Bot) {}
+pub async fn breakdown_prompt(bot: Bot) -> Result<(), ()> {
+    if let Some(chat_id) = *EXCO_CHAT_ID {
+        log::info!("");
+
+        let now = chrono::Local::now().date_naive() + Duration::days(7);
+        let keyboard = construct_keyboard_tuple([[(
+            "breakdown",
+            Callback::Breakdown(crate::callback::Breakdown::Get {
+                date: now.into(),
+                time_slot: false,
+                refresh: false,
+            }),
+        )]]);
+
+        bot.send_message(ChatId(chat_id), "breakdown")
+            .reply_markup(keyboard)
+            .await
+            .map_err(|_| ())?;
+    }
+
+    Ok(())
+}

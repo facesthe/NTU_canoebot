@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
-pub use breakdown::breakdown_get;
+pub use breakdown::{breakdown_get, Breakdown};
 pub use logsheet::{logsheet_start, LogSheet};
 pub use namelist::namelist_get;
 pub use paddling::{paddling_get, Paddling};
