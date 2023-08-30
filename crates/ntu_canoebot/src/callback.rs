@@ -3,6 +3,7 @@ pub mod callbacks;
 mod logsheet;
 mod namelist;
 mod paddling;
+mod ping;
 pub mod src;
 mod training;
 
@@ -20,9 +21,10 @@ use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 pub use breakdown::breakdown_get;
-pub use logsheet::logsheet_start;
+pub use logsheet::{logsheet_start, LogSheet};
 pub use namelist::namelist_get;
-pub use paddling::paddling_get;
+pub use paddling::{paddling_get, Paddling};
+pub use ping::ping_start;
 pub use training::training_get;
 
 use crate::frame::construct_keyboard_tuple;
@@ -42,7 +44,6 @@ const BLANK_BLOCK: char = '\u{2588}';
 /// inline markup button.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Callback {
-    BigData(callbacks::BigData),
     Empty,
     Src(src::Src),
     NameList(namelist::NameList),
@@ -50,6 +51,7 @@ pub enum Callback {
     Padddling(paddling::Paddling),
     Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
+    Ping(ping::Ping),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -114,9 +116,8 @@ impl HandleCallback for Callback {
             Callback::Padddling(call) => call.handle_callback(bot, query).await,
             Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
-
+            Callback::Ping(call) => call.handle_callback(bot, query).await,
             // testing
-            Callback::BigData(call) => call.handle_callback(bot, query).await,
 
             // to catch unimpl'd callbacks
             _ => {
@@ -328,12 +329,11 @@ mod test {
     /// Tests serializing and deserializing the callback data
     #[test]
     fn test_callback_serde() {
-        let callback = Callback::BigData(callbacks::BigData { uuid: u64::MAX });
-
-        // Callback::OtherThing {
-        //     name: "asadasdasdjanskdjanskdjaksjdnkajsdkjnajksasdasdsad".to_string(),
-        //     age: 13,
-        // };
+        let callback = Callback::LogSheet(logsheet::LogSheet::StartTime {
+            date: chrono::Local::now().date_naive().into(),
+            time_slot: false,
+            refresh: true,
+        });
 
         let serialized: Vec<u8> = (&callback).try_into().unwrap();
         let deserialized: Callback = (&serialized).try_into().unwrap();

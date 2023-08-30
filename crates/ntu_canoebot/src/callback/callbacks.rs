@@ -6,22 +6,6 @@ use teloxide::prelude::*;
 
 use super::HandleCallback;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct BigData {
-    pub uuid: u64,
-}
-
-#[async_trait]
-impl HandleCallback for BigData {
-    async fn handle_callback(
-        &self,
-        _bot: Bot,
-        _query: CallbackQuery,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        todo!()
-    }
-}
-
 /// Blank callback (empty/unused buttons)
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Empty {}

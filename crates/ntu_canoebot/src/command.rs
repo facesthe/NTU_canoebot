@@ -65,6 +65,9 @@ pub enum Commands {
     Logsheet,
 
     // secondary commands
+    /// Logs the users chat info
+    #[command(description = "off")]
+    Ping,
     // #[command(description = "Simple wikipedia search")]
     #[command(description = "off")]
     What,
@@ -205,6 +208,8 @@ impl HandleCommand for Commands {
             Commands::Logsheet => {
                 callback::logsheet_start(chrono::Local::now().date_naive(), bot, &msg, false).await
             }
+
+            Commands::Ping => callback::ping_start(bot, &msg).await,
 
             // test cmds
             Commands::Button(_cmd) => {

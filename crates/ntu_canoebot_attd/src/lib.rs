@@ -894,21 +894,25 @@ pub async fn land(date: NaiveDate) -> NameList {
 
     let read_lock = SHORTENED_NAMES[config as usize].read().await;
 
-    let filtered: Vec<String> = attd_column.iter().enumerate().filter_map(|(idx, cell)| {
-        let contents = dataframe_cell_to_string(cell);
-        if contents == "Y" {
-            let name = name_column.get(idx).unwrap();
-            let key = dataframe_cell_to_string(name);
-            debug_println!("name: {}", key);
-            if read_lock.contains_key(&key) {
-                read_lock.get(&key).cloned()
+    let filtered: Vec<String> = attd_column
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, cell)| {
+            let contents = dataframe_cell_to_string(cell);
+            if contents == "Y" {
+                let name = name_column.get(idx).unwrap();
+                let key = dataframe_cell_to_string(name);
+                debug_println!("name: {}", key);
+                if read_lock.contains_key(&key) {
+                    read_lock.get(&key).cloned()
+                } else {
+                    Some(key)
+                }
             } else {
-                Some(key)
+                None
             }
-        } else {
-            None
-        }
-    }).collect();
+        })
+        .collect();
 
     NameList {
         date,
