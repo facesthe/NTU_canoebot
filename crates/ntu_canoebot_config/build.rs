@@ -266,8 +266,8 @@ mod codegen {
         fn generate_code(&self, _inner: bool) -> (String, String) {
             match self {
                 Value::String(s) => ("&'static str".to_string(), format!("\"{}\"", s)),
-                Value::Integer(i) => ("i64".to_string(), format!("({})", i)),
-                Value::Float(f) => ("f64".to_string(), format!("({})", f)),
+                Value::Integer(i) => ("i64".to_string(), format!("({}_i64)", i)),
+                Value::Float(f) => ("f64".to_string(), format!("({}_f64)", f)),
                 Value::Boolean(b) => ("bool".to_string(), b.to_string()),
                 Value::Datetime(dt) => (
                     "Datetime".to_string(),
