@@ -79,6 +79,9 @@ pub enum Commands {
     // #[command(description = "Simple urban dictionary search")]
     #[command(description = "off")]
     WhatActually,
+
+    #[command(description = "✨ vomit ✨")]
+    EmojiVomit { text: String },
 }
 
 /// Handle a specific command.
@@ -223,6 +226,30 @@ impl HandleCommand for Commands {
             }
 
             Commands::Ping => callback::ping_start(bot, &msg).await,
+
+            Commands::EmojiVomit { text } => {
+                match text.len() {
+                    // if no text is passed, look for a reply
+                    0 => match msg.reply_to_message() {
+                        Some(repl_msg) => {
+                            if let Some(text) = repl_msg.text() {
+                                if text.len() != 0 {
+                                    let vomit = emoji_vomit::vomit(text);
+                                    bot.send_message(msg.chat.id, vomit).await?;
+                                }
+                            }
+                        }
+                        None => {}
+                    },
+                    // if some text is passed, vomit on that
+                    _ => {
+                        let vomit = emoji_vomit::vomit(text);
+                        bot.send_message(msg.chat.id, vomit).await?;
+                    }
+                }
+
+                Ok(())
+            }
 
             // test cmds
             Commands::Button(_cmd) => {

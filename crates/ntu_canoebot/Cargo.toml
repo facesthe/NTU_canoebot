@@ -13,6 +13,7 @@ ntu_canoebot_attd = {path = "../ntu_canoebot_attd"}
 ntu_canoebot_config = {path = "../ntu_canoebot_config"}
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
 ntu_src = {path = "../ntu_src"}
+emoji_vomit = {path = "../emoji_vomit"}
 
 teloxide = {workspace = true}
 tokio = {workspace = true}

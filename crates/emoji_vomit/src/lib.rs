@@ -9,7 +9,7 @@ mod consts;
 
 use ntu_canoebot_util::debug_println;
 
-///
+/// Create ✨ vomit ✨
 pub fn vomit<T: AsRef<str>>(input: T) -> String {
     let slice = input.as_ref();
 

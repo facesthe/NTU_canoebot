@@ -1494,6 +1494,7 @@ dependencies = [
  "chrono",
  "deflate",
  "dotenv",
+ "emoji_vomit",
  "g_forms",
  "g_sheets",
  "inflate",
