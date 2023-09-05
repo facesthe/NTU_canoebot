@@ -73,11 +73,11 @@ These are the current list of public commands available. Copy and paste these wh
     land - full land attendance
     weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
+    what - what is it?
+    whatactually - what is it actually?
     emojivomit - emoji vomit
 
 <!-- whoami - who u -->
-<!-- what - what is it? -->
-<!-- whatactually - what is it actually? -->
 
 <!-- countdown - days left to ITCC -->
 

@@ -7,6 +7,7 @@ mod paddling;
 mod ping;
 pub mod src;
 mod training;
+mod whatactually;
 
 use std::error::Error;
 use std::str::FromStr;

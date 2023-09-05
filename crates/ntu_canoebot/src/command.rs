@@ -20,6 +20,7 @@ use teloxide::utils::command::BotCommands;
 
 use crate::callback::src::src_menu_create;
 use crate::callback::{self, Callback};
+use crate::dictionaries;
 use crate::frame::common_buttons::BLANK;
 use crate::frame::{calendar_month_gen, calendar_year_gen};
 
@@ -73,12 +74,12 @@ pub enum Commands {
     #[command(description = "off")]
     Ping,
     // #[command(description = "Simple wikipedia search")]
-    #[command(description = "off")]
-    What,
+    #[command(description = "What is it?")]
+    What { query: HiddenString },
 
     // #[command(description = "Simple urban dictionary search")]
-    #[command(description = "off")]
-    WhatActually,
+    #[command(description = "What is it actually?")]
+    WhatActually { query: HiddenString },
 
     #[command(description = "✨ vomit ✨")]
     EmojiVomit { text: HiddenString },
@@ -227,6 +228,26 @@ impl HandleCommand for Commands {
 
             Commands::Ping => callback::ping_start(bot, &msg).await,
 
+            Commands::What { query } => {
+                let res = dictionaries::wikipedia::query(query.as_str()).await;
+
+                if let Some(result) = res {
+                    bot.send_message(msg.chat.id, result).await?;
+                }
+
+                Ok(())
+            }
+
+            Commands::WhatActually { query } => {
+                let res = dictionaries::urbandictonary::query(query.as_str()).await;
+
+                if let Some(result) = res {
+                    bot.send_message(msg.chat.id, result).await?;
+                }
+
+                Ok(())
+            }
+
             Commands::EmojiVomit { text } => {
                 match text.len() {
                     // if no text is passed, look for a reply
@@ -250,6 +271,8 @@ impl HandleCommand for Commands {
 
                 Ok(())
             }
+
+
 
             // test cmds
             Commands::Button(_cmd) => {

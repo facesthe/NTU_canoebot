@@ -8,10 +8,11 @@ use std::{
     str::FromStr,
 };
 
+use serde::{Serialize, Deserialize};
 use veil::Redact;
 
 /// String with contents hidden from the [Debug] trait
-#[derive(Clone, Redact)]
+#[derive(Clone, Redact, Serialize, Deserialize)]
 #[redact(all, fixed = 8)]
 pub struct HiddenString {
     inner: String,

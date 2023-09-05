@@ -1542,6 +1542,7 @@ dependencies = [
 name = "ntu_canoebot_util"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "veil",
 ]
 
