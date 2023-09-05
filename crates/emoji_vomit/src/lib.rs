@@ -30,7 +30,7 @@ struct Word {
     data: String,
 
     /// Marks if the enclosed string does not contain identifiable letters
-    is_punctuation: bool,
+    has_punctuation: bool,
 
     /// Marks if every letter of the word is un uppercase
     is_capitalized: bool,
@@ -56,7 +56,9 @@ where
 {
     fn from(value: T) -> Self {
         let string = value.as_ref().to_string();
-        let caps = string.chars().all(|c| c.is_uppercase());
+        let caps = string
+            .chars()
+            .all(|c| c.is_uppercase() || c.is_ascii_punctuation());
         let alphabet = string.chars().all(|c| c.is_alphabetic());
         // let emoji = find_emoji(&string.to_lowercase(), false, None);
 
@@ -84,7 +86,7 @@ where
 
         Self {
             data: string,
-            is_punctuation: !alphabet,
+            has_punctuation: !alphabet,
             is_capitalized: caps,
             pre_fix: false,
             post_fix: true,
@@ -246,7 +248,22 @@ fn mod_capitalized_sequence(words: &mut Vec<Word>) {
                     mark_start = Some(idx);
                     mark_end = Some(idx);
                 }
-                (Some(_), _) => mark_end = Some(idx),
+                (Some(_), _) => {
+                    mark_end = Some(idx);
+                }
+            }
+
+            // count the sequence as complete for capitalized words that
+            // contain ASCII punctuation
+            match (mark_start, mark_end) {
+                (Some(start), Some(end)) => {
+                    if word.has_punctuation {
+                        mut_caps_vec(&mut words[start..=end]);
+                        mark_start = None;
+                        mark_end = None;
+                    }
+                }
+                _ => (),
             }
         } else {
             match (mark_start, mark_end) {
@@ -300,7 +317,15 @@ fn mod_emoji(words: &mut Vec<Word>) {
     if idx_remaining < size {
         for remaining in words[idx_remaining..size].iter() {
             let hash = hash(remaining);
-            let emoji = find_emoji(&remaining.data.to_lowercase(), false, Some(hash));
+            let emoji = find_emoji(
+                &if remaining.has_punctuation {
+                    remove_ascii_punctuation(&remaining.data.to_lowercase())
+                } else {
+                    remaining.data.to_lowercase()
+                },
+                false,
+                Some(hash),
+            );
             assigned_emojis.push(emoji);
         }
     }
@@ -379,6 +404,20 @@ fn hash<T: std::hash::Hash>(item: T) -> u64 {
     hasher.finish()
 }
 
+fn remove_ascii_punctuation<T: AsRef<str>>(slice: T) -> String {
+    slice
+        .as_ref()
+        .chars()
+        .filter_map(|c| {
+            if c.is_ascii_punctuation() {
+                None
+            } else {
+                Some(c)
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
@@ -437,5 +476,22 @@ mod tests {
 
         mut_caps_vec(&mut words);
         println!("{:?}", words);
+    }
+
+    #[test]
+    fn test_strip_punctuation() {
+        let x = "asd!!!!!".to_string();
+        let x: String = x
+            .chars()
+            .filter_map(|c| {
+                if c.is_ascii_punctuation() {
+                    None
+                } else {
+                    Some(c)
+                }
+            })
+            .collect();
+
+        println!("{}", x);
     }
 }
