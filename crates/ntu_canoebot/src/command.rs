@@ -13,7 +13,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use ntu_canoebot_util::debug_println;
+use ntu_canoebot_util::{debug_println, HiddenString};
 use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
@@ -81,7 +81,7 @@ pub enum Commands {
     WhatActually,
 
     #[command(description = "✨ vomit ✨")]
-    EmojiVomit { text: String },
+    EmojiVomit { text: HiddenString },
 }
 
 /// Handle a specific command.
@@ -243,7 +243,7 @@ impl HandleCommand for Commands {
                     },
                     // if some text is passed, vomit on that
                     _ => {
-                        let vomit = emoji_vomit::vomit(text);
+                        let vomit = emoji_vomit::vomit(text.as_str());
                         bot.send_message(msg.chat.id, vomit).await?;
                     }
                 }

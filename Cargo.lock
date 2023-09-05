@@ -561,6 +561,7 @@ dependencies = [
  "emoji",
  "lazy_static",
  "ntu_canoebot_util",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -1511,6 +1512,7 @@ dependencies = [
  "teloxide",
  "tokio",
  "tokio_schedule",
+ "veil",
 ]
 
 [[package]]
@@ -1539,6 +1541,9 @@ dependencies = [
 [[package]]
 name = "ntu_canoebot_util"
 version = "0.1.0"
+dependencies = [
+ "veil",
+]
 
 [[package]]
 name = "ntu_src"
@@ -2376,6 +2381,12 @@ name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc_version"
@@ -3241,6 +3252,27 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "veil"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb8e42ca783c4c7ced40f4f0e11f13d545791c002a2e7adbe6d740b853087880"
+dependencies = [
+ "once_cell",
+ "veil-macros",
+]
+
+[[package]]
+name = "veil-macros"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1eef6b882bba6052c6ab6a751f8f765794de7f957cbf0c5a97e7d2b46a3ae60d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+]
 
 [[package]]
 name = "version_check"

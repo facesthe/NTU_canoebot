@@ -66,7 +66,6 @@ These are the current list of public commands available. Copy and paste these wh
 
     help - help
     reload - refresh sheet data
-    emojivomit - emoji vomit
     src - view SRC facilities
     namelist - see who's going training
     training - view training program
@@ -74,6 +73,7 @@ These are the current list of public commands available. Copy and paste these wh
     land - full land attendance
     weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
+    emojivomit - emoji vomit
 
 <!-- whoami - who u -->
 <!-- what - what is it? -->

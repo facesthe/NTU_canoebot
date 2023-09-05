@@ -12,3 +12,4 @@ lazy_static = {workspace = true}
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
 
 emoji = "0.2.1"
+rustc-hash = "1.1.0"

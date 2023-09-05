@@ -21,8 +21,16 @@ lazy_static! {
     ]);
 
     /// Words with predefined emojis
-    pub static ref PREDEFINED_WORDS: HashMap<&'static str, char> = HashMap::from([
-        ("they", '💁'),
+    pub static ref PREDEFINED_WORDS: HashMap<&'static str, &'static str> = HashMap::from([
+        ("they", "💁"),
 
     ]);
+
+    /// Some emojis for ALL CAPS SEQUENCES
+    pub static ref REPLACEMENT_EMOJIS: [&'static str; 4] = [
+        "💀",
+        "❗",
+        "🔥",
+        "👍",
+    ];
 }
