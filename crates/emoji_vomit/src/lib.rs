@@ -18,7 +18,7 @@
 
 mod consts;
 
-use std::{hash::Hasher, str::MatchIndices};
+use std::hash::Hasher;
 
 use consts::REPLACEMENT_EMOJIS;
 use ntu_canoebot_util::debug_println;
@@ -62,7 +62,7 @@ where
         let alphabet = string.chars().all(|c| c.is_alphabetic());
         // let emoji = find_emoji(&string.to_lowercase(), false, None);
 
-        let hash_val = hash(&string);
+        let hash_val = rustc_hash(&string);
         let repeat: u8 = {
             let two = {
                 if (hash_val >> 4) & 0b1111 == 0b1111 {
@@ -124,6 +124,20 @@ impl ToString for Word {
     }
 }
 
+impl Word {
+    /// Returns the contents of the word in lowercase
+    /// and without punctuation.
+    pub fn plaintext(&self) -> String {
+        let inter = self.data.to_lowercase();
+
+        if self.has_punctuation {
+            remove_ascii_punctuation(inter)
+        } else {
+            inter
+        }
+    }
+}
+
 /// Create ✨ vomit ✨
 pub fn vomit<T: AsRef<str>>(input: T) -> String {
     let slice = input.as_ref();
@@ -134,7 +148,7 @@ pub fn vomit<T: AsRef<str>>(input: T) -> String {
         .collect();
 
     // some more processing done here
-    mod_emoji(&mut words);
+    assign_emojis(&mut words);
     mod_capitalized_sequence(&mut words);
 
     words
@@ -172,7 +186,7 @@ pub fn find_emoji(word: &str, exact: bool, hash: Option<u64>) -> Option<&'static
         0 => (),
         _ => {
             let e = if let Some(hash) = hash {
-                let idx = hash as usize & 0b11;
+                let idx = hash as usize & 0b111;
                 match matching_annotations.get(idx) {
                     Some(emote) => emote,
                     None => matching_annotations.first().unwrap(),
@@ -291,8 +305,11 @@ fn mod_capitalized_sequence(words: &mut Vec<Word>) {
 }
 
 /// Find and assign emojis according to the hash of a sliding window of words.
-fn mod_emoji(words: &mut Vec<Word>) {
-    let all_hash = hash(&words);
+///
+/// This process is fully deterministic: the same vector of [Word] will yield the same
+/// result.
+fn assign_emojis(words: &mut Vec<Word>) {
+    let all_hash = rustc_hash(&words);
     let window_size = all_hash as usize % words.len();
 
     debug_println!("window size: {}", window_size);
@@ -302,8 +319,8 @@ fn mod_emoji(words: &mut Vec<Word>) {
         _ => words
             .windows(window_size)
             .map(|window| {
-                let window_hash = hash(&window);
-                let emoji = find_emoji(&window[0].data.to_lowercase(), false, Some(window_hash));
+                let window_hash = rustc_hash(&window);
+                let emoji = find_emoji(&window[0].plaintext(), false, Some(window_hash));
 
                 emoji
             })
@@ -311,21 +328,18 @@ fn mod_emoji(words: &mut Vec<Word>) {
     };
 
     // this idx all the way to (1 - words.len()) are yet to be hashed
+    // the windows for these will be from the current word to the last word
+    // in the vector.
     let size = words.len();
     let idx_remaining = size - window_size + 1;
 
     if idx_remaining < size {
-        for remaining in words[idx_remaining..size].iter() {
-            let hash = hash(remaining);
-            let emoji = find_emoji(
-                &if remaining.has_punctuation {
-                    remove_ascii_punctuation(&remaining.data.to_lowercase())
-                } else {
-                    remaining.data.to_lowercase()
-                },
-                false,
-                Some(hash),
-            );
+        for idx in (idx_remaining..size).into_iter() {
+            let window = &words[idx..size];
+            let word = &words[idx];
+            let hash = rustc_hash(&window);
+
+            let emoji = find_emoji(&word.plaintext(), false, Some(hash));
             assigned_emojis.push(emoji);
         }
     }
@@ -336,14 +350,6 @@ fn mod_emoji(words: &mut Vec<Word>) {
         assigned_emojis.len()
     );
 
-    // let first_ten = assigned_emojis
-    //     .iter()
-    //     .zip((0..10).into_iter())
-    //     .map(|(e, _)| e)
-    //     .collect::<Vec<_>>();
-
-    // debug_println!("up to first 10: {:?}", first_ten);
-
     for (word, assigned) in words.iter_mut().zip(assigned_emojis.into_iter()) {
         word.emoji = assigned;
     }
@@ -352,7 +358,7 @@ fn mod_emoji(words: &mut Vec<Word>) {
 /// Perform mutation for a slice of known capitalized words.
 /// The emoji taken is based off the hash of all words
 fn mut_caps_vec(words: &mut [Word]) {
-    let hash_value = hash(&words);
+    let hash_value = rustc_hash(&words);
     let sequence_len = words.len();
 
     // the emoji's index we want to take
@@ -398,7 +404,7 @@ fn mut_caps_vec(words: &mut [Word]) {
 /// I don't know why this isnt in the standard library.
 ///
 /// Uses [rustc_hash] for repeatable deterministic hashing.
-fn hash<T: std::hash::Hash>(item: T) -> u64 {
+fn rustc_hash<T: std::hash::Hash>(item: T) -> u64 {
     let mut hasher = rustc_hash::FxHasher::default();
     item.hash(&mut hasher);
     hasher.finish()
