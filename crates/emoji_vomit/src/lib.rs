@@ -18,7 +18,11 @@
 
 mod consts;
 
-use std::hash::Hasher;
+use std::{
+    hash::Hasher,
+    marker::PhantomData,
+    str::{Chars, FromStr},
+};
 
 use consts::REPLACEMENT_EMOJIS;
 use ntu_canoebot_util::debug_println;
@@ -135,6 +139,92 @@ impl Word {
         } else {
             inter
         }
+    }
+}
+
+/// This iterator iterates over both the words and
+/// whitespaces between them.
+struct WordSpaceIterator<'a> {
+    inner: &'a str,
+    index: usize,
+    tag: PhantomData<&'a usize>,
+}
+
+/// Struct containining the word and its space
+struct WordSpace<'a> {
+    word: &'a str,
+    space: &'a str,
+}
+
+impl<'a> From<&'a str> for WordSpaceIterator<'a> {
+    fn from(value: &'a str) -> Self {
+        Self {
+            inner: value.trim(),
+            index: 0,
+            tag: Default::default(),
+        }
+    }
+}
+
+impl<'a> Iterator for WordSpaceIterator<'a> {
+    // type Item = WordSpace<'a>; // word-whitespace tuple
+    type Item = (&'a str, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.inner.len() {
+            return None;
+        }
+
+        let curr_slice = &self.inner[self.index..];
+
+        let mut word_end_idx: usize = self.index;
+        let mut iter = curr_slice.chars();
+
+        // searching for word
+        loop {
+            let c = iter.next();
+
+            let curr_char = if let Some(_c) = c {
+                _c
+            } else {
+                break;
+            };
+
+            word_end_idx += 1;
+            if curr_char.is_whitespace() {
+                word_end_idx -= 1;
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        let word = &self.inner[self.index..word_end_idx];
+        let mut space_end_idx: usize = word_end_idx;
+        self.index = word_end_idx;
+
+        // searching for space
+        loop {
+            let c = iter.next();
+
+            let curr_char = if let Some(_c) = c {
+                _c
+            } else {
+                break;
+            };
+
+            space_end_idx += 1;
+            if curr_char.is_whitespace() {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        let space = &self.inner[word_end_idx..space_end_idx];
+        self.index = space_end_idx;
+
+        Some((word, space))
     }
 }
 
@@ -499,5 +589,21 @@ mod tests {
             .collect();
 
         println!("{}", x);
+    }
+
+    #[test]
+    fn test_word_space_iterator() {
+        let string = "OH MY GOD WHAT HAPPENED hahahahaha";
+        let iter = WordSpaceIterator::from(string);
+
+        let split: Vec<(&str, &str)> = iter.collect();
+        for pair in &split {
+            println!("word: \"{}\", space: \"{}\"", pair.0, pair.1);
+        }
+        let reconstructed: String = split.iter().map(|(a, b)| {
+            format!("{}{}", a, b)
+        }).collect();
+
+        assert_eq!(reconstructed, string);
     }
 }
