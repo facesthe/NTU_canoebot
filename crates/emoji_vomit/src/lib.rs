@@ -144,16 +144,14 @@ impl Word {
 
 /// This iterator iterates over both the words and
 /// whitespaces between them.
+///
+/// A word is defined as a continuous sequence of non-whitespace chars.
+///
+/// A whitespace sequence is defined as a continuous sequence of whitespace chars.
 struct WordSpaceIterator<'a> {
     inner: &'a str,
     index: usize,
     tag: PhantomData<&'a usize>,
-}
-
-/// Struct containining the word and its space
-struct WordSpace<'a> {
-    word: &'a str,
-    space: &'a str,
 }
 
 impl<'a> From<&'a str> for WordSpaceIterator<'a> {
@@ -232,10 +230,9 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
 pub fn vomit<T: AsRef<str>>(input: T) -> String {
     let slice = input.as_ref();
 
-    let mut words: Vec<Word> = slice
-        .split_whitespace()
-        .map(|word| Word::from(word))
-        .collect();
+    let iter = WordSpaceIterator::from(slice);
+
+    let (mut words, spaces): (Vec<Word>, Vec<&str>) = iter.map(|(w, s)| (Word::from(w), s)).unzip();
 
     // some more processing done here
     assign_emojis(&mut words);
@@ -243,9 +240,9 @@ pub fn vomit<T: AsRef<str>>(input: T) -> String {
 
     words
         .into_iter()
-        .map(|w| w.to_string())
-        .collect::<Vec<_>>()
-        .join(" ")
+        .zip(spaces.into_iter())
+        .map(|(w, s)| format!("{}{}", w.to_string(), s))
+        .collect::<String>()
 }
 
 /// Look for a matching emoji for a given input.
@@ -600,9 +597,7 @@ mod tests {
         for pair in &split {
             println!("word: \"{}\", space: \"{}\"", pair.0, pair.1);
         }
-        let reconstructed: String = split.iter().map(|(a, b)| {
-            format!("{}{}", a, b)
-        }).collect();
+        let reconstructed: String = split.iter().map(|(a, b)| format!("{}{}", a, b)).collect();
 
         assert_eq!(reconstructed, string);
     }
