@@ -18,11 +18,7 @@
 
 mod consts;
 
-use std::{
-    hash::Hasher,
-    marker::PhantomData,
-    str::{Chars, FromStr},
-};
+use std::{hash::Hasher, marker::PhantomData};
 
 use consts::REPLACEMENT_EMOJIS;
 use ntu_canoebot_util::debug_println;

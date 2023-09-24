@@ -19,7 +19,7 @@ use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 
 use crate::callback::src::src_menu_create;
-use crate::callback::{self, Callback};
+use crate::callback::{self, whatactually_get, Callback};
 use crate::dictionaries;
 use crate::frame::common_buttons::BLANK;
 use crate::frame::{calendar_month_gen, calendar_year_gen};
@@ -239,13 +239,7 @@ impl HandleCommand for Commands {
             }
 
             Commands::WhatActually { query } => {
-                let res = dictionaries::urbandictonary::query(query.as_str()).await;
-
-                if let Some(result) = res {
-                    bot.send_message(msg.chat.id, result).await?;
-                }
-
-                Ok(())
+                whatactually_get(query.as_str(), None, bot, &msg, false).await
             }
 
             Commands::EmojiVomit { text } => {
@@ -271,8 +265,6 @@ impl HandleCommand for Commands {
 
                 Ok(())
             }
-
-
 
             // test cmds
             Commands::Button(_cmd) => {

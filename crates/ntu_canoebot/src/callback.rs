@@ -29,6 +29,7 @@ pub use namelist::namelist_get;
 pub use paddling::{paddling_get, Paddling};
 pub use ping::ping_start;
 pub use training::training_get;
+pub use whatactually::whatactually_get;
 
 use crate::frame::construct_keyboard_tuple;
 
@@ -56,6 +57,7 @@ pub enum Callback {
     Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
     Ping(ping::Ping),
+    WhatActually(whatactually::WhatActually),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -122,6 +124,7 @@ impl HandleCallback for Callback {
             Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
             Callback::Ping(call) => call.handle_callback(bot, query).await,
+            Callback::WhatActually(call) => call.handle_callback(bot, query).await,
             // testing
 
             // to catch unimpl'd callbacks
@@ -227,6 +230,7 @@ impl TryFrom<&Callback> for Vec<u8> {
         };
 
         let bin_deflate = deflate::deflate_bytes(&bin_data);
+        debug_println!("size of callback data: {} bytes", bin_deflate.len());
         log::trace!("size of callback data: {} bytes", bin_deflate.len());
 
         let bin_chars = BASE64_ENGINE.encode(&bin_deflate);

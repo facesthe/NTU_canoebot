@@ -1,8 +1,8 @@
 mod callback;
 mod command;
+mod dictionaries;
 mod events;
 mod frame;
-mod dictionaries;
 
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
