@@ -184,9 +184,9 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
                 break;
             };
 
-            word_end_idx += 1;
+            word_end_idx += curr_char.len_utf8();
             if curr_char.is_whitespace() {
-                word_end_idx -= 1;
+                word_end_idx -= curr_char.len_utf8();
                 break;
             } else {
                 continue;
@@ -207,13 +207,16 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
                 break;
             };
 
-            space_end_idx += 1;
+            space_end_idx += curr_char.len_utf8();
             if curr_char.is_whitespace() {
                 continue;
             } else {
+                space_end_idx -= curr_char.len_utf8() - 1;
                 break;
             }
         }
+
+        // debug_println!("space: {} - {}", word_end_idx, space_end_idx);
 
         let space = &self.inner[word_end_idx..space_end_idx];
         self.index = space_end_idx;
@@ -586,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_word_space_iterator() {
-        let string = "OH MY GOD WHAT HAPPENED hahahahaha";
+        let string = "Japan (Japanese: 日本, [ɲihoɴ] , Nippon or Nihon, and formally 日本国, Nippon-koku or Nihon-koku)";
         let iter = WordSpaceIterator::from(string);
 
         let split: Vec<(&str, &str)> = iter.collect();
