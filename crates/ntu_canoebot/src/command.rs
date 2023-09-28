@@ -1,7 +1,7 @@
 //! Command definitions and their code reside here.
 //! Each command is an enum variant in [Commands].
 //! If a variant contains a struct, it **must**
-//! implement the [FromStr] and [HandleCommand] traits.
+//! implement the [std::str::FromStr] and [HandleCommand] traits.
 //!
 //! The HandleCommand trait is where the "business logic"
 //! for a command goes. If the response to a command is
@@ -28,13 +28,13 @@ use crate::frame::{calendar_month_gen, calendar_year_gen};
 #[derive(BotCommands, Clone, Debug)]
 #[command(rename_rule = "lowercase", description = "Supported commands:")]
 pub enum Commands {
-    #[command(description = "View this help message")]
+    #[command(description = "view this help message")]
     Help(commands::Help),
 
-    #[command(description = "Start your interaction with this bot")]
+    #[command(description = "start your interaction with this bot")]
     Start(commands::Start),
 
-    #[command(description = "Bot version")]
+    #[command(description = "bot version")]
     Version,
 
     #[command(description = "off")]
@@ -77,11 +77,11 @@ pub enum Commands {
     #[command(description = "off")]
     Ping,
     // #[command(description = "Simple wikipedia search")]
-    #[command(description = "What is it?")]
+    #[command(description = "what is it?")]
     What { query: HiddenString },
 
     // #[command(description = "Simple urban dictionary search")]
-    #[command(description = "What is it actually?")]
+    #[command(description = "what is it actually?")]
     WhatActually { query: HiddenString },
 
     #[command(description = "✨ vomit ✨")]
