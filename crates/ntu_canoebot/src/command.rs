@@ -34,6 +34,9 @@ pub enum Commands {
     #[command(description = "Start your interaction with this bot")]
     Start(commands::Start),
 
+    #[command(description = "Bot version")]
+    Version,
+
     #[command(description = "off")]
     Calendar,
 
@@ -154,6 +157,18 @@ impl HandleCommand for Commands {
         match &self {
             Commands::Help(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Start(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Version => {
+                let ver = env!("CARGO_PKG_VERSION");
+                let name = env!("CARGO_PKG_NAME");
+                let resp = format!("`{} v{}`", name, ver);
+
+                bot.send_message(msg.chat.id, resp)
+                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .await?;
+
+                Ok(())
+            }
+
             Commands::Src => {
                 let (text, keyboard) = src_menu_create();
 
