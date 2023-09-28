@@ -21,7 +21,7 @@ mod consts;
 use std::{hash::Hasher, marker::PhantomData};
 
 use consts::REPLACEMENT_EMOJIS;
-use ntu_canoebot_util::debug_println;
+use ntu_canoebot_util::{debug_print, debug_println};
 
 /// UTF-8 string, with additional metadata
 #[derive(Clone, Debug, Hash)]
@@ -175,26 +175,28 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
         let mut iter = curr_slice.chars();
 
         // searching for word
-        loop {
+        // will break on space char
+        let space_size = loop {
             let c = iter.next();
 
             let curr_char = if let Some(_c) = c {
                 _c
             } else {
-                break;
+                break 0;
             };
 
-            word_end_idx += curr_char.len_utf8();
             if curr_char.is_whitespace() {
-                word_end_idx -= curr_char.len_utf8();
-                break;
+                break curr_char.len_utf8();
             } else {
+                word_end_idx += curr_char.len_utf8();
                 continue;
             }
-        }
+        };
+
+        // debug_println!("word: {} - {}", self.index, word_end_idx);
 
         let word = &self.inner[self.index..word_end_idx];
-        let mut space_end_idx: usize = word_end_idx;
+        let mut space_end_idx: usize = word_end_idx + space_size;
         self.index = word_end_idx;
 
         // searching for space
@@ -207,11 +209,16 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
                 break;
             };
 
-            space_end_idx += curr_char.len_utf8();
+            // debug_print!(
+            //     "space char: {}, len: {} ",
+            //     curr_char.escape_unicode(),
+            //     curr_char.len_utf8()
+            // );
+
             if curr_char.is_whitespace() {
+                space_end_idx += curr_char.len_utf8();
                 continue;
             } else {
-                space_end_idx -= curr_char.len_utf8() - 1;
                 break;
             }
         }
@@ -589,12 +596,20 @@ mod tests {
 
     #[test]
     fn test_word_space_iterator() {
-        let string = "Japan (Japanese: 日本, [ɲihoɴ] , Nippon or Nihon, and formally 日本国, Nippon-koku or Nihon-koku)";
+        let string = "Japan\u{a0} (Japanese: 日本, [ɲihoɴ] , Nippon or Nihon, and formally 日本国, Nippon-koku or Nihon-koku)";
+        let string = "To be fair, you have to have a very high IQ to understand Rick and Morty. The humour is extremely subtle, and without a solid grasp of theoretical physics most of the jokes will go over a typical viewer’s head. There’s also Rick’s nihilistic outlook, which is deftly woven into his characterisation- his personal philosophy draws heavily from Narodnaya Volya literature, for instance. The fans understand this stuff; they have the intellectual capacity to truly appreciate the depths of these jokes, to realise that they’re not just funny—they say something deep about LIFE. As a consequence people who dislike Rick & Morty truly ARE idiots- of course they wouldn’t appreciate, for instance, the humour in Rick’s existential catchphrase “Wubba Lubba Dub Dub,” which itself is a cryptic reference to Turgenev’s Russian epic Fathers and Sons. I’m smirking right now just imagining one of those addlepated simpletons scratching their heads in confusion as Dan Harmon’s genius wit unfolds itself on their television screens.";
+        // let string = "Hello, こんにちは, 你好, שלום, नमस्ते, Здравствуйте, ਸਤ‌ਸ੍ਰੀ‌ਅਕਾਲ, مرحبا, ہیلو, 🌍\u{2002}🌏\u{2003}🌎"
+        let string = "مرحبا, ہیلو, 🌍\u{2002}🌏\u{2003}🌎";
+
         let iter = WordSpaceIterator::from(string);
 
         let split: Vec<(&str, &str)> = iter.collect();
         for pair in &split {
-            println!("word: \"{}\", space: \"{}\"", pair.0, pair.1);
+            println!(
+                "word: \"{}\", space: \"{}\"",
+                pair.0,
+                pair.1.escape_unicode()
+            );
         }
         let reconstructed: String = split.iter().map(|(a, b)| format!("{}{}", a, b)).collect();
 
