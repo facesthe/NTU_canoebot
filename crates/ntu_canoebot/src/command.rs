@@ -337,6 +337,7 @@ impl HandleCommand for Commands {
             }
 
             // placeholder arm for unimpl'd commands
+            #[allow(unreachable_patterns)]
             _ => Ok(()),
         }
     }
