@@ -17,11 +17,17 @@
 //!
 
 mod consts;
+mod uwuify;
 
-use std::{hash::Hasher, marker::PhantomData};
+use std::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
 use consts::REPLACEMENT_EMOJIS;
 use ntu_canoebot_util::{debug_print, debug_println};
+
+pub use uwuify::uwuify;
 
 /// UTF-8 string, with additional metadata
 #[derive(Clone, Debug, Hash)]
@@ -232,6 +238,50 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
     }
 }
 
+/// An iterator over the hashes for a sliding window
+/// of strings.
+pub struct SlidingWindowHashIterator<'a, T> {
+    idx: usize,
+    inner: &'a [T],
+    window_size: usize,
+    window_stop: usize
+}
+
+impl<'a, T: Hash> From<&'a [T]> for SlidingWindowHashIterator<'a, T> {
+    fn from(value: &'a [T]) -> Self {
+        let all_hash = rustc_hash(&value);
+        let window_size = all_hash as usize % value.len();
+        Self {
+            idx: 0,
+            inner: value,
+            window_size,
+            window_stop: value.len() - window_size
+        }
+    }
+}
+
+impl<'a, T: Hash> Iterator for SlidingWindowHashIterator<'a, T> {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx == self.inner.len() {
+            return None;
+        }
+
+        let window = match self.idx < self.window_stop {
+            // sliding window of size self.window_size
+            true => &self.inner[self.idx..self.idx + self.window_size],
+            // sliding window from idx to last element
+            false => &self.inner[self.idx..],
+        };
+
+        let window_hash = rustc_hash(window);
+        self.idx += 1;
+
+        Some(window_hash)
+    }
+}
+
 /// Create ✨ vomit ✨
 pub fn vomit<T: AsRef<str>>(input: T) -> String {
     let slice = input.as_ref();
@@ -407,35 +457,12 @@ fn assign_emojis(words: &mut Vec<Word>) {
 
     debug_println!("window size: {}", window_size);
 
-    let mut assigned_emojis: Vec<Option<&'static str>> = match window_size {
-        0 => Vec::new(),
-        _ => words
-            .windows(window_size)
-            .map(|window| {
-                let window_hash = rustc_hash(&window);
-                let emoji = find_emoji(&window[0].plaintext(), false, Some(window_hash));
-
-                emoji
-            })
-            .collect(),
-    };
-
-    // this idx all the way to (1 - words.len()) are yet to be hashed
-    // the windows for these will be from the current word to the last word
-    // in the vector.
-    let size = words.len();
-    let idx_remaining = size - window_size + 1;
-
-    if idx_remaining < size {
-        for idx in (idx_remaining..size).into_iter() {
-            let window = &words[idx..size];
-            let word = &words[idx];
-            let hash = rustc_hash(&window);
-
-            let emoji = find_emoji(&word.plaintext(), false, Some(hash));
-            assigned_emojis.push(emoji);
-        }
-    }
+    let iter = SlidingWindowHashIterator::from(words.as_slice());
+    let assigned_emojis: Vec<Option<&'static str>> = words
+        .iter()
+        .zip(iter)
+        .map(|(word, hash)| find_emoji(&word.plaintext(), false, Some(hash)))
+        .collect();
 
     debug_println!(
         "word size: {}, emoji size: {}",
