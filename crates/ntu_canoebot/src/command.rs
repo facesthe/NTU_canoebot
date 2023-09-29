@@ -86,6 +86,9 @@ pub enum Commands {
 
     #[command(description = "✨ vomit ✨")]
     EmojiVomit { text: HiddenString },
+
+    #[command(description = "^ ω ^")]
+    Uwuify { text: HiddenString },
 }
 
 /// Handle a specific command.
@@ -258,25 +261,55 @@ impl HandleCommand for Commands {
             }
 
             Commands::EmojiVomit { text } => {
-                match text.len() {
+                let text = match text.len() {
                     // if no text is passed, look for a reply
                     0 => match msg.reply_to_message() {
                         Some(repl_msg) => {
                             if let Some(text) = repl_msg.text() {
                                 if text.len() != 0 {
-                                    let vomit = emoji_vomit::vomit(text);
-                                    bot.send_message(msg.chat.id, vomit).await?;
+                                    text
+                                } else {
+                                    return Ok(());
                                 }
+                            } else {
+                                return Ok(());
                             }
                         }
-                        None => {}
+                        None => return Ok(()),
                     },
-                    // if some text is passed, vomit on that
-                    _ => {
-                        let vomit = emoji_vomit::vomit(text.as_str());
-                        bot.send_message(msg.chat.id, vomit).await?;
-                    }
-                }
+                    // if some text is passed, do that
+                    _ => text.as_str(),
+                };
+
+                let vomit = emoji_vomit::vomit(text);
+                bot.send_message(msg.chat.id, vomit).await?;
+
+                Ok(())
+            }
+
+            Commands::Uwuify { text } => {
+                let text = match text.len() {
+                    // if no text is passed, look for a reply
+                    0 => match msg.reply_to_message() {
+                        Some(repl_msg) => {
+                            if let Some(text) = repl_msg.text() {
+                                if text.len() != 0 {
+                                    text
+                                } else {
+                                    return Ok(());
+                                }
+                            } else {
+                                return Ok(());
+                            }
+                        }
+                        None => return Ok(()),
+                    },
+                    // if some text is passed, do that
+                    _ => text.as_str(),
+                };
+
+                let uwu = emoji_vomit::uwuify(text);
+                bot.send_message(msg.chat.id, uwu).await?;
 
                 Ok(())
             }

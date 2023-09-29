@@ -14,6 +14,33 @@ lazy_static! {
     /// chars to switch to 'w'
     pub static ref CHARS_TO_BE_SWITCHED: HashSet<char> = HashSet::from(['l', 'r']);
 
+    /// Normal-looking text faces
+    pub static ref KAOMOJI_NORMAL: Vec<&'static str> = vec![
+        "(* ^ ω ^)",
+        "<(￣︶￣)>",
+        "(⌒▽⌒)☆",
+        "(¬‿¬ )",
+        "(￣～￣;)",
+        "(￢ ￢)",
+
+    ];
+
+    /// Extreme-looking text faces
+    pub static ref KAOMOJI_EXTREME: Vec<&'static str> = vec![
+        "(；￣Д￣)",
+        "(；⌣̀_⌣́)",
+        "凸(￣ヘ￣)",
+        "٩(╬ʘ益ʘ╬)۶",
+        "(>_<)",
+        "(;;;*_*)",
+    ];
+
+    /// Stuff that does not look like a face
+    pub static ref KAOMOJI_NOT_FACE: Vec<&'static str> = vec![
+        "*:･ﾟ’★,｡･:*:･ﾟ’☆",
+
+    ];
+
 }
 
 /// Create UwU
