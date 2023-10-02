@@ -25,7 +25,7 @@ use std::{
 };
 
 use consts::REPLACEMENT_EMOJIS;
-use ntu_canoebot_util::{debug_print, debug_println};
+use ntu_canoebot_util::debug_println;
 
 pub use uwuify::uwuify;
 
@@ -68,7 +68,7 @@ where
         let alphabet = string.chars().all(|c| c.is_alphabetic());
         // let emoji = find_emoji(&string.to_lowercase(), false, None);
 
-        let hash_val = rustc_hash(&string);
+        let hash_val = rc_hash(&string);
         let repeat: u8 = {
             let two = {
                 if (hash_val >> 4) & 0b1111 == 0b1111 {
@@ -240,22 +240,31 @@ impl<'a> Iterator for WordSpaceIterator<'a> {
 
 /// An iterator over the hashes for a sliding window
 /// of strings.
+///
+/// This is deterministic. Two slices that contain identically hashable
+/// elements in the same order will return the same hash iterator.
+///
+/// A change in the individual hash of an element in the slice will
+/// change the sliding window hashes for all elements in the slice.
+///
+/// The underlying hash method is [rustc_hash], the hashing algorithim used
+/// when compiling rust code.
 pub struct SlidingWindowHashIterator<'a, T> {
     idx: usize,
     inner: &'a [T],
     window_size: usize,
-    window_stop: usize
+    window_stop: usize,
 }
 
 impl<'a, T: Hash> From<&'a [T]> for SlidingWindowHashIterator<'a, T> {
     fn from(value: &'a [T]) -> Self {
-        let all_hash = rustc_hash(&value);
+        let all_hash = rc_hash(&value);
         let window_size = all_hash as usize % value.len();
         Self {
             idx: 0,
             inner: value,
             window_size,
-            window_stop: value.len() - window_size
+            window_stop: value.len() - window_size,
         }
     }
 }
@@ -268,6 +277,7 @@ impl<'a, T: Hash> Iterator for SlidingWindowHashIterator<'a, T> {
             return None;
         }
 
+        // forward window
         let window = match self.idx < self.window_stop {
             // sliding window of size self.window_size
             true => &self.inner[self.idx..self.idx + self.window_size],
@@ -275,7 +285,13 @@ impl<'a, T: Hash> Iterator for SlidingWindowHashIterator<'a, T> {
             false => &self.inner[self.idx..],
         };
 
-        let window_hash = rustc_hash(window);
+        // reverse window
+        let rev_window = match self.idx > self.window_size {
+            true => &self.inner[self.idx - self.window_size + 1..=self.idx],
+            false => &self.inner[..self.idx],
+        };
+
+        let window_hash = rc_hash((window, rev_window));
         self.idx += 1;
 
         Some(window_hash)
@@ -452,7 +468,7 @@ fn mod_capitalized_sequence(words: &mut Vec<Word>) {
 /// This process is fully deterministic: the same vector of [Word] will yield the same
 /// result.
 fn assign_emojis(words: &mut Vec<Word>) {
-    let all_hash = rustc_hash(&words);
+    let all_hash = rc_hash(&words);
     let window_size = all_hash as usize % words.len();
 
     debug_println!("window size: {}", window_size);
@@ -478,7 +494,7 @@ fn assign_emojis(words: &mut Vec<Word>) {
 /// Perform mutation for a slice of known capitalized words.
 /// The emoji taken is based off the hash of all words
 fn mut_caps_vec(words: &mut [Word]) {
-    let hash_value = rustc_hash(&words);
+    let hash_value = rc_hash(&words);
     let sequence_len = words.len();
 
     // the emoji's index we want to take
@@ -524,7 +540,7 @@ fn mut_caps_vec(words: &mut [Word]) {
 /// I don't know why this isnt in the standard library.
 ///
 /// Uses [rustc_hash] for repeatable deterministic hashing.
-fn rustc_hash<T: std::hash::Hash>(item: T) -> u64 {
+fn rc_hash<T: std::hash::Hash>(item: T) -> u64 {
     let mut hasher = rustc_hash::FxHasher::default();
     item.hash(&mut hasher);
     hasher.finish()
@@ -547,6 +563,8 @@ fn remove_ascii_punctuation<T: AsRef<str>>(slice: T) -> String {
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
+    use std::slice::Windows;
+
     use super::*;
 
     #[test]
@@ -625,7 +643,6 @@ mod tests {
     fn test_word_space_iterator() {
         let string = "Japan\u{a0} (Japanese: 日本, [ɲihoɴ] , Nippon or Nihon, and formally 日本国, Nippon-koku or Nihon-koku)";
         let string = "To be fair, you have to have a very high IQ to understand Rick and Morty. The humour is extremely subtle, and without a solid grasp of theoretical physics most of the jokes will go over a typical viewer’s head. There’s also Rick’s nihilistic outlook, which is deftly woven into his characterisation- his personal philosophy draws heavily from Narodnaya Volya literature, for instance. The fans understand this stuff; they have the intellectual capacity to truly appreciate the depths of these jokes, to realise that they’re not just funny—they say something deep about LIFE. As a consequence people who dislike Rick & Morty truly ARE idiots- of course they wouldn’t appreciate, for instance, the humour in Rick’s existential catchphrase “Wubba Lubba Dub Dub,” which itself is a cryptic reference to Turgenev’s Russian epic Fathers and Sons. I’m smirking right now just imagining one of those addlepated simpletons scratching their heads in confusion as Dan Harmon’s genius wit unfolds itself on their television screens.";
-        // let string = "Hello, こんにちは, 你好, שלום, नमस्ते, Здравствуйте, ਸਤ‌ਸ੍ਰੀ‌ਅਕਾਲ, مرحبا, ہیلو, 🌍\u{2002}🌏\u{2003}🌎"
         let string = "مرحبا, ہیلو, 🌍\u{2002}🌏\u{2003}🌎";
 
         let iter = WordSpaceIterator::from(string);
@@ -641,5 +658,30 @@ mod tests {
         let reconstructed: String = split.iter().map(|(a, b)| format!("{}{}", a, b)).collect();
 
         assert_eq!(reconstructed, string);
+    }
+
+    /// Testing the correctness of the hash iterator
+    #[test]
+    fn test_sliding_window_hash_iterator() {
+        let arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mut iter = SlidingWindowHashIterator::from(arr.as_slice());
+
+        let window_size = rc_hash(&arr) as usize % arr.len();
+
+        let forward_slice = &arr[..window_size];
+        let rev_slice = &arr[0..1];
+
+        let window_hash = rc_hash((forward_slice, rev_slice));
+        println!("window size: {}, first hash: {}", window_size, window_hash);
+
+        assert!(matches!(iter.next(), Some(window_hash)));
+
+        // iter completes properly
+        for _ in 1..arr.len() {
+            iter.next().unwrap();
+        }
+
+        assert!(matches!(iter.next(), None))
     }
 }
