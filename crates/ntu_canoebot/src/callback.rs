@@ -234,7 +234,11 @@ impl TryFrom<&Callback> for Vec<u8> {
         log::trace!("size of callback data: {} bytes", bin_deflate.len());
 
         let bin_chars = BASE64_ENGINE.encode(&bin_deflate);
-        debug_println!("callback data payload len: {} bytes, data: \"{}\"", bin_chars.len(), &bin_chars);
+        debug_println!(
+            "callback data payload len: {} bytes, data: \"{}\"",
+            bin_chars.len(),
+            &bin_chars
+        );
         Ok(bin_chars.as_bytes().to_owned())
     }
 }
