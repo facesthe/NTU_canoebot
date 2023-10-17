@@ -77,6 +77,7 @@ These are the current list of public commands available. Copy and paste these wh
     what - what is it?
     whatactually - what is it actually?
     emojivomit - emoji vomit
+    uwuify - uwu
 
 <!-- whoami - who u -->
 
