@@ -1,14 +1,14 @@
 use std::error::Error;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
+use ntu_canoebot_attd::NameList;
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
 use crate::frame::{
     calendar_month_gen, calendar_year_gen,
-    common_buttons::{BACK_ARROW, DATE, FORWARD_ARROW, REFRESH},
+    common_buttons::{BACK_ARROW, BLANK, DATE, FORWARD_ARROW, REFRESH, TIME_AM, TIME_PM},
     construct_keyboard_tuple,
 };
 
@@ -17,13 +17,22 @@ use super::{message_from_callback_query, replace_with_whitespace, Callback, Date
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Paddling {
     /// Perform a lookup, cached.
-    ///
-    /// Date, time_slot, deconflict, refresh
-    Get(Date, bool, bool, bool),
+    Get {
+        date: Date,
+        /// true == AM, false == PM
+        time_slot: bool,
+        /// perform deconflict
+        deconflict: bool,
+        refresh: bool,
+    },
 
-    MonthSelect(Date),
+    MonthSelect {
+        date: Date,
+    },
 
-    YearSelect(Date),
+    YearSelect {
+        date: Date,
+    },
 }
 
 #[async_trait]
@@ -36,7 +45,12 @@ impl HandleCallback for Paddling {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            Paddling::Get(date, time_slot, deconflict, refresh) => {
+            Paddling::Get {
+                date,
+                time_slot,
+                deconflict,
+                refresh,
+            } => {
                 replace_with_whitespace(bot.clone(), msg, 3).await?;
                 paddling_get(
                     (*date).into(),
@@ -49,22 +63,29 @@ impl HandleCallback for Paddling {
                 )
                 .await?;
             }
-            Paddling::MonthSelect(date) => {
+            Paddling::MonthSelect { date } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
 
                 let days: Vec<Callback> = (0..31)
                     .into_iter()
                     .map(|d| {
                         let day: Date = (start + Duration::days(d)).into();
-                        Callback::Padddling(Paddling::Get(day, false, true, false))
+                        Callback::Padddling(Paddling::Get {
+                            date: day,
+                            time_slot: false,
+                            deconflict: true,
+                            refresh: false,
+                        })
                     })
                     .collect();
 
-                let next =
-                    Callback::Padddling(Paddling::MonthSelect((start + Duration::days(33)).into()));
-                let prev =
-                    Callback::Padddling(Paddling::MonthSelect((start - Duration::days(1)).into()));
-                let year = Callback::Padddling(Paddling::YearSelect(date.clone()));
+                let next = Callback::Padddling(Paddling::MonthSelect {
+                    date: (start + Duration::days(33)).into(),
+                });
+                let prev = Callback::Padddling(Paddling::MonthSelect {
+                    date: (start - Duration::days(1)).into(),
+                });
+                let year = Callback::Padddling(Paddling::YearSelect { date: date.clone() });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -72,7 +93,7 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Paddling::YearSelect(date) => {
+            Paddling::YearSelect { date } => {
                 let months: Vec<Callback> = (0..12)
                     .into_iter()
                     .map(|m| {
@@ -82,24 +103,28 @@ impl HandleCallback for Paddling {
                             day: 1,
                         };
 
-                        Callback::Padddling(Paddling::MonthSelect(month))
+                        Callback::Padddling(Paddling::MonthSelect { date: month })
                     })
                     .collect();
 
-                let next = Callback::Padddling(Paddling::YearSelect(Date {
-                    year: date.year + 1,
-                    month: 1,
-                    day: 1,
-                }));
-                let prev = Callback::Padddling(Paddling::YearSelect(Date {
-                    year: date.year - 1,
-                    month: 1,
-                    day: 1,
-                }));
+                let next = Callback::Padddling(Paddling::YearSelect {
+                    date: Date {
+                        year: date.year + 1,
+                        month: 1,
+                        day: 1,
+                    },
+                });
+                let prev = Callback::Padddling(Paddling::YearSelect {
+                    date: Date {
+                        year: date.year - 1,
+                        month: 1,
+                        day: 1,
+                    },
+                });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
 
-                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(""))
+                bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
                     .reply_markup(keyboard)
                     .await?;
             }
@@ -134,33 +159,48 @@ pub async fn paddling_get(
 
     let mut name_list = ntu_canoebot_attd::namelist(date_n, time_slot)
         .await
-        .ok_or(anyhow!("failed to get namelist"))?;
+        .unwrap_or(NameList::from_date_time(date, time_slot));
 
     name_list.assign_boats(deconflict).await;
-    name_list.paddling().await.unwrap();
+    name_list.fill_prog(false).await.unwrap();
 
     let d: Date = date.into();
-    let prev = Callback::Padddling(Paddling::Get(
-        (date_n - Duration::days(1)).into(),
+    let prev = Callback::Padddling(Paddling::Get {
+        date: (date_n - Duration::days(1)).into(),
         time_slot,
         deconflict,
-        false,
-    ));
-    let next = Callback::Padddling(Paddling::Get(
-        (date_n + Duration::days(1)).into(),
+        refresh: false,
+    });
+    let next = Callback::Padddling(Paddling::Get {
+        date: (date_n + Duration::days(1)).into(),
         time_slot,
         deconflict,
-        false,
-    ));
+        refresh: false,
+    });
 
     // switch between deconf modes
-    let refresh = Callback::Padddling(Paddling::Get(d, time_slot, deconflict, true));
-    let switch = Callback::Padddling(Paddling::Get(d, time_slot, !deconflict, false));
-    let time = Callback::Padddling(Paddling::Get(d, !time_slot, deconflict, false));
-    let month = Callback::Padddling(Paddling::MonthSelect(d));
+    let refresh = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot,
+        deconflict,
+        refresh: true,
+    });
+    let switch = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot,
+        deconflict: !deconflict,
+        refresh: false,
+    });
+    let time = Callback::Padddling(Paddling::Get {
+        date: d,
+        time_slot: !time_slot,
+        deconflict,
+        refresh: false,
+    });
+    let month = Callback::Padddling(Paddling::MonthSelect { date: d });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
-    let time_label = if time_slot { "AM" } else { "PM" };
+    let time_label = if time_slot { TIME_AM } else { TIME_PM };
 
     let keyboard = construct_keyboard_tuple([
         vec![

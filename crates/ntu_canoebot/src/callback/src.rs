@@ -17,7 +17,7 @@ use crate::{
     callback::{self, Callback},
     frame::{
         calendar_month_gen, calendar_year_gen,
-        common_buttons::{BACK, BACK_ARROW, FORWARD_ARROW},
+        common_buttons::{BACK, BACK_ARROW, BLANK, FORWARD_ARROW},
         common_descriptions::MENU,
         construct_keyboard_tuple, fold_buttons,
     },
@@ -34,14 +34,18 @@ pub enum Src {
     Menu,
 
     /// Show the month calendar
-    MonthSelect(String, Date),
+    MonthSelect { id: String, date: Date },
 
     /// Show the year calendar
-    YearSelect(String, Date),
+    YearSelect { id: String, date: Date },
 
     /// Send a query to the cache.
     /// Set the bool to `true` to perform a refresh
-    Query(String, Date, bool),
+    Query {
+        id: String,
+        date: Date,
+        refresh: bool,
+    },
 
     // /// Send a refresh request to the cache
     // Refresh(String, Date),
@@ -74,9 +78,9 @@ impl HandleCallback for Src {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         match self {
             Self::Menu => src_menu(bot, query).await,
-            Src::MonthSelect(id, date) => src_month_select(&id, date.clone(), bot, query).await,
-            Src::YearSelect(id, date) => src_year_select(id, date.clone(), bot, query).await,
-            Src::Query(id, date, refresh) => {
+            Src::MonthSelect { id, date } => src_month_select(&id, date.clone(), bot, query).await,
+            Src::YearSelect { id, date } => src_year_select(id, date.clone(), bot, query).await,
+            Src::Query { id, date, refresh } => {
                 src_query(id, date.clone(), *refresh, bot, query).await
             }
             Src::Close => {
@@ -124,28 +128,37 @@ async fn src_month_select(
 
     let prev = {
         let new = start - Duration::days(1);
-        Callback::Src(Src::MonthSelect(facil_id.to_string(), new.into()))
+        Callback::Src(Src::MonthSelect {
+            id: facil_id.to_string(),
+            date: new.into(),
+        })
     };
     let next = {
         let new = start + Duration::days(33);
-        Callback::Src(Src::MonthSelect(facil_id.to_string(), new.into()))
+        Callback::Src(Src::MonthSelect {
+            id: facil_id.to_string(),
+            date: new.into(),
+        })
     };
-    let year = Callback::Src(Src::YearSelect(facil_id.to_string(), date));
+    let year = Callback::Src(Src::YearSelect {
+        id: facil_id.to_string(),
+        date,
+    });
 
     let days: Vec<Callback> = (0..31)
         .into_iter()
         .map(|day| {
             let date = start + Duration::days(day);
 
-            Callback::Src(Src::Query(
-                facil_id.to_owned(),
-                Date {
+            Callback::Src(Src::Query {
+                id: facil_id.to_owned(),
+                date: Date {
                     year: date.year(),
                     month: date.month(),
                     day: date.day(),
                 },
-                false,
-            ))
+                refresh: false,
+            })
         })
         .collect();
 
@@ -176,7 +189,10 @@ async fn src_year_select(
                 day: 1,
             };
 
-            Callback::Src(Src::MonthSelect(facil_id.to_string(), date))
+            Callback::Src(Src::MonthSelect {
+                id: facil_id.to_string(),
+                date,
+            })
         })
         .collect();
 
@@ -187,7 +203,10 @@ async fn src_year_select(
             day: date.day,
         };
 
-        Callback::Src(Src::YearSelect(facil_id.to_string(), date))
+        Callback::Src(Src::YearSelect {
+            id: facil_id.to_string(),
+            date,
+        })
     };
 
     let prev = {
@@ -197,7 +216,10 @@ async fn src_year_select(
             day: date.day,
         };
 
-        Callback::Src(Src::YearSelect(facil_id.to_string(), date))
+        Callback::Src(Src::YearSelect {
+            id: facil_id.to_string(),
+            date,
+        })
     };
 
     let back = Some(Callback::Src(Src::Menu));
@@ -205,7 +227,7 @@ async fn src_year_select(
     let keyboard = calendar_year_gen(date.into(), &buttons, next, prev, back);
     let msg = message_from_callback_query(&query)?;
 
-    bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(" "))
+    bot.edit_message_text(msg.chat.id, msg.id, msg.text().unwrap_or(BLANK))
         .reply_markup(keyboard)
         .await?;
 
@@ -214,26 +236,33 @@ async fn src_year_select(
 
 /// Generate navigation buttons
 fn src_navigation_buttons(facil_id: &str, date: Date) -> InlineKeyboardMarkup {
-    let next = Callback::Src(Src::Query(
-        facil_id.to_owned(),
-        {
+    let next = Callback::Src(Src::Query {
+        id: facil_id.to_owned(),
+        date: {
             let d: NaiveDate = date.into();
             (d + Duration::days(1)).into()
         },
-        false,
-    ));
+        refresh: false,
+    });
 
-    let prev = Callback::Src(Src::Query(
-        facil_id.to_owned(),
-        {
+    let prev = Callback::Src(Src::Query {
+        id: facil_id.to_owned(),
+        date: {
             let d: NaiveDate = date.into();
             (d - Duration::days(1)).into()
         },
-        false,
-    ));
+        refresh: false,
+    });
 
-    let refresh = Callback::Src(Src::Query(facil_id.to_owned(), date, true));
-    let back = Callback::Src(Src::MonthSelect(facil_id.to_string(), date));
+    let refresh = Callback::Src(Src::Query {
+        id: facil_id.to_owned(),
+        date,
+        refresh: true,
+    });
+    let back = Callback::Src(Src::MonthSelect {
+        id: facil_id.to_string(),
+        date,
+    });
 
     let buttons = vec![
         vec![
@@ -305,10 +334,10 @@ pub fn src_menu_create() -> (String, InlineKeyboardMarkup) {
         let mut main_data = SRC_FACILITIES
             .iter()
             .map(|facil| {
-                Callback::Src(callback::src::Src::MonthSelect(
-                    facil.code_name.to_owned(),
-                    today.into(),
-                ))
+                Callback::Src(callback::src::Src::MonthSelect {
+                    id: facil.code_name.to_owned(),
+                    date: today.into(),
+                })
             })
             .collect::<Vec<Callback>>();
         main_data.push(Callback::Src(callback::src::Src::Close));

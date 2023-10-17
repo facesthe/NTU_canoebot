@@ -24,7 +24,6 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::Path,
-    process::exit,
     str::FromStr,
 };
 use toml::{self, Value};
@@ -57,6 +56,7 @@ fn main() {
     deploy_file = read_append_to_vec(&mut settings_contents, &settings_arr[2]);
 
     let file_to_use: usize; // indexes into settings_arr
+    let mut perform_perge: bool = true; // set to false if no debug/deploy config found
     match (debug_file, deploy_file) {
         (true, true) => {
             let debug = toml::Table::from_str(&settings_contents[Setting::Debug as usize]).unwrap();
@@ -84,9 +84,9 @@ fn main() {
                 (true, false) => file_to_use = Setting::Debug as usize,
                 (false, true) => file_to_use = Setting::Deploy as usize,
                 (false, false) => {
-                    println!("cargo:warning=\"use = true\" pair not set for both files. Set this key-value pair inside one configuration file.");
-                    exit(0)
-                    // file_to_use = Setting::Deploy as usize;
+                    println!("cargo:warning=debug/deploy not found or \"use = true\" pair not set. Set this key-value pair inside one configuration file.");
+                    perform_perge = false;
+                    file_to_use = usize::MAX;
                 }
             }
         }
@@ -102,10 +102,14 @@ fn main() {
         }
     }
 
-    let mut merged = merge_tables(
-        &toml::Table::from_str(&settings_contents[Setting::Template as usize]).unwrap(),
-        &toml::Table::from_str(&settings_contents[file_to_use]).unwrap(),
-    );
+    let mut merged = match perform_perge {
+        false => toml::Table::from_str(&settings_contents[Setting::Template as usize]).unwrap(),
+        true => merge_tables(
+            &toml::Table::from_str(&settings_contents[Setting::Template as usize]).unwrap(),
+            &toml::Table::from_str(&settings_contents[file_to_use]).unwrap(),
+        ),
+    };
+
     // merge all additional data
     let additional_arr = ADDITIONAL_CONFIGS
         .iter()
@@ -262,8 +266,8 @@ mod codegen {
         fn generate_code(&self, _inner: bool) -> (String, String) {
             match self {
                 Value::String(s) => ("&'static str".to_string(), format!("\"{}\"", s)),
-                Value::Integer(i) => ("i64".to_string(), format!("({})", i)),
-                Value::Float(f) => ("f64".to_string(), format!("({})", f)),
+                Value::Integer(i) => ("i64".to_string(), format!("({}_i64)", i)),
+                Value::Float(f) => ("f64".to_string(), format!("({}_f64)", f)),
                 Value::Boolean(b) => ("bool".to_string(), b.to_string()),
                 Value::Datetime(dt) => (
                     "Datetime".to_string(),

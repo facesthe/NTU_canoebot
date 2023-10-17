@@ -1,6 +1,6 @@
 [package]
 name = "ntu_canoebot"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "bot core"
 
@@ -13,6 +13,7 @@ ntu_canoebot_attd = {path = "../ntu_canoebot_attd"}
 ntu_canoebot_config = {path = "../ntu_canoebot_config"}
 ntu_canoebot_util = {path = "../ntu_canoebot_util"}
 ntu_src = {path = "../ntu_src"}
+emoji_vomit = {path = "../emoji_vomit"}
 
 teloxide = {workspace = true}
 tokio = {workspace = true}
@@ -20,16 +21,17 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 chrono = {workspace = true}
 reqwest = {workspace = true}
-# lazy_static = {workspace = true}
+log = {workspace = true}
+lazy_static = {workspace = true}
 # toml = {workspace = true}
 
-anyhow = "1.0.72"
-log = '0.4'
+anyhow = "1.0.75"
 pretty_env_logger = '0.5.0'
 bincode = '1.3.3'
 inflate = '0.4.5'
 deflate = '1.0.0'
-base64 = '0.21.0'
-async-trait = '0.1.68'
+base64 = '0.21.4'
+async-trait = '0.1.74'
 dotenv = "0.15.0"
 tokio_schedule = "0.3.1"
+veil = "0.1.6"

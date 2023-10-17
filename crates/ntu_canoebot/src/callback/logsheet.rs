@@ -12,23 +12,30 @@ use teloxide::{prelude::*, types::ParseMode};
 
 use ntu_canoebot_config as config;
 
-use crate::frame::{common_buttons::REFRESH, construct_keyboard_tuple};
+use crate::frame::{
+    common_buttons::{REFRESH, TIME_AM, TIME_PM},
+    construct_keyboard_tuple,
+};
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LogSheet {
     /// Also forces a cache refresh
-    Start(Date),
+    Start { date: Date },
 
     /// Date, time selection and force cache refresh
-    StartTime(Date, bool, bool),
+    StartTime {
+        date: Date,
+        time_slot: bool,
+        refresh: bool,
+    },
 
     /// Send
-    Send(Date, bool),
+    Send { date: Date, time_slot: bool },
 
     /// Cancel send
-    Cancel(Date, bool),
+    Cancel { date: Date, time_slot: bool },
 }
 
 #[async_trait]
@@ -41,9 +48,13 @@ impl HandleCallback for LogSheet {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            LogSheet::Start(date) => logsheet_start((*date).into(), bot, msg, true).await?,
+            LogSheet::Start { date } => logsheet_start((*date).into(), bot, msg, true).await?,
 
-            LogSheet::StartTime(date, time_slot, refresh) => {
+            LogSheet::StartTime {
+                date,
+                time_slot,
+                refresh,
+            } => {
                 replace_with_whitespace(bot.clone(), &msg, 2).await?;
 
                 if *refresh {
@@ -52,9 +63,13 @@ impl HandleCallback for LogSheet {
                         .unwrap();
                 }
 
-                let name_list = ntu_canoebot_attd::namelist((*date).into(), *time_slot)
+                let date_naive = (*date).into();
+
+                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot)
                     .await
-                    .ok_or(anyhow!("no namelist found"))?;
+                    .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
+                        date_naive, *time_slot,
+                    ));
 
                 let num_paddlers = name_list.names.len();
 
@@ -80,10 +95,20 @@ impl HandleCallback for LogSheet {
                     name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
 
-                let send = Callback::LogSheet(LogSheet::Send(*date, *time_slot));
-                let refresh = Callback::LogSheet(LogSheet::StartTime(*date, *time_slot, true));
-                let cancel = Callback::LogSheet(LogSheet::Cancel(*date, *time_slot));
-                let back = Callback::LogSheet(LogSheet::Start(*date));
+                let send = Callback::LogSheet(LogSheet::Send {
+                    date: *date,
+                    time_slot: *time_slot,
+                });
+                let refresh = Callback::LogSheet(LogSheet::StartTime {
+                    date: *date,
+                    time_slot: *time_slot,
+                    refresh: true,
+                });
+                let cancel = Callback::LogSheet(LogSheet::Cancel {
+                    date: *date,
+                    time_slot: *time_slot,
+                });
+                let back = Callback::LogSheet(LogSheet::Start { date: *date });
 
                 let keyboard = construct_keyboard_tuple([
                     vec![("send", send), (REFRESH, refresh), ("cancel", cancel)],
@@ -95,7 +120,7 @@ impl HandleCallback for LogSheet {
                     .parse_mode(ParseMode::MarkdownV2)
                     .await?;
             }
-            LogSheet::Send(date, time_slot) => {
+            LogSheet::Send { date, time_slot } => {
                 bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet")
                     .await?;
 
@@ -109,8 +134,8 @@ impl HandleCallback for LogSheet {
                 let curr: NaiveDate = (*date).into();
 
                 let time = match time_slot {
-                    false => "AM",
-                    true => "PM",
+                    false => TIME_AM,
+                    true => TIME_PM,
                 };
 
                 // common message header used for responses below
@@ -160,10 +185,10 @@ impl HandleCallback for LogSheet {
                         .await?;
                 }
             }
-            LogSheet::Cancel(date, time_slot) => {
+            LogSheet::Cancel { date, time_slot } => {
                 let time = match time_slot {
-                    false => "AM",
-                    true => "PM",
+                    false => TIME_AM,
+                    true => TIME_PM,
                 };
 
                 let text = format!("Logsheet: {} {} cancelled", NaiveDate::from(*date), time);
@@ -184,10 +209,18 @@ pub async fn logsheet_start(
     tokio::task::spawn(ntu_canoebot_attd::refresh_attd_sheet_cache(true));
 
     let d: Date = date.into();
-    let am = Callback::LogSheet(LogSheet::StartTime(d, false, false));
-    let pm = Callback::LogSheet(LogSheet::StartTime(d, true, false));
+    let am = Callback::LogSheet(LogSheet::StartTime {
+        date: d,
+        time_slot: false,
+        refresh: false,
+    });
+    let pm = Callback::LogSheet(LogSheet::StartTime {
+        date: d,
+        time_slot: true,
+        refresh: false,
+    });
 
-    let keyboard = construct_keyboard_tuple([[("AM", am), ("PM", pm)]]);
+    let keyboard = construct_keyboard_tuple([[(TIME_AM, am), (TIME_PM, pm)]]);
 
     let text = format!("Logsheet: {}", date);
     match is_callback {

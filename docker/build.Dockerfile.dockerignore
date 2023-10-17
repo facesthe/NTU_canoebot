@@ -12,5 +12,8 @@ README.md
 .gitattributes
 .gitignore
 
+# force regen
+generated.rs
+
 # big bois
 /target

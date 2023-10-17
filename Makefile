@@ -6,22 +6,33 @@
 image_name = ntu_canoebot
 manifest = $(shell find -name "Cargo.*" -type f)
 
-default: build
+default: rebuild
 
 cache:
-	docker build -t ntu_canoebot_cache -f docker/cache.Dockerfile .
+	docker build -t ${image_name}_cache -f docker/cache.Dockerfile .
 
-build: cache
+# rebuild the cache as well, if required
+rebuild: cache
 	docker compose build
 
-up: build
+# build project without rebuilding dependencies
+build:
+	docker compose build
+
+up:
+	docker compose up -d
+
+buildup: build
 	docker compose up -d
 
 down:
 	docker compose down
 
-save: build
+save:
 	docker save --output $(image_name).tar $(image_name)
 
 info:
 	$(info $$manifest is [${manifest}])
+
+logs:
+	docker compose logs -f --tail 10

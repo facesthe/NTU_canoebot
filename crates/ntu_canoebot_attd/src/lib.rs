@@ -4,7 +4,7 @@ mod deconflict;
 pub mod logsheet;
 mod update;
 
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use lazy_static::lazy_static;
@@ -16,7 +16,7 @@ use polars::{
     prelude::{AnyValue, DataFrame},
     series::Series,
 };
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockWriteGuard};
 
 pub use logsheet::SUBMIT_LOCK;
 pub use update::init;
@@ -26,15 +26,27 @@ const NO_ALLOCATION: &str = "NO BOAT";
 // most of these globals are initialized in init().
 lazy_static! {
     /// Attendance sheet lookup
-    static ref ATTENDANCE_SHEETS: [&'static str; 2] = [
-        &*config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
-        &*config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+    static ref ATTENDANCE_SHEETS: [Option<&'static str>; 2] = [
+        match config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
+        },
+        match config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
+        },
     ];
 
     /// Program sheet lookup
-    static ref PROGRAM_SHEETS: [&'static str; 2] = [
-        &*config::SHEETSCRAPER_OLD_PROGRAM_SHEET,
-        &*config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
+    static ref PROGRAM_SHEETS: [Option<&'static str>; 2] = [
+        match config::SHEETSCRAPER_OLD_PROGRAM_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
+        },
+        match config::SHEETSCRAPER_NEW_PROGRAM_SHEET.len() {
+            0 => None,
+            _ => Some(&*config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
+        },
     ];
 
     /// Lookup table of names and their 1-star certificate status.
@@ -61,6 +73,9 @@ lazy_static! {
     /// Since each program sheet contains data for one entire year,
     /// this is pretty much all the data needed.
     pub static ref PROG_CACHE: RwLock<ProgSheet> = Default::default();
+
+    /// Set of names that are part of the EXCO
+    pub static ref EXCO_NAMES: [RwLock<HashSet<String>>; 2] = Default::default();
 
 }
 
@@ -101,11 +116,22 @@ pub struct ProgSheet {
     end: NaiveDate,
 }
 
+/// Training session type
+#[derive(Clone, Copy, Debug, Default)]
+pub enum Session {
+    #[default]
+    Paddling,
+    Land,
+}
+
 /// Namelist object
 #[derive(Clone, Debug)]
 pub struct NameList {
     /// Namelist date
     pub date: NaiveDate,
+
+    /// Session type
+    pub session: Session,
 
     /// Time slot
     pub time: bool,
@@ -152,6 +178,7 @@ impl Display for NameList {
         let res = match &self.prog {
             Some(prog) => {
                 let template = *config::SHEETSCRAPER_PADDLING_FORMAT;
+                let sub_session = *config::SHEETSCRAPER_PADDLING_SUB_SESSION;
                 let sub_date = *config::SHEETSCRAPER_PADDLING_SUB_DATE;
                 let sub_allo = *config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
                 let sub_prog = *config::SHEETSCRAPER_PADDLING_SUB_PROG;
@@ -166,6 +193,7 @@ impl Display for NameList {
                 let allo = main_list.join("\n");
 
                 let res = template
+                    .replace(sub_session, format!("{:?}", self.session).as_str())
                     .replace(sub_date, &date)
                     .replace(sub_allo, &allo)
                     .replace(sub_prog, &prog)
@@ -195,24 +223,129 @@ impl Display for NameList {
     }
 }
 
-impl NameList {
-    /// Get namelist to fetch the prog for the day
-    pub async fn paddling(&mut self) -> Result<(), ()> {
-        let config = get_config_type(self.date);
-        let prog_lock = PROG_CACHE.read().await;
+/// The attendance breakdown for a particular week,
+/// Monday to Sunday
+///
+/// Shows:
+/// - dates
+/// - total paddlers
+/// - exco paddlers
+/// - fetch time
+#[derive(Clone, Debug, Default)]
+pub struct Breakdown {
+    start: NaiveDate,
+    num_total: [u16; 7],
+    num_exco: [u16; 7],
+    fetch_time: NaiveDateTime,
+}
 
-        let prog_sheet = if prog_lock.contains_date(self.date) {
-            prog_lock.clone()
-        } else {
-            let sheet_id = PROGRAM_SHEETS[config as usize];
-            let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
-            let sheet: ProgSheet = df.try_into()?;
-            sheet
+impl Display for Breakdown {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const DATE: &str = "date";
+        const TOTAL: &str = "total";
+        const EXCO: &str = "exco";
+
+        let dates: Vec<String> = (0..7)
+            .into_iter()
+            .map(|add| {
+                (self.start + Duration::days(add))
+                    .format("%a %d %b")
+                    .to_string()
+            })
+            .collect();
+
+        let (max_a, max_b, max_c) = {
+            let col_a = dates.iter().map(|d| d.len()).max().unwrap();
+            let col_a = col_a.max(DATE.len());
+
+            let col_b = self
+                .num_total
+                .iter()
+                .map(|num| num_digits(*num as i64))
+                .max()
+                .unwrap();
+            let col_b = col_b.max(TOTAL.len());
+
+            let col_c = self
+                .num_exco
+                .iter()
+                .map(|num| num_digits(*num as i64))
+                .max()
+                .unwrap();
+            let col_c = col_c.max(EXCO.len());
+
+            (col_a, col_b, col_c)
         };
+
+        let mut resp_vec: Vec<String> = Vec::new();
+        resp_vec.push(format!(
+            "{:<width_a$} {:<width_b$} {:<width_c$}",
+            DATE,
+            TOTAL,
+            EXCO,
+            width_a = max_a,
+            width_b = max_b,
+            width_c = max_c
+        ));
+
+        for (date, (total, exco)) in dates
+            .iter()
+            .zip(self.num_total.iter().zip(self.num_exco.iter()))
+        {
+            resp_vec.push(format!(
+                "{:<width_a$} {:>width_b$} {:>width_c$}",
+                date,
+                total,
+                exco,
+                width_a = max_a,
+                width_b = max_b,
+                width_c = max_c
+            ));
+        }
+
+        resp_vec.push(String::new());
+        resp_vec.push(format!("fetched at {}", self.fetch_time.format("%H:%M:%S")));
+
+        let res = resp_vec.join("\n");
+
+        write!(f, "{}", res)
+    }
+}
+
+fn num_digits(mut number: i64) -> usize {
+    if number == 0 {
+        return 1;
+    }
+
+    let mut res = 0;
+    while number != 0 {
+        number /= 10;
+        res += 1;
+    }
+
+    res
+}
+
+impl NameList {
+    pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
+        Self {
+            date,
+            session: Default::default(),
+            time: time_slot,
+            names: Default::default(),
+            boats: Default::default(),
+            prog: Default::default(),
+            fetch_time: chrono::Local::now().naive_local(),
+        }
+    }
+
+    /// Get namelist to fetch the prog for the day, for a given time slot
+    pub async fn fill_prog(&mut self, time_slot: bool) -> Result<(), ()> {
+        let prog_sheet = training_prog(self.date).await;
 
         self.prog = Some(
             prog_sheet
-                .get_program(self.date, false)
+                .get_program(self.date, time_slot)
                 .unwrap_or("".to_string()),
         );
 
@@ -234,7 +367,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let cols_to_drop: Vec<&str> = value
             .get_column_names()
             .iter()
-            .zip((0..*config::SHEEETSCRAPER_LAYOUT_FENCING_LEFT).into_iter())
+            .zip((0..*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT).into_iter())
             .map(|(col, _)| *col)
             .collect();
 
@@ -243,7 +376,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let inter_1 = value.drop_many(&cols_to_drop);
 
         let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
-        let inter_2 = inter_1.slice(*config::SHEEETSCRAPER_LAYOUT_FENCING_TOP, length);
+        let inter_2 = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP, length);
         let name_column = &inter_2[0];
 
         // remove non-data columns
@@ -253,9 +386,9 @@ impl TryFrom<DataFrame> for AttdSheet {
             .skip(1)
             .filter_map(|(idx, col)| {
                 let window_index =
-                    (idx - 1) % (14 + *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING) as usize;
+                    (idx - 1) % (14 + *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING) as usize;
 
-                if window_index < *config::SHEEETSCRAPER_LAYOUT_BLOCK_PRE_PADDING as usize {
+                if window_index < *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize {
                     None
                 } else {
                     Some(col.to_owned())
@@ -272,20 +405,32 @@ impl TryFrom<DataFrame> for AttdSheet {
         let start = NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT)
             .ok()
             .ok_or(())?;
-        let days_in_sheet = filtered.get_columns().len() / 2 + 1;
+        let days_in_sheet = calculate_sheet_name(start).1;
 
+        debug_println!("filtered cols: {}", filtered.get_columns().len());
         debug_println!("days in sheet: {}", days_in_sheet);
 
         Ok(Self {
             fetch_time: chrono::Local::now().naive_local(),
             data: filtered,
             start,
-            end: start + Duration::days(days_in_sheet as i64), // temp
+            end: start + Duration::days(days_in_sheet - 1), // temp
         })
     }
 }
 
 impl AttdSheet {
+    pub fn from_date(date: NaiveDate) -> Self {
+        let (start, end) = calculate_month_start_end(date);
+
+        Self {
+            fetch_time: chrono::Local::now().naive_local(),
+            data: Default::default(),
+            start,
+            end,
+        }
+    }
+
     /// Returns a list of names for a particular date and time.
     /// Returns [Option::None] if the date given is outside the sheet range.
     ///
@@ -303,7 +448,10 @@ impl AttdSheet {
             delta * 2 + 1
         };
 
-        let names = &self.data[0];
+        let names = &self
+            .data
+            .column(&self.data.get_column_names().get(0)?)
+            .ok()?;
         let selected = &self
             .data
             .column(&self.data.get_column_names().get(offset)?)
@@ -348,6 +496,7 @@ impl AttdSheet {
 
         Some(NameList {
             date,
+            session: Session::Paddling,
             time: time_slot,
             names: filtered,
             boats: None,
@@ -375,7 +524,7 @@ impl TryFrom<DataFrame> for ProgSheet {
         let (sheet_start, sheet_end) = {
             let date_col = value
                 .column(*config::SHEETSCRAPER_COLUMNS_PROG_DATE)
-                .unwrap();
+                .map_err(|_| ())?;
 
             // debug_println!()
 
@@ -386,8 +535,10 @@ impl TryFrom<DataFrame> for ProgSheet {
             debug_println!("end: {}", end);
 
             (
-                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
-                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG).unwrap(),
+                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                    .map_err(|_| ())?,
+                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                    .map_err(|_| ())?,
             )
         };
 
@@ -401,6 +552,17 @@ impl TryFrom<DataFrame> for ProgSheet {
 }
 
 impl ProgSheet {
+    pub fn from_date(date: NaiveDate) -> Self {
+        let (start, end) = calculate_month_start_end(date);
+
+        Self {
+            fetch_time: chrono::Local::now().naive_local(),
+            data: Default::default(),
+            start,
+            end,
+        }
+    }
+
     /// Returns the training prog for a given date
     pub fn get_program(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
         let delta = (date - self.start).num_days();
@@ -419,7 +581,7 @@ impl ProgSheet {
 
     /// Returns the formatted training prog, formatted for display as a message
     pub fn get_formatted_prog(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
-        let prog_contents = self.get_program(date, time_slot)?;
+        let prog_contents = self.get_program(date, time_slot).unwrap_or("".to_string());
 
         let mut lines = Vec::new();
 
@@ -460,59 +622,101 @@ pub fn get_config_type(date: NaiveDate) -> Config {
     }
 }
 
+/// Calculate the start and end of a block.
+///
+/// - start day is always a monday
+/// - end day is always a sunday
+pub fn calculate_month_start_end(date: NaiveDate) -> (NaiveDate, NaiveDate) {
+    let date_block = {
+        let month_last = calculate_last_day(date);
+        let delta = month_last.weekday().num_days_from_sunday();
+
+        let next_month_cutoff = month_last - Duration::days(delta as i64);
+        debug_println!("next month cutoff: {}", next_month_cutoff);
+
+        if date > next_month_cutoff {
+            month_last + Duration::days(1)
+        } else {
+            date
+        }
+    };
+
+    let month_end = calculate_last_day(date_block);
+    let month_start = NaiveDate::from_ymd_opt(date_block.year(), date_block.month(), 1).unwrap();
+
+    let end_delta = month_end.weekday().num_days_from_sunday();
+    let start_delta = month_start.weekday().num_days_from_monday();
+
+    (
+        (month_start - Duration::days(start_delta as i64)),
+        (month_end - Duration::days(end_delta as i64)),
+    )
+}
+
+/// Calculate the last day of a month
+pub fn calculate_last_day(date: NaiveDate) -> NaiveDate {
+    let last_day = {
+        let next_y;
+        let next_m;
+
+        if date.month() == 12 {
+            next_m = 1;
+            next_y = date.year() + 1;
+        } else {
+            next_m = date.month() + 1;
+            next_y = date.year();
+        }
+
+        NaiveDate::from_ymd_opt(next_y, next_m, 1).unwrap() - Duration::days(1)
+    };
+
+    last_day
+}
+
 /// Calculate the sheet name from some rules.
+/// Also returns the number of days for that sheet.
 ///
 /// They are:
 /// - A sheet always starts on Monday and ends on Sunday
 /// - The sheet must end on the last Sunday of a month
 /// - A sheet is named MMM-YYYY
-pub fn calculate_sheet_name(date: NaiveDate) -> String {
-    let last_day = {
-        let next_month;
-        let next_year;
+pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
+    let (start, end) = calculate_month_start_end(date);
+    let num_days = (end - start).num_days() + 1;
+    let sheet_name = end.format("%b-%Y").to_string();
 
-        if date.month() == 12 {
-            next_month = 1;
-            next_year = date.year() + 1;
-        } else {
-            next_month = date.month() + 1;
-            next_year = date.year();
-        }
-
-        NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap() - Duration::days(1)
-    };
-    let day = last_day.weekday();
-    let days_after = day.number_from_monday() % 7;
-
-    let last_sunday = last_day.day() - days_after;
-
-    let actual_sheet_date = if date.day() > last_sunday {
-        last_day + Duration::days(1)
-    } else {
-        last_day
-    };
-
-    actual_sheet_date.format("%b-%Y").to_string()
+    (sheet_name, num_days)
 }
 
-// async fn get_attendance_sheet(date: NaiveDate) -> Option<DataFrame> {
-//     let change = {
-//         let d = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
-//         NaiveDate::from_ymd_opt(d.year as i32, d.month as u32, d.day as u32).unwrap()
-//     };
+/// Calculates the sheet name for lang prog.
+///
+/// This is a very simple function as makes some assumptions about
+/// the semester structure that NTU has.
+pub fn calculate_land_sheet_name(date: NaiveDate) -> String {
+    const FIRST_SEM_MONTH: u32 = 8; // AY starts in August
 
-//     let sheet = if date >= change {
-//         Config::New
-//     } else {
-//         Config::Old
-//     };
+    let acad_year: String = {
+        let year = if date.month() >= FIRST_SEM_MONTH {
+            date.year()
+        } else {
+            date.year() - 1
+        };
 
-//     let sheet_name = calculate_sheet_name(date);
+        format!("{}", year % 100)
+    };
 
-//     let df = g_sheets::get_as_dataframe(ATTENDANCE_SHEETS[sheet as usize], Some(sheet_name)).await;
+    let sem: String = {
+        let month = date.month();
 
-//     Some(df)
-// }
+        if month >= FIRST_SEM_MONTH {
+            "S1".to_string()
+        } else {
+            "S2".to_string()
+        }
+    };
+
+    format!("gym-{}{}", acad_year, sem)
+}
 
 /// Convert an [AnyValue] type to a string.
 fn dataframe_cell_to_string(cell: AnyValue) -> String {
@@ -522,14 +726,11 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 /// Return the namelist struct. Accesses cache if hit.
 pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
     let config = get_config_type(date);
-    let sheet_id = match config {
-        crate::Config::Old => *config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET,
-        crate::Config::New => *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-    };
+    let sheet_id = ATTENDANCE_SHEETS[config as usize];
 
     debug_println!("date: {}\nusing {:?} config", date, config);
 
-    let sheet_name = calculate_sheet_name(date);
+    let (sheet_name, _) = calculate_sheet_name(date);
 
     debug_println!("sheet name: {}", sheet_name);
 
@@ -546,25 +747,213 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
             (false, true) => read_lock_wandering.clone(),
             (false, false) => {
                 drop(read_lock_wandering);
-                let df = g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await;
-                let s: AttdSheet = df.try_into().ok()?;
+
+                let sheet = {
+                    match sheet_id {
+                        Some(id) => {
+                            let df = g_sheets::get_as_dataframe(id, Some(sheet_name)).await;
+                            let s: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
+                            s
+                        }
+                        None => AttdSheet::from_date(date),
+                    }
+                };
 
                 let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
-
-                write_wandering.start = s.start;
-                write_wandering.end = s.end;
-                write_wandering.data = s.data;
-                write_wandering.fetch_time = s.fetch_time;
+                update_attd_cache(sheet, &mut write_wandering);
 
                 write_wandering.clone()
             }
         }
     };
 
+    debug_println!("sheet from: {} to {}", sheet.start, sheet.end);
+
     sheet.get_names(date, time_slot).await
 }
 
-/// Refresh the cached sheet
+/// Finds the training program for a given date. Accesses the cache
+/// if hit.
+pub async fn training_prog(date: NaiveDate) -> ProgSheet {
+    let config = get_config_type(date);
+    let sheet_id = PROGRAM_SHEETS[config as usize];
+
+    let read_lock = PROG_CACHE.read().await;
+    let prog_sheet = if read_lock.contains_date(date) {
+        read_lock.clone()
+    } else {
+        match sheet_id {
+            Some(id) => {
+                let df = g_sheets::get_as_dataframe(id, Option::<&str>::None).await;
+                let sheet: ProgSheet = df.try_into().unwrap_or(ProgSheet::from_date(date));
+                sheet
+            }
+            None => ProgSheet::from_date(date),
+        }
+    };
+
+    prog_sheet
+}
+
+/// Returns the attendance breakdown for a particular week,
+/// from Mon to Sun
+pub async fn breakdown(date: NaiveDate, time_slot: bool) -> Breakdown {
+    let cache_lock = SHEET_CACHE.read().await;
+    let mut wand_lock = SHEET_CACHE_WANDERING.write().await;
+    let sheet = {
+        match (
+            cache_lock.contains_date(date),
+            wand_lock.contains_date(date),
+        ) {
+            (true, _) => cache_lock.clone(),
+            (false, true) => wand_lock.clone(),
+            (false, false) => {
+                let config = get_config_type(date);
+                let sheet_name = calculate_sheet_name(date).0;
+
+                match ATTENDANCE_SHEETS[config as usize] {
+                    Some(sheet) => {
+                        let df = g_sheets::get_as_dataframe(sheet, Some(sheet_name)).await;
+                        let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
+                        update_attd_cache(sheet, &mut wand_lock);
+                        wand_lock.clone()
+                    }
+                    None => AttdSheet::from_date(date),
+                }
+            }
+        }
+    };
+
+    let first_day = date - Duration::days(date.weekday().num_days_from_monday() as i64);
+
+    let sheet_ref = Arc::new(sheet);
+
+    let jobs_vec = (0..7)
+        .into_iter()
+        .map(|d| {
+            let sheet_clone = sheet_ref.clone();
+            tokio::spawn(async move {
+                let day = first_day + Duration::days(d);
+                (day, sheet_clone.get_names(day, time_slot).await)
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let mut breakdown = Breakdown::default();
+    breakdown.fetch_time = sheet_ref.fetch_time;
+    breakdown.start = first_day;
+
+    let config = get_config_type(date);
+    let exco_lock = EXCO_NAMES[config as usize].read().await;
+
+    for (idx, job) in jobs_vec.into_iter().enumerate() {
+        let (day, names) = job.await.unwrap();
+        let nlist = match names {
+            Some(list) => list,
+            None => NameList::from_date_time(day, false),
+        };
+
+        let num_total = nlist.names.len();
+        breakdown.num_total[idx] = num_total as u16;
+
+        let num_exco: usize = nlist
+            .names
+            .iter()
+            .map(|name| if exco_lock.contains(name) { 1 } else { 0 })
+            .sum();
+
+        breakdown.num_exco[idx] = num_exco as u16;
+    }
+
+    breakdown
+}
+
+/// Returns the land program, taking names from the gym sheet.
+///
+/// No cache for this one, it's barely used.
+///
+/// All data processing is performed inside here.
+pub async fn land(date: NaiveDate) -> NameList {
+    let config = get_config_type(date);
+    let sheet_name = calculate_land_sheet_name(date);
+
+    let df = match ATTENDANCE_SHEETS[config as usize] {
+        Some(sheet_id) => g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await,
+        None => return NameList::from_date_time(date, true),
+    };
+
+    // trim sides of data
+    let cols_to_drop: Vec<&str> = df
+        .get_column_names()
+        .iter()
+        .zip((0..*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_LEFT).into_iter())
+        .map(|(col, _)| *col)
+        .collect();
+
+    debug_println!("to drop cols: {:?}", cols_to_drop);
+
+    let df_fenced = df.drop_many(&cols_to_drop);
+
+    // let length = df_fenced.iter().map(|series| series.len()).max().unwrap_or(0);
+
+    // debug_println!("{}", inter_1);
+    // let df_fenced = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
+    let name_column = &df_fenced[0];
+
+    // debug_println!("{}", df_fenced);
+
+    let day = date.weekday().num_days_from_monday();
+    let offset = day * 2 + 1;
+
+    let attd_column = df_fenced
+        .column(df_fenced.get_column_names().get(offset as usize).unwrap())
+        .unwrap();
+
+    debug_println!("{}", attd_column);
+
+    let read_lock = SHORTENED_NAMES[config as usize].read().await;
+
+    let filtered: Vec<String> = attd_column
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, cell)| {
+            let contents = dataframe_cell_to_string(cell);
+            if contents == "Y" {
+                let name = name_column.get(idx).unwrap();
+                let key = dataframe_cell_to_string(name);
+                debug_println!("name: {}", key);
+                if read_lock.contains_key(&key) {
+                    read_lock.get(&key).cloned()
+                } else {
+                    Some(key)
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    NameList {
+        date,
+        session: Session::Land,
+        time: true,
+        names: filtered,
+        boats: None,
+        prog: None,
+        fetch_time: chrono::Local::now().naive_local(),
+    }
+
+    // println!("{}", df);
+}
+
+fn update_attd_cache(sheet: AttdSheet, cache_lock: &mut RwLockWriteGuard<'_, AttdSheet>) {
+    cache_lock.start = sheet.start;
+    cache_lock.end = sheet.end;
+    cache_lock.data = sheet.data;
+    cache_lock.fetch_time = sheet.fetch_time;
+}
+
+/// Refresh the main cached and wandering sheet
 pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     debug_println!(
         "refreshing attd sheet cache at: {}",
@@ -586,7 +975,7 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     drop(read_cache);
     let config = get_config_type(today);
     let sheet_id = ATTENDANCE_SHEETS[config as usize];
-    let sheet_name = calculate_sheet_name(today + Duration::days(1));
+    let (sheet_name, _) = calculate_sheet_name(today);
 
     let read_wandering = SHEET_CACHE_WANDERING.read().await;
     let wandering_date = read_wandering.start;
@@ -594,36 +983,46 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     drop(read_wandering);
     let config = get_config_type(wandering_date);
     let sheet_id_wandering = ATTENDANCE_SHEETS[config as usize];
-    let sheet_name_wandering = calculate_sheet_name(wandering_date);
+    let (sheet_name_wandering, _) = calculate_sheet_name(wandering_date);
 
-    let tasks = (
-        tokio::spawn(g_sheets::get_as_dataframe(sheet_id, Some(sheet_name))),
-        tokio::spawn(g_sheets::get_as_dataframe(
-            sheet_id_wandering,
-            Some(sheet_name_wandering),
-        )),
-    );
+    let mut cache_lock = SHEET_CACHE.write().await;
+    let mut cache_lock_wand = SHEET_CACHE_WANDERING.write().await;
 
-    let df = tasks.0.await.unwrap();
-    let sheet: AttdSheet = df.try_into()?;
+    match (sheet_id, sheet_id_wandering) {
+        (None, None) => (),
+        (None, Some(wand)) => {
+            let df = g_sheets::get_as_dataframe(wand, Some(sheet_name_wandering)).await;
+            let sheet_wand: AttdSheet = df
+                .try_into()
+                .unwrap_or(AttdSheet::from_date(wandering_date));
+            update_attd_cache(sheet_wand, &mut cache_lock_wand);
+        }
+        (Some(id), None) => {
+            let df = g_sheets::get_as_dataframe(id, Some(sheet_name)).await;
+            let sheet = df.try_into().unwrap_or(AttdSheet::from_date(today));
+            update_attd_cache(sheet, &mut cache_lock);
+        }
+        (Some(id), Some(id_wand)) => {
+            let tasks = (
+                tokio::spawn(g_sheets::get_as_dataframe(id, Some(sheet_name))),
+                tokio::spawn(g_sheets::get_as_dataframe(
+                    id_wand,
+                    Some(sheet_name_wandering),
+                )),
+            );
 
-    let df_wandering = tasks.1.await.unwrap();
-    let sheet_wandering: AttdSheet = df_wandering.try_into()?;
+            let df = tasks.0.await.unwrap();
+            let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(today));
 
-    debug_println!("local cache fetch at: {}", sheet.fetch_time);
-    debug_println!("wandering cache fetch at: {}", sheet_wandering.fetch_time);
+            let df_wandering = tasks.1.await.unwrap();
+            let sheet_wandering: AttdSheet = df_wandering
+                .try_into()
+                .unwrap_or(AttdSheet::from_date(wandering_date));
 
-    let mut write_lock = SHEET_CACHE.write().await;
-    write_lock.start = sheet.start;
-    write_lock.end = sheet.end;
-    write_lock.data = sheet.data;
-    write_lock.fetch_time = sheet.fetch_time;
-
-    let mut write_wandering = SHEET_CACHE_WANDERING.write().await;
-    write_wandering.start = sheet_wandering.start;
-    write_wandering.end = sheet_wandering.end;
-    write_wandering.data = sheet_wandering.data;
-    write_wandering.fetch_time = sheet_wandering.fetch_time;
+            update_attd_cache(sheet, &mut cache_lock);
+            update_attd_cache(sheet_wandering, &mut cache_lock_wand);
+        }
+    }
 
     Ok(())
 }
@@ -635,7 +1034,7 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
         chrono::Local::now().time()
     );
 
-    let today = chrono::Local::now().naive_local() + Duration::days(1);
+    let today = chrono::Local::now().date_naive() + Duration::days(1);
     let read_lock = PROG_CACHE.read().await;
 
     if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
@@ -647,12 +1046,20 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     }
 
     drop(read_lock);
-    let config = get_config_type(today.date());
+    let config = get_config_type(today);
     let sheet_id = PROGRAM_SHEETS[config as usize];
 
-    let df = g_sheets::get_as_dataframe(sheet_id, Option::<&str>::None).await;
+    let sheet = {
+        match sheet_id {
+            Some(id) => {
+                let df = g_sheets::get_as_dataframe(id, Option::<&str>::None).await;
+                let sheet: ProgSheet = df.try_into().unwrap_or(ProgSheet::from_date(today));
 
-    let sheet: ProgSheet = df.try_into()?;
+                sheet
+            }
+            None => ProgSheet::from_date(today),
+        }
+    };
 
     let mut write_lock = PROG_CACHE.write().await;
 
@@ -675,17 +1082,39 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn test_num_digits() {
+        assert_eq!(num_digits(1), 1);
+        assert_eq!(num_digits(9), 1);
+        assert_eq!(num_digits(10), 2);
+        assert_eq!(num_digits(99), 2);
+        assert_eq!(num_digits(100), 3);
+    }
+
+    #[tokio::test]
+    async fn test_breakdown() {
+        init().await;
+
+        let bd = breakdown(chrono::Local::now().date_naive(), false).await;
+        println!("{}", bd);
+
+        let bd = breakdown(chrono::Local::now().date_naive(), true).await;
+        println!("{}", bd);
+    }
+
     #[tokio::test]
     async fn get_sheet() {
         let mut df = g_sheets::get_as_dataframe(
             *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-            Some("Aug-2023"),
+            Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET),
         )
         .await;
 
-        let out_file = File::create("attd.csv").unwrap();
-        let csv_writer = CsvWriter::new(out_file);
-        csv_writer.has_header(true).finish(&mut df).unwrap();
+        println!("{:?}", df.column("is_exco"));
+
+        // let out_file = File::create("attd.csv").unwrap();
+        // let csv_writer = CsvWriter::new(out_file);
+        // csv_writer.has_header(true).finish(&mut df).unwrap();
     }
 
     #[tokio::test]
@@ -711,7 +1140,7 @@ mod tests {
 
         let today = chrono::Local::now().date_naive();
 
-        let sheet_name = calculate_sheet_name(today);
+        let (sheet_name, _) = calculate_sheet_name(today);
 
         println!("sheet name: {}", &sheet_name);
 
@@ -763,59 +1192,147 @@ mod tests {
         println!("{:?}", prog);
     }
 
+    fn create_date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    #[test]
+    fn test_calculate_month_start_end() {
+        let date = create_date(2023, 1, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2022, 12, 26));
+        assert_eq!(end, create_date(2023, 1, 29));
+
+        let date = create_date(2023, 2, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 2, 27));
+        assert_eq!(end, create_date(2023, 3, 26));
+
+        let date = create_date(2023, 3, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 3, 27));
+        assert_eq!(end, create_date(2023, 4, 30));
+
+        let date = create_date(2023, 4, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 3, 27));
+        assert_eq!(end, create_date(2023, 4, 30));
+
+        let date = create_date(2023, 5, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 5, 1));
+        assert_eq!(end, create_date(2023, 5, 28));
+
+        let date = create_date(2023, 6, 28);
+        let (start, end) = calculate_month_start_end(date);
+        assert_eq!(start, create_date(2023, 6, 26));
+        assert_eq!(end, create_date(2023, 7, 30));
+    }
+
     #[test]
     fn test_date_calculation() {
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2022, 12, 28).unwrap()),
-            "Jan-2023"
+            ("Jan-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 01, 28).unwrap()),
-            "Jan-2023"
+            ("Jan-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 01, 30).unwrap()),
+            ("Feb-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 02, 28).unwrap()),
-            "Mar-2023"
+            ("Mar-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 03, 28).unwrap()),
-            "Apr-2023"
+            ("Apr-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 04, 28).unwrap()),
-            "Apr-2023"
+            ("Apr-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 05, 28).unwrap()),
-            "May-2023"
+            ("May-2023".to_string(), 28)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 05, 29).unwrap()),
+            ("Jun-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 06, 28).unwrap()),
-            "Jul-2023"
+            ("Jul-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 07, 28).unwrap()),
-            "Jul-2023"
+            ("Jul-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 07, 31).unwrap()),
+            ("Aug-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 08, 28).unwrap()),
-            "Sep-2023"
+            ("Sep-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 09, 28).unwrap()),
-            "Oct-2023"
+            ("Oct-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 10, 28).unwrap()),
-            "Oct-2023"
+            ("Oct-2023".to_string(), 35)
+        );
+        assert_eq!(
+            calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 10, 30).unwrap()),
+            ("Nov-2023".to_string(), 28)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 11, 28).unwrap()),
-            "Dec-2023"
+            ("Dec-2023".to_string(), 35)
         );
         assert_eq!(
             calculate_sheet_name(NaiveDate::from_ymd_opt(2023, 12, 28).unwrap()),
-            "Dec-2023"
+            ("Dec-2023".to_string(), 35)
         );
+    }
+
+    /// Check that num days per sheet is always a multiple of 7
+    #[test]
+    fn test_num_days_calculation() {
+        let start = chrono::Local::now().date_naive();
+
+        for d in 0..365 {
+            let day = start + Duration::days(d);
+            let num_days = calculate_sheet_name(day).1;
+            assert_eq!(num_days % 7, 0);
+            assert_ne!(num_days, 0);
+        }
+    }
+
+    #[test]
+    fn test_calculate_land_sheet_name() {
+        let sess = Session::default();
+        println!("{:?}", sess);
+
+        let year = chrono::Local::now().date_naive().year();
+        for i in (1..=12).into_iter() {
+            let date = NaiveDate::from_ymd_opt(year, i, 1).unwrap();
+
+            let sheet_name = calculate_land_sheet_name(date);
+            println!("{} -> {}", date, sheet_name)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_asd() {
+        init().await;
+        let mut res = land(chrono::Local::now().date_naive() + Duration::days(1)).await;
+        res.fill_prog(true).await.unwrap();
+        println!("{}", res);
     }
 }

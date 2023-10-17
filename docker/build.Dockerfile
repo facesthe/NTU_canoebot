@@ -17,17 +17,11 @@ RUN cp target/x86_64-unknown-linux-musl/release/ntu_canoebot bin/ntu_canoebot
 FROM gruebel/upx:latest as COMPRESSOR
 
 COPY --from=BUILDER /build/ntu_canoebot/bin/ntu_canoebot /bin/ntu_canoebot
-RUN upx /bin/ntu_canoebot
+RUN upx --lzma /bin/ntu_canoebot
 
 
 # alpine image
 FROM alpine:latest
-
-# ARG teloxide_token
-# ARG rust_log
-
-# ENV TELOXIDE_TOKEN=$teloxide_token
-# ENV RUST_LOG=$rust_log
 
 ENV TZ=Asia/Singapore
 RUN apk add --no-cache tzdata

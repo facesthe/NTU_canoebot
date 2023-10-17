@@ -1,9 +1,13 @@
+mod breakdown;
 pub mod callbacks;
+mod land;
 mod logsheet;
 mod namelist;
 mod paddling;
+mod ping;
 pub mod src;
 mod training;
+mod whatactually;
 
 use std::error::Error;
 use std::str::FromStr;
@@ -18,10 +22,14 @@ use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
 const BASE64_ENGINE: GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
-pub use logsheet::logsheet_start;
+pub use breakdown::{breakdown_get, Breakdown};
+pub use land::land_get;
+pub use logsheet::{logsheet_start, LogSheet};
 pub use namelist::namelist_get;
-pub use paddling::paddling_get;
+pub use paddling::{paddling_get, Paddling};
+pub use ping::ping_start;
 pub use training::training_get;
+pub use whatactually::whatactually_get;
 
 use crate::frame::construct_keyboard_tuple;
 
@@ -40,13 +48,16 @@ const BLANK_BLOCK: char = '\u{2588}';
 /// inline markup button.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Callback {
-    BigData(callbacks::BigData),
     Empty,
     Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
     Padddling(paddling::Paddling),
+    Land(land::Land),
+    Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
+    Ping(ping::Ping),
+    WhatActually(whatactually::WhatActually),
     /// Custom callback handlers that might not be linked
     /// to a particular command.
     Custom,
@@ -109,10 +120,12 @@ impl HandleCallback for Callback {
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
             Callback::Padddling(call) => call.handle_callback(bot, query).await,
+            Callback::Land(call) => call.handle_callback(bot, query).await,
+            Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
-
+            Callback::Ping(call) => call.handle_callback(bot, query).await,
+            Callback::WhatActually(call) => call.handle_callback(bot, query).await,
             // testing
-            Callback::BigData(call) => call.handle_callback(bot, query).await,
 
             // to catch unimpl'd callbacks
             _ => {
@@ -122,6 +135,13 @@ impl HandleCallback for Callback {
         }
     }
 }
+
+// /// Trait for initializing an object from a date.
+// pub trait FromDate {
+//     type Output;
+
+//     fn from_date(date: NaiveDate) -> Self::Output;
+// }
 
 /// Date struct passed inside callbacks
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -210,10 +230,15 @@ impl TryFrom<&Callback> for Vec<u8> {
         };
 
         let bin_deflate = deflate::deflate_bytes(&bin_data);
+        debug_println!("size of callback data: {} bytes", bin_deflate.len());
         log::trace!("size of callback data: {} bytes", bin_deflate.len());
 
         let bin_chars = BASE64_ENGINE.encode(&bin_deflate);
-
+        debug_println!(
+            "callback data payload len: {} bytes, data: \"{}\"",
+            bin_chars.len(),
+            &bin_chars
+        );
         Ok(bin_chars.as_bytes().to_owned())
     }
 }
@@ -317,12 +342,11 @@ mod test {
     /// Tests serializing and deserializing the callback data
     #[test]
     fn test_callback_serde() {
-        let callback = Callback::BigData(callbacks::BigData { uuid: u64::MAX });
-
-        // Callback::OtherThing {
-        //     name: "asadasdasdjanskdjanskdjaksjdnkajsdkjnajksasdasdsad".to_string(),
-        //     age: 13,
-        // };
+        let callback = Callback::LogSheet(logsheet::LogSheet::StartTime {
+            date: chrono::Local::now().date_naive().into(),
+            time_slot: false,
+            refresh: true,
+        });
 
         let serialized: Vec<u8> = (&callback).try_into().unwrap();
         let deserialized: Callback = (&serialized).try_into().unwrap();

@@ -66,17 +66,22 @@ These are the current list of public commands available. Copy and paste these wh
 
     help - help
     reload - refresh sheet data
-    whoami - who u
-    what - what is it?
-    whatactually - what is it actually?
+    version - bot version
     src - view SRC facilities
     namelist - see who's going training
     training - view training program
     paddling - full paddling attendance
+    land - full land attendance
+    weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
+    what - what is it?
+    whatactually - what is it actually?
+    emojivomit - emoji vomit
+    uwuify - uwu
+
+<!-- whoami - who u -->
 
 <!-- countdown - days left to ITCC -->
-<!-- weeklybreakdown - attendance breakdown -->
 
 ---
 

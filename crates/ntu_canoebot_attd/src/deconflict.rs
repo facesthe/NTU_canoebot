@@ -46,7 +46,7 @@ impl AllocResult {
     fn from_fail(boat: String) -> Self {
         Self {
             boat,
-            lock: false,
+            lock: true,
             fail: true,
             absent: false,
         }
@@ -56,8 +56,8 @@ impl AllocResult {
     fn from_lock(boat: String) -> Self {
         Self {
             boat,
-            lock: false,
-            fail: true,
+            lock: true,
+            fail: false,
             absent: false,
         }
     }
@@ -392,6 +392,7 @@ impl NameList {
                             match other.lock {
                                 true => {
                                     allo.fail = true;
+                                    allo.lock = true;
                                 }
                                 false => {
                                     // kick the other guy out
@@ -454,9 +455,15 @@ impl NameList {
 
                                 // which person do we kick out?
                                 let kicked;
-
+                                debug_println!(
+                                    "{} has conflicts: {:?}, {:?}",
+                                    unallo_name,
+                                    pri_conflict,
+                                    alt_conflict
+                                );
                                 match (pri_conflict.1.lock, alt_conflict.1.lock) {
                                     (true, true) => {
+                                        debug_println!("no options left for {}", unallo_name);
                                         // all locked
                                         res.insert(
                                             unallo_name,
@@ -466,6 +473,7 @@ impl NameList {
                                         kicked = None;
                                     }
                                     (true, false) => {
+                                        debug_println!("locking {} to {}", unallo_name, alt);
                                         res.insert(
                                             unallo_name,
                                             Some(AllocResult::from_lock(alt.to_owned())),
@@ -474,6 +482,7 @@ impl NameList {
                                         kicked = Some(alt_conflict.0);
                                     }
                                     (false, true) => {
+                                        debug_println!("locking {} to {}", unallo_name, pri);
                                         // curr_al
                                         res.insert(
                                             unallo_name,
@@ -483,13 +492,18 @@ impl NameList {
                                         kicked = Some(pri_conflict.0);
                                     }
                                     (false, false) => {
+                                        debug_println!(
+                                            "assigning {} to {} without locking",
+                                            unallo_name,
+                                            pri
+                                        );
                                         // this branch is causing problems
                                         res.insert(
                                             unallo_name,
-                                            Some(AllocResult::from_lock(alt.to_owned())),
+                                            Some(AllocResult::from_boat(pri.to_owned())),
                                         );
 
-                                        kicked = Some(alt_conflict.0);
+                                        kicked = Some(pri_conflict.0);
                                     }
                                 }
 
@@ -529,6 +543,8 @@ impl NameList {
                         }
                     }
                 }
+
+                debug_println!("curr iteration:\n{:#?}", res);
             }
 
             let successful = res.iter().all(|(_, v)| match v {
@@ -671,7 +687,7 @@ mod tests {
         let config = get_config_type(date);
         let mut name_list = crate::namelist(date, false).await.unwrap();
         let deconf_res = name_list.assign_boats(true).await;
-        name_list.paddling().await.unwrap();
+        name_list.fill_prog(false).await.unwrap();
         let groups = NameList::find_matching(&name_list.names, config).await;
 
         println!("allocation success: {}", deconf_res);
@@ -679,7 +695,7 @@ mod tests {
         println!("deconf boat allocation: {}", name_list);
 
         name_list.assign_boats(false).await;
-        name_list.paddling().await.unwrap();
+        name_list.fill_prog(false).await.unwrap();
 
         println!("no deconf boat allocation: {}", name_list);
     }

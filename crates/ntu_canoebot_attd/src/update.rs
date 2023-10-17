@@ -8,8 +8,8 @@ use std::{
 use polars::prelude::DataFrame;
 
 use crate::{
-    dataframe_cell_to_string, Config, ATTENDANCE_SHEETS, BOATS, BOAT_ALLOCATIONS, NAMES_CERTS,
-    SHORTENED_NAMES,
+    dataframe_cell_to_string, Config, ATTENDANCE_SHEETS, BOATS, BOAT_ALLOCATIONS, EXCO_NAMES,
+    NAMES_CERTS, PROGRAM_SHEETS, SHORTENED_NAMES,
 };
 use ntu_canoebot_config as config;
 
@@ -176,16 +176,79 @@ async fn update_config_from_df(
     lock.extend(allocations);
     drop(lock);
 
+    let exco_id = df.column(&*config::SHEETSCRAPER_COLUMNS_ATTD_EXCO).unwrap();
+    let short_lock = SHORTENED_NAMES[config as usize].read().await;
+
+    let exco_names = names
+        .iter()
+        .zip(exco_id.iter())
+        .filter_map(|(name, if_exco)| {
+            let name = dataframe_cell_to_string(name);
+            let if_exco = match dataframe_cell_to_string(if_exco).parse::<u8>() {
+                Ok(value) => {
+                    if value == 1 {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Err(_) => false,
+            };
+
+            if if_exco {
+                if short_lock.contains_key(&name) {
+                    Some(short_lock.get(&name).cloned().unwrap())
+                } else {
+                    Some(name)
+                }
+            } else {
+                None
+            }
+        });
+
+    let mut lock = EXCO_NAMES[config as usize].write().await;
+    lock.clear();
+    lock.extend(exco_names);
+    drop(lock);
+
     Ok(())
 }
 
 /// Initialize/reload from the configs sheet
 pub async fn init() {
     for (idx, sheet_id) in ATTENDANCE_SHEETS.iter().enumerate() {
-        let df =
-            g_sheets::get_as_dataframe(sheet_id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
-                .await;
-        update_config_from_df(&df, idx.into()).await.unwrap()
+        let conf: Config = idx.into();
+
+        log::info!(
+            "attd sheet {:?}: {:?}",
+            conf,
+            if matches!(sheet_id, Some(_)) {
+                "Some(_)"
+            } else {
+                "None"
+            }
+        );
+        match sheet_id {
+            Some(id) => {
+                let df =
+                    g_sheets::get_as_dataframe(id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
+                        .await;
+                update_config_from_df(&df, idx.into()).await.unwrap()
+            }
+            None => {}
+        }
+    }
+    for (idx, sheet_id) in PROGRAM_SHEETS.iter().enumerate() {
+        let conf: Config = idx.into();
+        log::info!(
+            "prog sheet: {:?}: {:?}",
+            conf,
+            if matches!(sheet_id, Some(_)) {
+                "Some(_)"
+            } else {
+                "None"
+            }
+        );
     }
 }
 
@@ -208,6 +271,9 @@ mod tests {
         println!("{:#?}", x);
 
         let x = BOATS[0].read().await;
+        println!("{:#?}", x);
+
+        let x = EXCO_NAMES[1].read().await;
         println!("{:#?}", x);
     }
 }

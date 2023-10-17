@@ -1,7 +1,7 @@
 //! Command definitions and their code reside here.
 //! Each command is an enum variant in [Commands].
 //! If a variant contains a struct, it **must**
-//! implement the [FromStr] and [HandleCommand] traits.
+//! implement the [std::str::FromStr] and [HandleCommand] traits.
 //!
 //! The HandleCommand trait is where the "business logic"
 //! for a command goes. If the response to a command is
@@ -13,24 +13,29 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use ntu_canoebot_util::debug_println;
+use ntu_canoebot_util::{debug_println, HiddenString};
 use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 
 use crate::callback::src::src_menu_create;
-use crate::callback::{self, Callback};
+use crate::callback::{self, whatactually_get, Callback};
+use crate::dictionaries;
+use crate::frame::common_buttons::BLANK;
 use crate::frame::{calendar_month_gen, calendar_year_gen};
 
 /// Main commands
 #[derive(BotCommands, Clone, Debug)]
 #[command(rename_rule = "lowercase", description = "Supported commands:")]
 pub enum Commands {
-    #[command(description = "View this help message")]
+    #[command(description = "view this help message")]
     Help(commands::Help),
 
-    #[command(description = "Start your interaction with this bot")]
+    #[command(description = "start your interaction with this bot")]
     Start(commands::Start),
+
+    #[command(description = "bot version")]
+    Version,
 
     #[command(description = "off")]
     Calendar,
@@ -52,23 +57,38 @@ pub enum Commands {
     #[command(description = "see who's going training")]
     Namelist,
 
-    #[command(description = "view training program  ")]
+    #[command(description = "view training program")]
     Training,
 
     #[command(description = "full paddling attendance")]
     Paddling,
 
+    #[command(description = "land training")]
+    Land,
+
+    #[command(description = "show weekly paddling statistics")]
+    WeeklyBreakdown,
+
     #[command(description = "send SCF logsheet")]
     Logsheet,
 
     // secondary commands
-    // #[command(description = "Simple wikipedia search")]
+    /// Logs the users chat info
     #[command(description = "off")]
-    What,
+    Ping,
+    // #[command(description = "Simple wikipedia search")]
+    #[command(description = "what is it?")]
+    What { query: HiddenString },
 
     // #[command(description = "Simple urban dictionary search")]
-    #[command(description = "off")]
-    WhatActually,
+    #[command(description = "what is it actually?")]
+    WhatActually { query: HiddenString },
+
+    #[command(description = "✨ vomit ✨")]
+    EmojiVomit { text: HiddenString },
+
+    #[command(description = "^ ω ^")]
+    Uwuify { text: HiddenString },
 }
 
 /// Handle a specific command.
@@ -140,6 +160,18 @@ impl HandleCommand for Commands {
         match &self {
             Commands::Help(cmd) => cmd.handle_command(bot, msg, me).await,
             Commands::Start(cmd) => cmd.handle_command(bot, msg, me).await,
+            Commands::Version => {
+                let ver = env!("CARGO_PKG_VERSION");
+                let name = env!("CARGO_PKG_NAME");
+                let resp = format!("`{} v{}`", name, ver);
+
+                bot.send_message(msg.chat.id, resp)
+                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .await?;
+
+                Ok(())
+            }
+
             Commands::Src => {
                 let (text, keyboard) = src_menu_create();
 
@@ -188,8 +220,98 @@ impl HandleCommand for Commands {
                 )
                 .await
             }
+            Commands::Land => {
+                callback::land_get(
+                    bot,
+                    &msg,
+                    chrono::Local::now().date_naive() + chrono::Duration::days(1),
+                    false,
+                )
+                .await
+            }
+            Commands::WeeklyBreakdown => {
+                callback::breakdown_get(
+                    chrono::Local::now().date_naive(),
+                    false,
+                    false,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
+            }
             Commands::Logsheet => {
                 callback::logsheet_start(chrono::Local::now().date_naive(), bot, &msg, false).await
+            }
+
+            Commands::Ping => callback::ping_start(bot, &msg).await,
+
+            Commands::What { query } => {
+                let res = dictionaries::wikipedia::query(query.as_str()).await;
+
+                if let Some(result) = res {
+                    bot.send_message(msg.chat.id, result).await?;
+                }
+
+                Ok(())
+            }
+
+            Commands::WhatActually { query } => {
+                whatactually_get(query.as_str(), None, bot, &msg, false).await
+            }
+
+            Commands::EmojiVomit { text } => {
+                let text = match text.len() {
+                    // if no text is passed, look for a reply
+                    0 => match msg.reply_to_message() {
+                        Some(repl_msg) => {
+                            if let Some(text) = repl_msg.text() {
+                                if text.len() != 0 {
+                                    text
+                                } else {
+                                    return Ok(());
+                                }
+                            } else {
+                                return Ok(());
+                            }
+                        }
+                        None => return Ok(()),
+                    },
+                    // if some text is passed, do that
+                    _ => text.as_str(),
+                };
+
+                let vomit = emoji_vomit::vomit(text);
+                bot.send_message(msg.chat.id, vomit).await?;
+
+                Ok(())
+            }
+
+            Commands::Uwuify { text } => {
+                let text = match text.len() {
+                    // if no text is passed, look for a reply
+                    0 => match msg.reply_to_message() {
+                        Some(repl_msg) => {
+                            if let Some(text) = repl_msg.text() {
+                                if text.len() != 0 {
+                                    text
+                                } else {
+                                    return Ok(());
+                                }
+                            } else {
+                                return Ok(());
+                            }
+                        }
+                        None => return Ok(()),
+                    },
+                    // if some text is passed, do that
+                    _ => text.as_str(),
+                };
+
+                let uwu = emoji_vomit::uwuify(text);
+                bot.send_message(msg.chat.id, uwu).await?;
+
+                Ok(())
             }
 
             // test cmds
@@ -248,6 +370,7 @@ impl HandleCommand for Commands {
             }
 
             // placeholder arm for unimpl'd commands
+            #[allow(unreachable_patterns)]
             _ => Ok(()),
         }
     }
@@ -281,7 +404,10 @@ pub async fn message_handler(
 
 /// Handler for plain text messages
 async fn empty_command_handler(_bot: Bot, _msg: Message, _me: Me) {
-    log::trace!("doing nothing for command: {}", _msg.text().unwrap_or(""));
+    log::trace!(
+        "doing nothing for command: {}",
+        _msg.text().unwrap_or(BLANK)
+    );
     log::trace!(
         "Chat id: {}, User id: {}",
         _msg.chat.id,

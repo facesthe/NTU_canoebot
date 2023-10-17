@@ -310,7 +310,11 @@ impl SrcCache {
             for (line, entry) in set_handle.into_iter().enumerate() {
                 let booking_entry = entry.await;
                 match booking_entry {
-                    Ok(_entry) => lock[set][line] = _entry,
+                    Ok(_entry) => {
+                        if let Some(res) = _entry {
+                            lock[set][line] = res
+                        }
+                    }
                     Err(_) => (),
                 }
             }
@@ -350,9 +354,11 @@ impl SrcCache {
             for (cache_line, handle) in handles.into_iter().enumerate() {
                 match handle.await {
                     Ok(data) => {
-                        lock[idx][cache_line] = data;
-                        // flip the other entry to old
-                        lock[idx][1 - cache_line].old = !lock[idx][1 - cache_line].old;
+                        if let Some(_data) = data {
+                            lock[idx][cache_line] = _data;
+                            // flip the other entry to old
+                            lock[idx][1 - cache_line].old = !lock[idx][1 - cache_line].old;
+                        }
                     }
                     Err(_) => (), // do not update on error
                 }
@@ -368,26 +374,31 @@ impl SrcCache {
         date: NaiveDate,
         facility_num: u8,
         cache_line: bool,
-    ) -> Result<(), errors::FacilityError> {
+    ) -> Result<(), errors::Error> {
         debug_println!("cache line {}:{}", facility_num, cache_line as u8);
 
         let facility = {
             let res = SRC_FACILITIES.get_index(facility_num as usize);
             match res {
                 Some(_facility) => _facility,
-                None => return Err(errors::FacilityError {}),
+                None => return Err(errors::Error::FacilityNotFound),
             }
         };
 
         let entry = SrcBookingEntry::get_entry(&facility, date).await;
         let mut lock = self.lock().await;
-        lock[facility_num as usize][cache_line as usize] = entry;
 
-        // set other as old
-        let other = &mut lock[facility_num as usize][!cache_line as usize];
-        other.old = true;
+        match entry {
+            Some(ent) => {
+                lock[facility_num as usize][cache_line as usize] = ent;
+                // set other as old
+                let other = &mut lock[facility_num as usize][!cache_line as usize];
+                other.old = true;
 
-        Ok(())
+                Ok(())
+            }
+            None => Err(errors::Error::EntryNotFound),
+        }
     }
 
     /// Retrieves facility booking data for a particular facility.
@@ -508,23 +519,23 @@ impl SrcCache {
 
 impl SrcBookingEntry {
     /// Retrieve data given a facility and date
-    pub async fn get_entry(facility: &SrcFacility, date: NaiveDate) -> Self {
+    pub async fn get_entry(facility: &SrcFacility, date: NaiveDate) -> Option<Self> {
         debug_println!("facility: {}, date: {}", facility.code_name, date.day());
         let start_time = chrono::Local::now().naive_local().time();
-        let table = facility.get_table(date).await;
+        let table = facility.get_table(date).await?;
         let end_time = chrono::Local::now().naive_local().time();
 
         let data = SrcBookingData::from(table);
         let squashed = SrcSquashedBookingData::from(data);
 
-        Self {
+        Some(Self {
             facility_code: facility.code_name.clone(),
             date,
             fetch_time: end_time,
             latency: (end_time - start_time).num_milliseconds(),
             old: false,
             data: squashed,
-        }
+        })
     }
 
     /// Returns a formatted string to be sent to a user,
@@ -631,7 +642,7 @@ impl __Deref for SrcFacilities {
 
 impl SrcFacility {
     /// Fetch the table from the SRC and perform some formatting
-    pub async fn get_table(&self, date: NaiveDate) -> table_extract::Table {
+    pub async fn get_table(&self, date: NaiveDate) -> Option<table_extract::Table> {
         let date_string = date.format("%d-%b-%Y");
 
         let request_url = format!("https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={}&fcourt={}&ftype=2&p_date={}&p_mode=2", self.code_name, self.courts, date_string);
@@ -640,7 +651,6 @@ impl SrcFacility {
         let content = resp.text().await.unwrap();
 
         table_extract::Table::find_first(&content)
-            .expect("Unable to find table inside HTML response")
     }
 }
 
@@ -667,7 +677,10 @@ impl SrcFacilities {
 mod errors {
 
     /// Facility does not exist
-    pub struct FacilityError {}
+    pub enum Error {
+        FacilityNotFound,
+        EntryNotFound,
+    }
 }
 
 #[cfg(test)]
@@ -686,7 +699,7 @@ mod tests {
         let datetime = chrono::Local::now().naive_local();
         let start_time = tokio::time::Instant::now();
 
-        let content = facility.get_table(datetime.date()).await;
+        let content = facility.get_table(datetime.date()).await.unwrap();
         let end_time = tokio::time::Instant::now();
 
         let time_taken = end_time - start_time;
@@ -746,7 +759,7 @@ mod tests {
         };
 
         let date = NaiveDate::from_ymd_opt(2023, 07, 03).unwrap();
-        let content = facility.get_table(date).await;
+        let content = facility.get_table(date).await.unwrap();
 
         let data = SrcBookingData::from(content);
 
@@ -765,7 +778,7 @@ mod tests {
         };
         let date = NaiveDate::from_ymd_opt(2023, 07, 03).unwrap();
 
-        let booking_entry = SrcBookingEntry::get_entry(&facility, date).await;
+        let booking_entry = SrcBookingEntry::get_entry(&facility, date).await.unwrap();
 
         let pretty = booking_entry.get_display_table(date).unwrap();
 
