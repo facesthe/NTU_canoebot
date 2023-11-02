@@ -647,8 +647,8 @@ impl SrcFacility {
 
         let request_url = format!("https://wis.ntu.edu.sg/pls/webexe88/srce_smain_s.srce$sel31_v?choice=1&fcode={}&fcourt={}&ftype=2&p_date={}&p_mode=2", self.code_name, self.courts, date_string);
 
-        let resp = reqwest::get(request_url).await.unwrap();
-        let content = resp.text().await.unwrap();
+        let resp = reqwest::get(request_url).await.ok()?;
+        let content = resp.text().await.ok()?;
 
         table_extract::Table::find_first(&content)
     }
