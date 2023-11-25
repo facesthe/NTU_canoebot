@@ -302,12 +302,20 @@ mod codegen {
                         ),
                         None => "None".to_owned(),
                     };
-
+                    let off = match dt.offset {
+                        Some(o) => match o {
+                            toml::value::Offset::Z => "Some(Offset::Z)".to_owned(),
+                            toml::value::Offset::Custom { minutes } => {
+                                format!("Some(Offset::Custom {{ minutes: {} }})", minutes)
+                            }
+                        },
+                        None => "None".to_owned(),
+                    };
                     let res = (
                         "Datetime".to_string(),
                         format!(
-                            "Datetime {{ date: {}, time: {}, offset: None }}",
-                            date, time
+                            "Datetime {{ date: {}, time: {}, offset: {} }}",
+                            date, time, off
                         ),
                     );
                     res
