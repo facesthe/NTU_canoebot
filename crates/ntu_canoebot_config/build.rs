@@ -124,7 +124,7 @@ fn main() {
     }
 
     // codegen
-    let _wrapper = codegen::CodeGenWrapper::default();
+    let mut _wrapper = codegen::CodeGenWrapper::default();
 
     let hash_table = table_to_flat_hashmap(&merged, None);
     // generate everything except tables (cause they have been flattened)
@@ -132,12 +132,13 @@ fn main() {
     // generate last level tables (from unflattened OG table)
     let hashmap_gen = codegen::generate_last_level_hashmap(&merged, None);
     let mut gen_file = OpenOptions::new()
-        .write(true)
         .append(true)
         .open(GENERATED_FILE_PATH)
         .unwrap();
 
     gen_file.write_all(absolute_gen.as_bytes()).unwrap();
+
+    _wrapper.lazy_static();
     gen_file.write_all(hashmap_gen.as_bytes()).unwrap();
 }
 
@@ -216,7 +217,9 @@ mod codegen {
     ///
     /// Creates headers on construction
     /// and footers on destruction.
-    pub struct CodeGenWrapper {}
+    pub struct CodeGenWrapper {
+        lazy_static_used: bool,
+    }
 
     impl Default for CodeGenWrapper {
         fn default() -> Self {
@@ -240,25 +243,40 @@ mod codegen {
                 .write_all("use std::str::FromStr;\n".as_bytes())
                 .unwrap();
             gen_file
-                .write_all("use toml::value::Datetime;\n\n".as_bytes())
-                .unwrap();
-            gen_file
-                .write_all("lazy_static::lazy_static! {\n".as_bytes())
+                .write_all("use toml::value::{Datetime, Date, Time, Offset};\n\n".as_bytes())
                 .unwrap();
 
-            Self {}
+            Self {
+                lazy_static_used: false,
+            }
         }
     }
 
     impl Drop for CodeGenWrapper {
         fn drop(&mut self) {
+            if self.lazy_static_used {
+                let mut gen_file = OpenOptions::new()
+                    .append(true)
+                    .open(GENERATED_FILE_PATH)
+                    .unwrap();
+
+                gen_file.write_all("}\n".as_bytes()).unwrap()
+            }
+        }
+    }
+
+    impl CodeGenWrapper {
+        pub fn lazy_static(&mut self) {
+            self.lazy_static_used = true;
+
             let mut gen_file = OpenOptions::new()
                 .append(true)
-                .write(true)
                 .open(GENERATED_FILE_PATH)
                 .unwrap();
 
-            gen_file.write_all("}\n".as_bytes()).unwrap()
+            gen_file
+                .write_all("lazy_static::lazy_static! {\n".as_bytes())
+                .unwrap();
         }
     }
 
@@ -269,10 +287,31 @@ mod codegen {
                 Value::Integer(i) => ("i64".to_string(), format!("({}_i64)", i)),
                 Value::Float(f) => ("f64".to_string(), format!("({}_f64)", f)),
                 Value::Boolean(b) => ("bool".to_string(), b.to_string()),
-                Value::Datetime(dt) => (
-                    "Datetime".to_string(),
-                    format!("Datetime::from_str(\"{}\").unwrap()", dt),
-                ),
+                Value::Datetime(dt) => {
+                    let date = match dt.date {
+                        Some(d) => format!(
+                            "Some(Date {{ year: {}, month: {}, day: {} }} )",
+                            d.year, d.month, d.day
+                        ),
+                        None => "None".to_owned(),
+                    };
+                    let time = match dt.time {
+                        Some(t) => format!(
+                            "Some(Time {{ hour: {}, minute: {}, second: {}, nanosecond: {} }} )",
+                            t.hour, t.minute, t.second, t.nanosecond
+                        ),
+                        None => "None".to_owned(),
+                    };
+
+                    let res = (
+                        "Datetime".to_string(),
+                        format!(
+                            "Datetime {{ date: {}, time: {}, offset: None }}",
+                            date, time
+                        ),
+                    );
+                    res
+                }
                 Value::Array(a) => a.generate_code(true),
                 Value::Table(t) => t.generate_code(true),
             }
@@ -391,10 +430,18 @@ mod codegen {
         for (key, val) in variables.iter() {
             let (value_type, value_literal) = val.generate_code(false);
 
-            let generated_line = format!(
-                "/// type: {}\npub static ref {}: {} = {};\n",
-                value_type, key, value_type, value_literal
-            );
+            let generated_line = match val {
+                Value::Array(_) | Value::Table(_) => {
+                    format!(
+                        "lazy_static::lazy_static!{{\n/// type: {}\npub static ref {}: {} = {};\n}}\n",
+                        value_type, key, value_type, value_literal
+                    )
+                }
+                _ => format!(
+                    "/// type: {}\npub const {}: {} = {};\n",
+                    value_type, key, value_type, value_literal
+                ),
+            };
 
             gen += &generated_line;
         }
@@ -410,7 +457,10 @@ mod test {
 
     use super::*;
     use codegen::GenerateCode;
-    use toml::de;
+    use toml::{
+        de,
+        value::{Date, Offset, Time},
+    };
 
     use super::{merge_tables, CONFIGS_PATH, SETTINGS_DEBUG, SETTINGS_TEMPLATE};
 
@@ -425,5 +475,29 @@ mod test {
         let flattened_gen = codegen::generate_absolute_variables(flattened_hashmap);
 
         println!("{}", flattened_gen);
+    }
+
+    fn asd() {
+        let y = Date {
+            year: todo!(),
+            month: todo!(),
+            day: todo!(),
+        };
+        let z = Time {
+            hour: todo!(),
+            minute: todo!(),
+            second: todo!(),
+            nanosecond: todo!(),
+        };
+
+        let x = toml::value::Datetime {
+            date: Some(Date {
+                year: todo!(),
+                month: todo!(),
+                day: todo!(),
+            }),
+            time: todo!(),
+            offset: None,
+        };
     }
 }
