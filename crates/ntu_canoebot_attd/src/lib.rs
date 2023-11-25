@@ -29,11 +29,11 @@ lazy_static! {
     static ref ATTENDANCE_SHEETS: [Option<&'static str>; 2] = [
         match config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET.len() {
             0 => None,
-            _ => Some(&*config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
+            _ => Some(&config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
         },
         match config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET.len() {
             0 => None,
-            _ => Some(&*config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
+            _ => Some(&config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
         },
     ];
 
@@ -41,11 +41,11 @@ lazy_static! {
     static ref PROGRAM_SHEETS: [Option<&'static str>; 2] = [
         match config::SHEETSCRAPER_OLD_PROGRAM_SHEET.len() {
             0 => None,
-            _ => Some(&*config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
+            _ => Some(&config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
         },
         match config::SHEETSCRAPER_NEW_PROGRAM_SHEET.len() {
             0 => None,
-            _ => Some(&*config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
+            _ => Some(&config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
         },
     ];
 
@@ -177,12 +177,12 @@ impl Display for NameList {
 
         let res = match &self.prog {
             Some(prog) => {
-                let template = *config::SHEETSCRAPER_PADDLING_FORMAT;
-                let sub_session = *config::SHEETSCRAPER_PADDLING_SUB_SESSION;
-                let sub_date = *config::SHEETSCRAPER_PADDLING_SUB_DATE;
-                let sub_allo = *config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
-                let sub_prog = *config::SHEETSCRAPER_PADDLING_SUB_PROG;
-                let sub_fetch = *config::SHEETSCRAPER_PADDLING_SUB_FETCH;
+                let template = config::SHEETSCRAPER_PADDLING_FORMAT;
+                let sub_session = config::SHEETSCRAPER_PADDLING_SUB_SESSION;
+                let sub_date = config::SHEETSCRAPER_PADDLING_SUB_DATE;
+                let sub_allo = config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
+                let sub_prog = config::SHEETSCRAPER_PADDLING_SUB_PROG;
+                let sub_fetch = config::SHEETSCRAPER_PADDLING_SUB_FETCH;
 
                 let date = self.date.format("%A %d %b ").to_string()
                     + match self.time {
@@ -367,7 +367,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let cols_to_drop: Vec<&str> = value
             .get_column_names()
             .iter()
-            .zip((0..*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT).into_iter())
+            .zip((0..config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT).into_iter())
             .map(|(col, _)| *col)
             .collect();
 
@@ -376,7 +376,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let inter_1 = value.drop_many(&cols_to_drop);
 
         let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
-        let inter_2 = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP, length);
+        let inter_2 = inter_1.slice(config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP, length);
         let name_column = &inter_2[0];
 
         // remove non-data columns
@@ -386,9 +386,9 @@ impl TryFrom<DataFrame> for AttdSheet {
             .skip(1)
             .filter_map(|(idx, col)| {
                 let window_index =
-                    (idx - 1) % (14 + *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING) as usize;
+                    (idx - 1) % (14 + config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING) as usize;
 
-                if window_index < *config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize {
+                if window_index < config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize {
                     None
                 } else {
                     Some(col.to_owned())
@@ -402,7 +402,7 @@ impl TryFrom<DataFrame> for AttdSheet {
 
         debug_println!("{}", filtered);
 
-        let start = NaiveDate::parse_from_str(&start_date, *config::SHEETSCRAPER_DATE_FORMAT)
+        let start = NaiveDate::parse_from_str(&start_date, config::SHEETSCRAPER_DATE_FORMAT)
             .ok()
             .ok_or(())?;
         let days_in_sheet = calculate_sheet_name(start).1;
@@ -523,7 +523,7 @@ impl TryFrom<DataFrame> for ProgSheet {
 
         let (sheet_start, sheet_end) = {
             let date_col = value
-                .column(*config::SHEETSCRAPER_COLUMNS_PROG_DATE)
+                .column(config::SHEETSCRAPER_COLUMNS_PROG_DATE)
                 .map_err(|_| ())?;
 
             // debug_println!()
@@ -535,9 +535,9 @@ impl TryFrom<DataFrame> for ProgSheet {
             debug_println!("end: {}", end);
 
             (
-                NaiveDate::parse_from_str(&start, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                NaiveDate::parse_from_str(&start, config::SHEETSCRAPER_DATE_FORMAT_PROG)
                     .map_err(|_| ())?,
-                NaiveDate::parse_from_str(&end, *config::SHEETSCRAPER_DATE_FORMAT_PROG)
+                NaiveDate::parse_from_str(&end, config::SHEETSCRAPER_DATE_FORMAT_PROG)
                     .map_err(|_| ())?,
             )
         };
@@ -568,9 +568,9 @@ impl ProgSheet {
         let delta = (date - self.start).num_days();
 
         let col = if time_slot {
-            *config::SHEETSCRAPER_COLUMNS_PROG_PM
+            config::SHEETSCRAPER_COLUMNS_PROG_PM
         } else {
-            *config::SHEETSCRAPER_COLUMNS_PROG_AM
+            config::SHEETSCRAPER_COLUMNS_PROG_AM
         };
 
         let col = self.data.column(col).ok()?;
@@ -886,7 +886,7 @@ pub async fn land(date: NaiveDate) -> NameList {
     let cols_to_drop: Vec<&str> = df
         .get_column_names()
         .iter()
-        .zip((0..*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_LEFT).into_iter())
+        .zip((0..config::SHEETSCRAPER_LAYOUT_LAND_FENCING_LEFT).into_iter())
         .map(|(col, _)| *col)
         .collect();
 
@@ -897,7 +897,7 @@ pub async fn land(date: NaiveDate) -> NameList {
     // let length = df_fenced.iter().map(|series| series.len()).max().unwrap_or(0);
 
     // debug_println!("{}", inter_1);
-    // let df_fenced = inter_1.slice(*config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
+    // let df_fenced = inter_1.slice(config::SHEETSCRAPER_LAYOUT_LAND_FENCING_TOP, length);
     let name_column = &df_fenced[0];
 
     // debug_println!("{}", df_fenced);
@@ -965,7 +965,7 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
 
     // check if cache lifetime limit has exceeded
     if (chrono::Local::now().naive_local() - read_cache.fetch_time).num_minutes()
-        < *config::SHEETSCRAPER_CACHE_ATTD
+        < config::SHEETSCRAPER_CACHE_ATTD
     {
         if !force {
             return Ok(());
@@ -1038,7 +1038,7 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     let read_lock = PROG_CACHE.read().await;
 
     if (chrono::Local::now().naive_local() - read_lock.fetch_time).num_minutes()
-        < *config::SHEETSCRAPER_CACHE_PROG
+        < config::SHEETSCRAPER_CACHE_PROG
     {
         if !force {
             return Ok(());
@@ -1105,8 +1105,8 @@ mod tests {
     #[tokio::test]
     async fn get_sheet() {
         let mut df = g_sheets::get_as_dataframe(
-            *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-            Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET),
+            config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+            Some(config::SHEETSCRAPER_CONFIGURATION_SHEET),
         )
         .await;
 
@@ -1145,7 +1145,7 @@ mod tests {
         println!("sheet name: {}", &sheet_name);
 
         let mut df = g_sheets::get_as_dataframe(
-            *config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
+            config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
             Some(sheet_name),
         )
         .await;
@@ -1178,7 +1178,7 @@ mod tests {
         let today = chrono::Local::now().date_naive();
 
         let mut df = g_sheets::get_as_dataframe(
-            *config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
+            config::SHEETSCRAPER_NEW_PROGRAM_SHEET,
             Option::<&str>::None,
         )
         .await;
