@@ -29,11 +29,11 @@ lazy_static! {
     static ref ATTENDANCE_SHEETS: [Option<&'static str>; 2] = [
         match config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET.len() {
             0 => None,
-            _ => Some(&config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
+            _ => Some(config::SHEETSCRAPER_OLD_ATTENDANCE_SHEET)
         },
         match config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET.len() {
             0 => None,
-            _ => Some(&config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
+            _ => Some(config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET)
         },
     ];
 
@@ -41,11 +41,11 @@ lazy_static! {
     static ref PROGRAM_SHEETS: [Option<&'static str>; 2] = [
         match config::SHEETSCRAPER_OLD_PROGRAM_SHEET.len() {
             0 => None,
-            _ => Some(&config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
+            _ => Some(config::SHEETSCRAPER_OLD_PROGRAM_SHEET)
         },
         match config::SHEETSCRAPER_NEW_PROGRAM_SHEET.len() {
             0 => None,
-            _ => Some(&config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
+            _ => Some(config::SHEETSCRAPER_NEW_PROGRAM_SHEET)
         },
     ];
 
@@ -1168,7 +1168,7 @@ mod tests {
 
         let out_file = File::create("raw.csv").unwrap();
         let csv_writer = CsvWriter::new(out_file);
-        csv_writer.has_header(true).finish(&mut sheet.data).unwrap();
+        csv_writer.include_header(true).finish(&mut sheet.data).unwrap();
     }
 
     #[tokio::test]

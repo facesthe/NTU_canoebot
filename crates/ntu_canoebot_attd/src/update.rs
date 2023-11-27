@@ -21,8 +21,8 @@ async fn update_config_from_df(
     // SHORTENED_NAMES
     let names_lookup = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_SHORT_NAME,
+            config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
+            config::SHEETSCRAPER_COLUMNS_ATTD_SHORT_NAME,
         ])
         .unwrap();
 
@@ -63,8 +63,8 @@ async fn update_config_from_df(
     // BOATS
     let boat_list = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_PRIMARY,
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_ALTERNATE,
+            config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_PRIMARY,
+            config::SHEETSCRAPER_COLUMNS_ATTD_BOAT_ALTERNATE,
         ])
         .unwrap();
 
@@ -102,8 +102,8 @@ async fn update_config_from_df(
     // NAMES_CERTS
     let names_and_certs = df
         .columns([
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
-            &*config::SHEETSCRAPER_COLUMNS_ATTD_CERTIFICATION,
+            config::SHEETSCRAPER_COLUMNS_ATTD_NAME,
+            config::SHEETSCRAPER_COLUMNS_ATTD_CERTIFICATION,
         ])
         .unwrap();
 
@@ -176,7 +176,7 @@ async fn update_config_from_df(
     lock.extend(allocations);
     drop(lock);
 
-    let exco_id = df.column(&*config::SHEETSCRAPER_COLUMNS_ATTD_EXCO).unwrap();
+    let exco_id = df.column(config::SHEETSCRAPER_COLUMNS_ATTD_EXCO).unwrap();
     let short_lock = SHORTENED_NAMES[config as usize].read().await;
 
     let exco_names = names
