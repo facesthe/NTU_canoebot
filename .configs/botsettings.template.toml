@@ -143,3 +143,102 @@ time = 22:30:00
 ########
 [logger]
 log_level = "DEBUG"
+
+
+# Template:
+#
+# [[facilities]]
+# name = ""
+# shortname = ""
+# codename = ""
+# courts = 0
+
+[[facilities]]
+name = "Badminton Court @ North Hill"
+shortname = "Badminton"
+codename = "BB"
+courts = 6
+
+[[facilities]]
+name = "Squash @ NTU Clubhouse"
+shortname = "Squash"
+codename = "QS"
+courts = 4
+
+[[facilities]]
+name = "Table Tennis @ North Hill"
+shortname = "Table Tennis NH"
+codename = "TA"
+courts = 6
+
+[[facilities]]
+name = "Tennis Court @ SRC"
+shortname = "Tennis SRC"
+codename = "TS"
+courts = 6
+
+[[facilities]]
+name = "Tennis Court @ Former Hall 7"
+shortname = "Tennis H7"
+codename = "TQ"
+courts = 2
+
+[[facilities]]
+name = "North Hill Gym A (Slots 1 to 25)"
+shortname = "NH Gym A"
+codename = "NG"
+courts = 25
+
+[[facilities]]
+name = "North Hill Gym B (Slots 26 to 40)"
+shortname = "NH Gym B"
+codename = "NH"
+courts = 15
+
+[[facilities]]
+name = "Main Field @ SRC"
+shortname = "Main Field"
+codename = "MF"
+courts = 4
+
+[[facilities]]
+name = "MPF 1 (archery range side)"
+shortname = "MPF 1"
+codename = "F1"
+courts = 4
+
+[[facilities]]
+name = "MPF 2 (spectator gallery side)"
+shortname = "MPF 2"
+codename = "F2"
+courts = 4
+
+[[facilities]]
+name = "MPC 4 @ Hall 2"
+shortname = "MPC 4"
+codename = "M4"
+courts = 1
+
+[[facilities]]
+name = "MPC 5 @ Hall 2"
+shortname = "MPC 5"
+codename = "M5"
+courts = 1
+
+[[facilities]]
+name = "Outdoor Basketball Court @ SRC"
+shortname = "Basketball"
+codename = "BK"
+courts = 6
+
+[[facilities]]
+name = "Street Soccer Court @ SRC"
+shortname = "Street Soccer"
+codename = "SC"
+courts = 1
+
+[[facilities]]
+name = "Weights Training Gym @ Wave"
+shortname = "Wave Gym"
+codename = "WG"
+courts = 20
