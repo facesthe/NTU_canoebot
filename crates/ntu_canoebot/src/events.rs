@@ -13,10 +13,10 @@ use crate::frame::construct_keyboard_tuple;
 lazy_static! {
     /// The exco chat id, parsed as an option
     pub static ref EXCO_CHAT_ID: Option<i64> = {
-        if *config::CANOEBOT_EXCO_CHAT == 0 {
+        if config::CANOEBOT_EXCO_CHAT == 0 {
             None
         } else {
-            Some(*config::CANOEBOT_EXCO_CHAT)
+            Some(config::CANOEBOT_EXCO_CHAT)
         }
     };
 }

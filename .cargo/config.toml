@@ -1,0 +1,6 @@
+[env]
+TOML_CONST_CONFIG_PATH = "../../.configs"
+TOML_CONST_DEBUG = "botsettings.template.debug.toml"
+TOML_CONST_DEPLOY = "botsettings.template.deploy.toml"
+TOML_CONST_GENERATED_PATH = "generated.rs"
+TOML_CONST_TEMPLATE = "botsettings.template.toml"

@@ -231,7 +231,7 @@ pub async fn init() {
         match sheet_id {
             Some(id) => {
                 let df =
-                    g_sheets::get_as_dataframe(id, Some(*config::SHEETSCRAPER_CONFIGURATION_SHEET))
+                    g_sheets::get_as_dataframe(id, Some(config::SHEETSCRAPER_CONFIGURATION_SHEET))
                         .await;
                 update_config_from_df(&df, idx.into()).await.unwrap()
             }

@@ -130,7 +130,7 @@ impl<'a> Iterator for SquareBracketIterator<'a> {
 
         loop {
             let c = char_iter.next()?;
-            self.idx += 1;
+            self.idx += c.len_utf8();
             if c == '[' {
                 start_idx = self.idx;
                 break;
@@ -139,7 +139,7 @@ impl<'a> Iterator for SquareBracketIterator<'a> {
 
         loop {
             let c = char_iter.next()?;
-            self.idx += 1;
+            self.idx += c.len_utf8();
             if c == ']' {
                 end_idx = self.idx - 1;
                 break;
@@ -156,12 +156,12 @@ mod tests {
 
     #[test]
     fn test_square_bracket_iterator() {
-        let sample = "the [quick] brown fox [ jumps over ] the lazy dog";
+        let sample = "the [quick] brown fox [ jumps over ] the lazy dog [ 😂 😂 😂 ]";
 
         let iter = SquareBracketIterator::from(sample);
 
         let res = iter.collect::<Vec<&str>>();
         println!("{:#?}", res);
-        assert_eq!(res, vec!["quick", "jumps over"])
+        assert_eq!(res, vec!["quick", "jumps over", "😂 😂 😂"])
     }
 }

@@ -23,7 +23,7 @@ lazy_static! {
 
         // this variable is set only when an override file is present (debug/deploy config).
         // we can use this to check if defaults have been overriden
-        match *config::USE {
+        match config::USE {
             true => (),
             false => {
                 log::error!("no config file specified. Bot cannot start.");
@@ -38,7 +38,7 @@ lazy_static! {
 #[tokio::main]
 async fn main() {
     pretty_env_logger::formatted_timed_builder()
-        .parse_filters(*config::LOGGER_LOG_LEVEL)
+        .parse_filters(config::LOGGER_LOG_LEVEL)
         .default_format()
         .init();
 
@@ -66,7 +66,7 @@ async fn start_events() {
     tokio::task::spawn(ntu_canoebot_attd::refresh_attd_sheet_cache(true));
     tokio::task::spawn(ntu_canoebot_attd::refresh_prog_sheet_cache(true));
 
-    let cache_refresh = tokio_schedule::every(*config::SRC_CACHE_REFRESH as u32)
+    let cache_refresh = tokio_schedule::every(config::SRC_CACHE_REFRESH as u32)
         .minutes()
         .perform(|| async { SRC_CACHE.refresh_all().await });
     tokio::task::spawn(cache_refresh);
@@ -90,7 +90,7 @@ async fn start_events() {
     tokio::task::spawn(prog_cache_refresh);
 
     debug_println!("chat_id: {:?}", *EXCO_CHAT_ID);
-    if *config::EVENTS_DAILY_LOGSHEET_PROMPT_ENABLE {
+    if config::EVENTS_DAILY_LOGSHEET_PROMPT_ENABLE {
         let prompt_time = config::EVENTS_DAILY_LOGSHEET_PROMPT_TIME.time.unwrap();
         let logsheet_task = tokio_schedule::every(1)
             .day()
@@ -108,7 +108,7 @@ async fn start_events() {
         tokio::task::spawn(logsheet_task);
     }
 
-    if *config::EVENTS_DAILY_ATTENDANCE_REMINDER_ENABLE {
+    if config::EVENTS_DAILY_ATTENDANCE_REMINDER_ENABLE {
         let prompt_time = config::EVENTS_DAILY_ATTENDANCE_REMINDER_TIME.time.unwrap();
         let attendance_event = tokio_schedule::every(1)
             .day()
@@ -126,7 +126,7 @@ async fn start_events() {
         tokio::task::spawn(attendance_event);
     }
 
-    if *config::EVENTS_WEEKLY_BREAKDOWN_ENABLE {
+    if config::EVENTS_WEEKLY_BREAKDOWN_ENABLE {
         let prompt_time = config::EVENTS_WEEKLY_BREAKDOWN_TIME.time.unwrap();
         let breakdown_event = tokio_schedule::every(1)
             .week()

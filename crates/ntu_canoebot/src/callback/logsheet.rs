@@ -75,13 +75,13 @@ impl HandleCallback for LogSheet {
 
                 let (start, end) = match time_slot {
                     false => {
-                        let s = (*config::FORMFILLER_TIMES_AM_START).time.unwrap();
-                        let e = (*config::FORMFILLER_TIMES_AM_END).time.unwrap();
+                        let s = (config::FORMFILLER_TIMES_AM_START).time.unwrap();
+                        let e = (config::FORMFILLER_TIMES_AM_END).time.unwrap();
                         (s, e)
                     }
                     true => {
-                        let s = (*config::FORMFILLER_TIMES_PM_START).time.unwrap();
-                        let e = (*config::FORMFILLER_TIMES_PM_END).time.unwrap();
+                        let s = (config::FORMFILLER_TIMES_PM_START).time.unwrap();
+                        let e = (config::FORMFILLER_TIMES_PM_END).time.unwrap();
                         (s, e)
                     }
                 };

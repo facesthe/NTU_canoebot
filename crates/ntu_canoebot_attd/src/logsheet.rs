@@ -26,7 +26,7 @@ lazy_static! {
     };
 
     static ref LOOPING_COUNTER: RwLock<LoopingCounter> = {
-        let particulars: &HashMap<&'static str, String> = &*config::FORMFILLER_PARTICULARS;
+        let particulars: &HashMap<&'static str, String> = &config::FORMFILLER_PARTICULARS;
 
         RwLock::new(LoopingCounter::from_size(particulars.len()))
     };
@@ -71,7 +71,7 @@ impl LoopingCounter {
 #[rustfmt::skip]
 pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
 
-    let logsheet_id = *ntu_canoebot_config::FORMFILLER_FORM_ID;
+    let logsheet_id = config::FORMFILLER_FORM_ID;
 
     let mut form = g_forms::GoogleForm::from_id(logsheet_id).await.unwrap();
 
@@ -97,23 +97,23 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
     debug_println!("total: {}\ncertified: {}\nnon-certified: {}", total_paddlers, certified, not_certified);
     debug_println!("namelist struct: {:?}", name_list);
 
-    let particulars: &HashMap<&'static str, String> = &*config::FORMFILLER_PARTICULARS;
+    let particulars: &HashMap<&'static str, String> = &config::FORMFILLER_PARTICULARS;
     let part_idx = LOOPING_COUNTER.write().await.next().unwrap();
     let (exco_name, exco_number) = particulars.iter().skip(part_idx).next().unwrap();
 
 
     let start_time = {
         let time = match session {
-            true => *config::FORMFILLER_TIMES_PM_START,
-            false => *config::FORMFILLER_TIMES_AM_START,
+            true => config::FORMFILLER_TIMES_PM_START,
+            false => config::FORMFILLER_TIMES_AM_START,
         };
         let time = time.time.unwrap();
         NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
     };
     let end_time = {
         let time = match session {
-            true => *config::FORMFILLER_TIMES_PM_END,
-            false => *config::FORMFILLER_TIMES_AM_END,
+            true => config::FORMFILLER_TIMES_PM_END,
+            false => config::FORMFILLER_TIMES_AM_END,
         };
         let time = time.time.unwrap();
         NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
@@ -143,7 +143,7 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
 
 #[cfg(test)]
 mod tests {
-
+    use super::*;
     use chrono::NaiveTime;
     use g_forms::form::{Number, QuestionType};
 
@@ -153,7 +153,7 @@ mod tests {
     /// Test if g_forms can deserialize form data
     #[tokio::test]
     async fn test_logsheet_valid() {
-        let logsheet_id = *ntu_canoebot_config::FORMFILLER_FORM_ID;
+        let logsheet_id = config::FORMFILLER_FORM_ID;
 
         let mut form = g_forms::GoogleForm::from_id(logsheet_id).await.unwrap();
 

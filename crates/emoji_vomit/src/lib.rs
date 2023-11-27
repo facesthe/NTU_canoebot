@@ -321,6 +321,8 @@ pub fn vomit<T: AsRef<str>>(input: T) -> String {
 ///
 /// Provide a hash value to vary the search result for fuzzy searches.
 pub fn find_emoji(word: &str, exact: bool, hash: Option<u64>) -> Option<&'static str> {
+    const MASK: usize = 0b111;
+
     // ignore words in this set
     if consts::IGNORE_WORDS.contains(word) {
         return None;
@@ -345,7 +347,7 @@ pub fn find_emoji(word: &str, exact: bool, hash: Option<u64>) -> Option<&'static
         0 => (),
         _ => {
             let e = if let Some(hash) = hash {
-                let idx = hash as usize & 0b111;
+                let idx = hash as usize & MASK;
                 match matching_annotations.get(idx) {
                     Some(emote) => emote,
                     None => matching_annotations.first().unwrap(),
@@ -366,7 +368,7 @@ pub fn find_emoji(word: &str, exact: bool, hash: Option<u64>) -> Option<&'static
         0 => (),
         _ => {
             let e = if let Some(hash) = hash {
-                let idx = hash as usize & 0b11;
+                let idx = hash as usize & MASK;
                 match matching_names.get(idx) {
                     Some(emote) => emote,
                     None => matching_names.first().unwrap(),
