@@ -13,5 +13,4 @@ toml = {workspace = true}
 toml_const = "0.1"
 
 [build-dependencies]
-# toml = {workspace = true}
 toml_const = "0.1"
