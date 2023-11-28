@@ -123,10 +123,10 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
     form.question(0).unwrap().fill_str(&exco_name).unwrap(); // name
     form.question(1).unwrap().fill_str(&exco_number).unwrap(); // hp number
     form.question(2).unwrap().fill_str("Nanyang Technological University").unwrap(); // organization
-    form.question(3).unwrap().fill_option(1).unwrap(); // type of activity
+    form.question(3).unwrap().fill_option(2).unwrap(); // type of activity
     form.question(4).unwrap().fill_number(certified.into()).unwrap(); // number of certified
     form.question(5).unwrap().fill_number(not_certified.into()).unwrap(); // number of non certified
-    form.question(6).unwrap().fill_option(1).unwrap(); // paddling location
+    form.question(6).unwrap().fill_option(0).unwrap(); // paddling location
     form.question(7).unwrap().fill_date(date.and_time(chrono::Local::now().time())).unwrap(); // date of training
     form.question(8).unwrap().fill_time(start_time).unwrap(); // start time
     form.question(9).unwrap().fill_time(end_time).unwrap(); // end time
