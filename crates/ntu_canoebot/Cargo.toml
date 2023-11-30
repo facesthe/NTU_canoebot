@@ -7,22 +7,22 @@ description = "bot core"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-g_forms = {path = "../g_forms"}
-g_sheets = {path = "../g_sheets"}
-ntu_canoebot_attd = {path = "../ntu_canoebot_attd"}
-ntu_canoebot_config = {path = "../ntu_canoebot_config"}
-ntu_canoebot_util = {path = "../ntu_canoebot_util"}
-ntu_src = {path = "../ntu_src"}
-emoji_vomit = {path = "../emoji_vomit"}
+g_forms = { path = "../g_forms" }
+g_sheets = { path = "../g_sheets" }
+ntu_canoebot_attd = { path = "../ntu_canoebot_attd" }
+ntu_canoebot_config = { path = "../ntu_canoebot_config" }
+ntu_canoebot_util = { path = "../ntu_canoebot_util" }
+ntu_src = { path = "../ntu_src" }
+emoji_vomit = { path = "../emoji_vomit" }
 
-teloxide = {workspace = true}
-tokio = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-chrono = {workspace = true}
-reqwest = {workspace = true}
-log = {workspace = true}
-lazy_static = {workspace = true}
+teloxide = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+log = { workspace = true }
+lazy_static = { workspace = true }
 # toml = {workspace = true}
 
 anyhow = "1.0.75"
