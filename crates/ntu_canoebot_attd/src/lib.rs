@@ -1144,11 +1144,9 @@ mod tests {
 
         println!("sheet name: {}", &sheet_name);
 
-        let mut df = g_sheets::get_as_dataframe(
-            config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-            Some(sheet_name),
-        )
-        .await;
+        let mut df =
+            g_sheets::get_as_dataframe(config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET, Some(sheet_name))
+                .await;
 
         let mut sheet: AttdSheet = df.try_into().unwrap();
 
@@ -1168,7 +1166,10 @@ mod tests {
 
         let out_file = File::create("raw.csv").unwrap();
         let csv_writer = CsvWriter::new(out_file);
-        csv_writer.include_header(true).finish(&mut sheet.data).unwrap();
+        csv_writer
+            .include_header(true)
+            .finish(&mut sheet.data)
+            .unwrap();
     }
 
     #[tokio::test]
