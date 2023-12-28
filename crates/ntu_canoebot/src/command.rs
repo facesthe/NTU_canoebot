@@ -8,6 +8,7 @@
 //! to send a message, that message should be sent inside the trait method.
 
 pub mod commands;
+mod silence;
 
 use std::error::Error;
 
@@ -89,6 +90,9 @@ pub enum Commands {
 
     #[command(description = "^ ω ^")]
     Uwuify { text: HiddenString },
+
+    #[command(description = "silence, ...")]
+    Silence(silence::Silence),
 }
 
 /// Handle a specific command.
@@ -313,6 +317,8 @@ impl HandleCommand for Commands {
 
                 Ok(())
             }
+
+            Commands::Silence(cmd) => cmd.handle_command(bot, msg, me).await,
 
             // test cmds
             Commands::Button(_cmd) => {

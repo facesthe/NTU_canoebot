@@ -123,7 +123,7 @@ form_id = ""
 
 
 [src]
-# cache refresh interval
+# cache refresh interval, minutes
 cache_refresh = 30
 
 
@@ -138,6 +138,35 @@ time = 19:00:00
 [events.weekly.breakdown] # saturdays
 enable = true
 time = 22:30:00
+
+
+[misc.silence]
+# the laser crab template, png
+crab_url = "https://i.imgflip.com/33x89u.png?a473040"
+# relative starting position of text, fraction, from top left of template
+text.x_frac = 0.15
+text.y_frac = 0.2
+
+# Central location of the profile picture, relative to the top left of the crab image.
+pic.row_frac = 0.75
+pic.col_frac = 0.17
+
+# Size of the profile pic (a square), relative to the width of the crab image.
+pic.width_frac = 0.2
+
+# lifetime of downloaded images, minutes
+fs_cache_lifetime = 1000
+
+offensive_names = [
+    "imbecile",
+    "infidel",
+    "moron",
+    "oaf",
+    "nonce",
+    "pig",
+    "idiot",
+    "twit",
+]
 
 
 ########
