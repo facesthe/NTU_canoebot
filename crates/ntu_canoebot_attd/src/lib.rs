@@ -471,7 +471,21 @@ impl AttdSheet {
             SHORTENED_NAMES[config as usize].read().await
         };
 
-        debug_println!("selected col with offset {}: {}", offset, selected);
+        debug_println!(
+            "selected col with offset {} (col {}): {}",
+            offset,
+            // reconstruct the original column idx, inside the shared online sheet.
+            AttdSheet::col_idx_to_excel_alphabetic(
+                offset
+                    + {
+                        ((offset - 1) / 14 + 1)
+                            * config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize
+                    }
+                    + config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT as usize
+                    + 1
+            ),
+            selected
+        );
         let filtered: Vec<String> = selected
             .iter()
             .enumerate()
@@ -512,6 +526,32 @@ impl AttdSheet {
         } else {
             false
         }
+    }
+
+    /// Convert a column number to the human-readable excel column indices.
+    ///
+    /// 1-indexed instead of 0-indexed, so 1 maps to A, 26 maps to Z, etc.
+    #[cfg(debug_assertions)]
+    fn col_idx_to_excel_alphabetic(mut idx: usize) -> String {
+        let mut col_idx: Vec<char> = Vec::new();
+
+        loop {
+            let pos = idx % 26;
+            let lowest = (pos as u8 + 96) as char; // offset to ascii 'a'
+
+            col_idx.push(lowest);
+
+            idx /= 26;
+            if idx == 0 {
+                break;
+            }
+        }
+
+        col_idx
+            .iter()
+            .rev()
+            .map(|c| c.to_ascii_uppercase())
+            .collect()
     }
 }
 
@@ -1335,5 +1375,32 @@ mod tests {
         let mut res = land(chrono::Local::now().date_naive() + Duration::days(1)).await;
         res.fill_prog(true).await.unwrap();
         println!("{}", res);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    fn test_calculate_excel_col_idx() {
+        let x: Vec<_> = (1..26).into_iter().collect();
+        let res: Vec<String> = ('A'..'Z').into_iter().map(|c| c.to_string()).collect();
+
+        let x2: Vec<_> = (27..52).into_iter().collect();
+        let res2: Vec<String> = ('A'..'Z').into_iter().map(|c| format!("A{}", c)).collect();
+
+        println!("{:?}", x);
+
+        let y: Vec<_> = x
+            .into_iter()
+            .map(|item| AttdSheet::col_idx_to_excel_alphabetic(item as usize))
+            .collect();
+
+        let y2: Vec<_> = x2
+            .into_iter()
+            .map(|item| AttdSheet::col_idx_to_excel_alphabetic(item as usize))
+            .collect();
+
+        println!("{:?}", y);
+
+        assert_eq!(y, res);
+        assert_eq!(y2, res2);
     }
 }
