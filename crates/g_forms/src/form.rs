@@ -146,7 +146,7 @@ impl GoogleForm {
     }
 
     /// Submit the form
-    pub async fn submit(&mut self) -> Result<reqwest::Response, ()> {
+    pub async fn submit(&mut self) -> Result<reqwest::Response, String> {
         self.generate_map();
 
         debug_println!("data: {:#?}", &self.response);
@@ -162,7 +162,7 @@ impl GoogleForm {
             request.send().await
         };
 
-        resp.map_err(|_| ())
+        resp.map_err(|e| e.to_string())
     }
 }
 

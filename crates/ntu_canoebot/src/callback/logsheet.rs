@@ -164,20 +164,20 @@ impl HandleCallback for LogSheet {
                                     ),
                                 )
                                 .await?;
-                                Err(anyhow!("logsheet sent but failed to submit correctly"))?;
+                                Err(anyhow!(
+                                    "logsheet sent but failed to submit correctly, status code {}",
+                                    response.status()
+                                ))?;
                             }
                         }
-                        Err(_) => {
+                        Err(e) => {
                             bot.edit_message_text(
                                 msg.chat.id,
                                 msg.id,
-                                format!(
-                                    "{} unable to send. check if the sheet has changed",
-                                    header
-                                ),
+                                format!("{} unable to be sent. \nError: {}", header, e),
                             )
                             .await?;
-                            Err(anyhow!("logsheet failed before send"))?;
+                            Err(anyhow!("logsheet failed before sending: {}", e))?;
                         }
                     }
                 } else {

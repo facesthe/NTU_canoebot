@@ -31,7 +31,10 @@ pub use ping::ping_start;
 pub use training::training_get;
 pub use whatactually::whatactually_get;
 
-use crate::frame::construct_keyboard_tuple;
+use crate::{
+    frame::construct_keyboard_tuple,
+    threadmonitor::{DynResult, THREAD_WATCH},
+};
 
 const BLANK_BLOCK: char = '\u{2588}';
 
@@ -311,9 +314,10 @@ pub async fn callback_handler(
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    tokio::spawn(async {
+    /// Inner async fn
+    async fn inner_handler(bot: Bot, query: CallbackQuery) -> DynResult {
         // answer the callback query once at the top
-        bot.answer_callback_query(&query.id).await.unwrap();
+        bot.answer_callback_query(&query.id).await?;
 
         let callback_data: Callback = {
             if let Some(data) = &query.data {
@@ -328,8 +332,12 @@ pub async fn callback_handler(
         };
 
         log::info!("{:?}", callback_data);
-        callback_data.handle_callback(bot, query).await.unwrap();
-    });
+        callback_data.handle_callback(bot, query).await
+    }
+
+    let handle = tokio::spawn(inner_handler(bot, query));
+
+    tokio::spawn(THREAD_WATCH.add(handle));
 
     Ok(())
 }

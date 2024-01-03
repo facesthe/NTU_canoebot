@@ -3,6 +3,7 @@ mod command;
 mod dictionaries;
 mod events;
 mod frame;
+mod threadmonitor;
 
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;

@@ -10,6 +10,7 @@ mod question;
 mod raw;
 
 pub use form::GoogleForm;
+pub use question::FillResult;
 
 // impl GoogleForm {
 //     /// Link to a new form

@@ -24,6 +24,7 @@ use crate::callback::{self, whatactually_get, Callback};
 use crate::dictionaries;
 use crate::frame::common_buttons::BLANK;
 use crate::frame::{calendar_month_gen, calendar_year_gen};
+use crate::threadmonitor::{DynResult, THREAD_WATCH};
 
 /// Main commands
 #[derive(BotCommands, Clone, Debug)]
@@ -93,6 +94,9 @@ pub enum Commands {
 
     #[command(description = "silence, ...")]
     Silence(silence::Silence),
+
+    #[command(description = "off")]
+    Panic,
 }
 
 /// Handle a specific command.
@@ -375,6 +379,7 @@ impl HandleCommand for Commands {
                 Ok(())
             }
 
+            Commands::Panic => Err("BIG PANIC".into()),
             // placeholder arm for unimpl'd commands
             #[allow(unreachable_patterns)]
             _ => Ok(()),
@@ -390,12 +395,13 @@ pub async fn message_handler(
     msg: Message,
     me: Me,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    tokio::spawn(async {
+    /// Inner async fn
+    async fn inner_handler(bot: Bot, msg: Message, me: Me) -> DynResult {
         if let Some(text) = msg.text() {
             match Commands::parse(text, me.username()) {
                 Ok(cmd) => {
                     log::info!("{:?}", cmd);
-                    cmd.handle_command(bot, msg, me).await.unwrap();
+                    cmd.handle_command(bot, msg, me).await?;
                 }
 
                 Err(_err) => {
@@ -403,7 +409,13 @@ pub async fn message_handler(
                 }
             }
         }
-    });
+
+        Ok(())
+    }
+
+    let handle: tokio::task::JoinHandle<DynResult> = tokio::spawn(inner_handler(bot, msg, me));
+
+    tokio::spawn(THREAD_WATCH.add(handle));
 
     Ok(())
 }

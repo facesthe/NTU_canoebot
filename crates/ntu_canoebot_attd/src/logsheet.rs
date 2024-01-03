@@ -4,7 +4,10 @@
 use std::collections::HashMap;
 
 use chrono::{Duration, NaiveDate, NaiveTime};
-use g_forms::form::Response;
+use g_forms::{
+    form::{QuestionType, Response},
+    FillResult, GoogleForm,
+};
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
 use tokio::sync::RwLock;
@@ -69,38 +72,53 @@ impl LoopingCounter {
 
 /// Sends a logsheet for a date and time.
 #[rustfmt::skip]
-pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
-
+pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
     let logsheet_id = config::FORMFILLER_FORM_ID;
 
-    let mut form = g_forms::GoogleForm::from_id(logsheet_id).await.unwrap();
+    let mut form = g_forms::GoogleForm::from_id(logsheet_id)
+        .await
+        .ok_or("Failed to fetch form. Does the form exist?")?;
 
-    let name_list = crate::namelist(date, session).await.unwrap();
+    let name_list = crate::namelist(date, session)
+        .await
+        .ok_or("Unable to get namelist")?;
     let total_paddlers = name_list.names.len();
 
     let config = get_config_type(date);
     let cert_lock = NAMES_CERTS[config as usize].read().await;
 
-    let certified: usize = name_list.names.iter().map(|name| {
-        if cert_lock.contains_key(name) {
-            match cert_lock.get(name).unwrap() {
-                true => 1,
-                false => 0,
+    let certified: usize = name_list
+        .names
+        .iter()
+        .map(|name| {
+            if cert_lock.contains_key(name) {
+                match cert_lock.get(name).unwrap() {
+                    true => 1,
+                    false => 0,
+                }
+            } else {
+                0
             }
-        } else {
-            0
-        }
-    }).sum();
+        })
+        .sum();
 
     let not_certified = total_paddlers - certified;
 
-    debug_println!("total: {}\ncertified: {}\nnon-certified: {}", total_paddlers, certified, not_certified);
+    debug_println!(
+        "total: {}\ncertified: {}\nnon-certified: {}",
+        total_paddlers,
+        certified,
+        not_certified
+    );
     debug_println!("namelist struct: {:?}", name_list);
 
     let particulars: &HashMap<&'static str, String> = &config::FORMFILLER_PARTICULARS;
     let part_idx = LOOPING_COUNTER.write().await.next().unwrap();
-    let (exco_name, exco_number) = particulars.iter().skip(part_idx).next().unwrap();
-
+    let (exco_name, exco_number) = particulars
+        .iter()
+        .skip(part_idx)
+        .next()
+        .ok_or("failed to insert exco particulars")?;
 
     let start_time = {
         let time = match session {
@@ -119,22 +137,78 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, ()> {
         NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
     };
 
-    // TODO: extract out all consts under this comment to the config file.
-    form.question(0).unwrap().fill_str(&exco_name).unwrap(); // name
-    form.question(1).unwrap().fill_str(&exco_number).unwrap(); // hp number
-    form.question(2).unwrap().fill_str("Nanyang Technological University").unwrap(); // organization
-    form.question(3).unwrap().fill_option(2).unwrap(); // type of activity
-    form.question(4).unwrap().fill_number(certified.into()).unwrap(); // number of certified
-    form.question(5).unwrap().fill_number(not_certified.into()).unwrap(); // number of non certified
-    form.question(6).unwrap().fill_option(0).unwrap(); // paddling location
-    form.question(7).unwrap().fill_date(date.and_time(chrono::Local::now().time())).unwrap(); // date of training
-    form.question(8).unwrap().fill_time(start_time).unwrap(); // start time
-    form.question(9).unwrap().fill_time(end_time).unwrap(); // end time
-    form.question(10).unwrap().fill_option(0).unwrap(); // disclaimer agree
+    /// Fills a question with whatever and returns a more verbose error
+    #[inline]
+    fn get_qn_with_error(f: &mut GoogleForm, qn: usize) -> Result<&mut QuestionType, String> {
+        let qn = f
+            .question(0)
+            .ok_or(format!("Unable to index into question '{}'", qn))?;
 
+        Ok(qn)
+    }
+    /// Adds a nice error message when encountering a result
+    #[inline]
+    fn transform_fill_result(res: FillResult, qn: usize) -> Result<(), String> {
+        res.map_err(|_| format!("Failed to fill question '{}'", qn))
+    }
+
+    // name
+    transform_fill_result(
+        get_qn_with_error(&mut form, 0)?
+        .fill_str(&exco_name), 0
+    )?;
+    // hp number
+    transform_fill_result(
+        get_qn_with_error(&mut form, 1)?
+        .fill_str(&exco_number), 1
+    )?;
+    // organization
+    transform_fill_result(
+        get_qn_with_error(&mut form, 2)?
+        .fill_str("Nanyang Technological University"), 2
+    )?;
+    // type of activity
+    transform_fill_result(
+        get_qn_with_error(&mut form, 3)?
+        .fill_option(2), 3
+    )?;
+    // number of certified
+    transform_fill_result(
+        get_qn_with_error(&mut form, 4)?
+        .fill_number(certified.into()), 4
+    )?;
+    // number of non certified
+    transform_fill_result(
+        get_qn_with_error(&mut form, 5)?
+        .fill_number(not_certified.into()), 5
+    )?;
+    // paddling location
+    transform_fill_result(
+        get_qn_with_error(&mut form, 6)?
+        .fill_option(0), 6
+    )?;
+    // date of training
+    transform_fill_result(
+        get_qn_with_error(&mut form, 7)?
+        .fill_date(date.and_time(chrono::Local::now().time())), 7
+    )?;
+    // start time
+    transform_fill_result(
+        get_qn_with_error(&mut form, 8)?
+        .fill_time(start_time), 8
+    )?;
+    // end time
+    transform_fill_result(
+        get_qn_with_error(&mut form, 9)?
+        .fill_time(end_time), 9
+    )?;
+    // disclaimer agree
+    transform_fill_result(
+        get_qn_with_error(&mut form, 10)?
+        .fill_option(0), 10
+    )?;
 
     debug_println!("form response: {:#?}", form);
-
 
     form.submit().await
     // Ok(Default::default())
