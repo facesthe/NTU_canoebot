@@ -140,11 +140,11 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
     /// Fills a question with whatever and returns a more verbose error
     #[inline]
     fn get_qn_with_error(f: &mut GoogleForm, qn: usize) -> Result<&mut QuestionType, String> {
-        let qn = f
-            .question(0)
+        let question = f
+            .question(qn)
             .ok_or(format!("Unable to index into question '{}'", qn))?;
 
-        Ok(qn)
+        Ok(question)
     }
     /// Adds a nice error message when encountering a result
     #[inline]
