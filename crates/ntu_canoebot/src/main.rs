@@ -39,7 +39,6 @@ lazy_static! {
 async fn main() {
     pretty_env_logger::formatted_timed_builder()
         .parse_filters(config::LOGGER_LOG_LEVEL)
-        .default_format()
         .init();
 
     tokio::task::spawn(start_events());
