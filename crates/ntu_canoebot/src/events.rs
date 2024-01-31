@@ -61,6 +61,12 @@ pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
         log::info!("");
 
+        let read_lock = ntu_canoebot_attd::logsheet::SUBMIT_LOCK.read().await;
+        if read_lock.0 >= chrono::Local::now().date_naive() {
+            log::info!("logsheet sent before event");
+            return Ok(());
+        }
+
         let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
             "logsheet",

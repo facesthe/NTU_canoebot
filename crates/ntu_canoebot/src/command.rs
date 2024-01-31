@@ -380,6 +380,7 @@ impl HandleCommand for Commands {
             }
 
             Commands::Panic => Err("BIG PANIC".into()),
+
             // placeholder arm for unimpl'd commands
             #[allow(unreachable_patterns)]
             _ => Ok(()),
