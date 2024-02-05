@@ -171,6 +171,8 @@ offensive_names = [
 
 ########
 [logger]
+# location for log files (persistent, append)
+file = "/var/log/ntu_canoebot/ntu_canoebot.log"
 log_level = "DEBUG"
 
 

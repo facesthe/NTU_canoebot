@@ -3,17 +3,22 @@ mod command;
 mod dictionaries;
 mod events;
 mod frame;
+mod log_writer;
 mod threadmonitor;
+
+use std::fs::{File, OpenOptions};
 
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
 use ntu_src::SRC_CACHE;
+use pretty_env_logger::env_logger::fmt;
 use teloxide::prelude::*;
 use tokio_schedule::Job;
 
 use crate::callback::callback_handler;
 use crate::command::message_handler;
 use crate::events::EXCO_CHAT_ID;
+use crate::log_writer::LogWriter;
 
 use ntu_canoebot_config as config;
 
@@ -38,7 +43,20 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() {
+    let log_writer = {
+        let log_file_dest = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(config::LOGGER_FILE)
+            .expect("file creation should not fail");
+
+        LogWriter::to_file(log_file_dest)
+    };
+
+    config::LOGGER_FILE;
+
     pretty_env_logger::formatted_timed_builder()
+        .target(fmt::Target::Pipe(Box::new(log_writer)))
         .parse_filters(config::LOGGER_LOG_LEVEL)
         .init();
 
