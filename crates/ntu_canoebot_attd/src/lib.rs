@@ -1108,6 +1108,8 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     write_lock.start = sheet.start;
     write_lock.end = sheet.end;
 
+    drop(write_lock);
+
     Ok(())
 }
 

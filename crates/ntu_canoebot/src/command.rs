@@ -11,6 +11,7 @@ pub mod commands;
 mod silence;
 
 use std::error::Error;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -416,7 +417,7 @@ pub async fn message_handler(
 
     let handle: tokio::task::JoinHandle<DynResult> = tokio::spawn(inner_handler(bot, msg, me));
 
-    tokio::spawn(THREAD_WATCH.add(handle));
+    tokio::spawn(THREAD_WATCH.push(handle, Duration::from_secs(5)));
 
     Ok(())
 }

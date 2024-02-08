@@ -6,7 +6,7 @@ mod frame;
 mod log_writer;
 mod threadmonitor;
 
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
@@ -52,8 +52,6 @@ async fn main() {
 
         LogWriter::to_file(log_file_dest)
     };
-
-    config::LOGGER_FILE;
 
     pretty_env_logger::formatted_timed_builder()
         .target(fmt::Target::Pipe(Box::new(log_writer)))

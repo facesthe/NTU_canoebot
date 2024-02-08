@@ -9,8 +9,8 @@ pub mod src;
 mod training;
 mod whatactually;
 
-use std::error::Error;
 use std::str::FromStr;
+use std::{error::Error, time::Duration};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -337,7 +337,7 @@ pub async fn callback_handler(
 
     let handle = tokio::spawn(inner_handler(bot, query));
 
-    tokio::spawn(THREAD_WATCH.add(handle));
+    tokio::spawn(THREAD_WATCH.push(handle, Duration::from_secs(5)));
 
     Ok(())
 }
