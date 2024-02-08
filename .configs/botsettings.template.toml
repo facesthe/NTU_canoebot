@@ -171,6 +171,10 @@ offensive_names = [
 
 ########
 [logger]
+# log to file + stderr
+# if logging only to stderr, switch to `false`
+log_to_file = true
+
 # location for log files (persistent, append)
 file = "/var/log/ntu_canoebot/ntu_canoebot.log"
 log_level = "DEBUG"

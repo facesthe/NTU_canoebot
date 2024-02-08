@@ -8,6 +8,7 @@ mod threadmonitor;
 
 use std::fs::OpenOptions;
 
+use fmt::Target;
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
 use ntu_src::SRC_CACHE;
@@ -54,7 +55,11 @@ async fn main() {
     };
 
     pretty_env_logger::formatted_timed_builder()
-        .target(fmt::Target::Pipe(Box::new(log_writer)))
+        .target(if config::LOGGER_LOG_TO_FILE {
+            Target::Pipe(Box::new(log_writer))
+        } else {
+            Target::Stderr
+        })
         .parse_filters(config::LOGGER_LOG_LEVEL)
         .init();
 
