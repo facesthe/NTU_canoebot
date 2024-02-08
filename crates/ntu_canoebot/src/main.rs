@@ -44,19 +44,17 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() {
-    let log_writer = {
-        let log_file_dest = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(config::LOGGER_FILE)
-            .expect("file creation should not fail");
-
-        LogWriter::to_file(log_file_dest)
-    };
-
     pretty_env_logger::formatted_timed_builder()
         .target(if config::LOGGER_LOG_TO_FILE {
-            Target::Pipe(Box::new(log_writer))
+            Target::Pipe(Box::new({
+                let log_file_dest = OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(config::LOGGER_FILE)
+                    .expect("file creation should not fail");
+
+                LogWriter::to_file(log_file_dest)
+            }))
         } else {
             Target::Stderr
         })
