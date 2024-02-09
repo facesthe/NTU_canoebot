@@ -158,6 +158,19 @@ pub struct NameList {
     pub fetch_time: NaiveDateTime,
 }
 
+fn format_toml_time(time: toml::value::Time, offset: Option<Duration>) -> String {
+    let mut repr =
+        chrono::NaiveTime::from_hms_opt(time.hour as u32, time.minute as u32, time.second as u32)
+            .unwrap();
+
+    match offset {
+        Some(val) => repr += val,
+        None => (),
+    }
+
+    repr.format("%H%M").to_string()
+}
+
 /// Format the namelist for display
 /// If prog is [Option::Some], format according to config file
 impl Display for NameList {
@@ -202,6 +215,10 @@ impl Display for NameList {
                 let sub_exclude = config::SHEETSCRAPER_PADDLING_SUB_EXCLUDE;
                 let sub_prog = config::SHEETSCRAPER_PADDLING_SUB_PROG;
                 let sub_fetch = config::SHEETSCRAPER_PADDLING_SUB_FETCH;
+                // time substitutions
+                let sub_arrive = config::SHEETSCRAPER_PADDLING_SUB_ARRIVE;
+                let sub_finish = config::SHEETSCRAPER_PADDLING_SUB_FINISH;
+                let sub_start = config::SHEETSCRAPER_PADDLING_SUB_START;
 
                 let date = self.date.format("%A %d %b ").to_string()
                     + match self.time {
@@ -212,13 +229,51 @@ impl Display for NameList {
                 let allo = main_list.join("\n");
                 let excl = excluded_list.join("\n");
 
+                let offset = Duration::minutes(
+                    config::SHEETSCRAPER_PADDLING_TIMES_ARRIVE_TO_START_DELTA_MINS,
+                );
+
+                let (arrive, start, finish) = match self.time {
+                    false => (
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_ARRIVE.time.unwrap(),
+                            None,
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_ARRIVE.time.unwrap(),
+                            Some(offset),
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_FINISH.time.unwrap(),
+                            None,
+                        ),
+                    ),
+                    true => (
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_ARRIVE.time.unwrap(),
+                            None,
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_ARRIVE.time.unwrap(),
+                            Some(offset),
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_FINISH.time.unwrap(),
+                            None,
+                        ),
+                    ),
+                };
+
                 let res = template
                     .replace(sub_session, format!("{:?}", self.session).as_str())
                     .replace(sub_date, &date)
                     .replace(sub_allo, &allo)
                     .replace(sub_exclude, &excl)
                     .replace(sub_prog, &prog)
-                    .replace(sub_fetch, &fetch);
+                    .replace(sub_fetch, &fetch)
+                    .replace(sub_arrive, &arrive)
+                    .replace(sub_start, &start)
+                    .replace(sub_finish, &finish);
 
                 res
             }
@@ -403,7 +458,7 @@ impl BitIndices {
         Self(inner)
     }
 
-    /// Converts the bitwise internal representation to a vector of indices.
+    /// Converts the internal bitwise representation to a vector of indices.
     ///
     /// ```
     /// use ntu_canoebot_attd::BitIndices;

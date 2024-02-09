@@ -12,6 +12,7 @@ chrono = { workspace = true }
 lazy_static = { workspace = true }
 polars = { workspace = true }
 log = { workspace = true }
+toml = { workspace = true }
 
 g_sheets = { path = "../g_sheets" }
 g_forms = { path = "../g_forms" }

@@ -1881,6 +1881,7 @@ dependencies = [
  "ntu_canoebot_util",
  "polars",
  "tokio",
+ "toml",
 ]
 
 [[package]]

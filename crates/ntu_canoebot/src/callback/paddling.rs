@@ -44,12 +44,10 @@ pub enum Paddling {
 
     MonthSelect {
         date: Date,
-        excluded_fields: u64,
     },
 
     YearSelect {
         date: Date,
-        excluded_fields: u64,
     },
 
     /// Exclude names from the boat allocation.
@@ -100,10 +98,7 @@ impl HandleCallback for Paddling {
                 )
                 .await?;
             }
-            Paddling::MonthSelect {
-                date,
-                excluded_fields,
-            } => {
+            Paddling::MonthSelect { date } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
 
                 let days: Vec<Callback> = (0..31)
@@ -115,23 +110,18 @@ impl HandleCallback for Paddling {
                             time_slot: false,
                             deconflict: true,
                             refresh: false,
-                            excluded_fields: *excluded_fields,
+                            excluded_fields: u64::MAX,
                         })
                     })
                     .collect();
 
                 let next = Self::enum_parent(Self::MonthSelect {
                     date: (start + Duration::days(33)).into(),
-                    excluded_fields: *excluded_fields,
                 });
                 let prev = Self::enum_parent(Self::MonthSelect {
                     date: (start - Duration::days(1)).into(),
-                    excluded_fields: *excluded_fields,
                 });
-                let year = Self::enum_parent(Self::YearSelect {
-                    date: date.clone(),
-                    excluded_fields: *excluded_fields,
-                });
+                let year = Self::enum_parent(Self::YearSelect { date: date.clone() });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -139,10 +129,7 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Paddling::YearSelect {
-                date,
-                excluded_fields,
-            } => {
+            Paddling::YearSelect { date } => {
                 let months: Vec<Callback> = (0..12)
                     .into_iter()
                     .map(|m| {
@@ -152,10 +139,7 @@ impl HandleCallback for Paddling {
                             day: 1,
                         };
 
-                        Self::enum_parent(Self::MonthSelect {
-                            date: month,
-                            excluded_fields: *excluded_fields,
-                        })
+                        Self::enum_parent(Self::MonthSelect { date: month })
                     })
                     .collect();
 
@@ -165,8 +149,6 @@ impl HandleCallback for Paddling {
                         month: 1,
                         day: 1,
                     },
-
-                    excluded_fields: *excluded_fields,
                 });
                 let prev = Self::enum_parent(Self::YearSelect {
                     date: Date {
@@ -174,8 +156,6 @@ impl HandleCallback for Paddling {
                         month: 1,
                         day: 1,
                     },
-
-                    excluded_fields: *excluded_fields,
                 });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
@@ -397,10 +377,7 @@ pub async fn paddling_get(
         refresh: false,
         excluded_fields: exclude_idx,
     });
-    let month = Paddling::enum_parent(Paddling::MonthSelect {
-        date: d,
-        excluded_fields: exclude_idx,
-    });
+    let month = Paddling::enum_parent(Paddling::MonthSelect { date: d });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
     let time_label = if time_slot { TIME_AM } else { TIME_PM };
