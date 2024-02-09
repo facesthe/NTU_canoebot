@@ -1852,6 +1852,7 @@ dependencies = [
  "log",
  "ntu_canoebot_attd",
  "ntu_canoebot_config",
+ "ntu_canoebot_traits",
  "ntu_canoebot_util",
  "ntu_src",
  "pretty_env_logger",
@@ -1889,6 +1890,22 @@ dependencies = [
  "lazy_static",
  "toml",
  "toml_const",
+]
+
+[[package]]
+name = "ntu_canoebot_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
+name = "ntu_canoebot_traits"
+version = "0.1.0"
+dependencies = [
+ "ntu_canoebot_macros",
 ]
 
 [[package]]

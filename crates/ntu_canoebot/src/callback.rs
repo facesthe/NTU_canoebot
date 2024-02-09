@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
+use ntu_canoebot_traits::{DeriveEnumParent, EnumParent};
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
@@ -49,7 +50,8 @@ const BLANK_BLOCK: char = '\u{2588}';
 ///
 /// This type contains callback data that can be attached to any
 /// inline markup button.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, DeriveEnumParent)]
+#[enum_parent((_))]
 pub enum Callback {
     Empty,
     Src(src::Src),
