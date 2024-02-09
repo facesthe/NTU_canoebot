@@ -124,6 +124,14 @@ pub enum Session {
     Land,
 }
 
+/// This struct stores the indices of names to retain/exclude.
+/// The LSB corresponds to vec idx 0, with support of up to 64 names.
+///
+/// By default, if all boats are allocated, this would be the same as setting
+/// the inner u64 to [u64::MAX].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BitIndices(u64);
+
 /// Namelist object
 #[derive(Clone, Debug)]
 pub struct NameList {
@@ -138,6 +146,9 @@ pub struct NameList {
 
     /// List of names for a session
     pub names: Vec<String>,
+
+    /// Names that are excluded from boat allocations
+    pub excluded_names: Vec<String>,
 
     /// List of boats (if any) for a session
     pub boats: Option<Vec<Option<String>>>,
@@ -173,6 +184,13 @@ impl Display for NameList {
             None => self.names.iter().map(|name| name.to_owned()).collect(),
         };
 
+        // these are tabbed out
+        let excluded_list: Vec<String> = self
+            .excluded_names
+            .iter()
+            .map(|n| format!("\t{}", n))
+            .collect();
+
         let fetch = format!("fetched at {}", self.fetch_time.format("%H:%M:%S"));
 
         let res = match &self.prog {
@@ -181,6 +199,7 @@ impl Display for NameList {
                 let sub_session = config::SHEETSCRAPER_PADDLING_SUB_SESSION;
                 let sub_date = config::SHEETSCRAPER_PADDLING_SUB_DATE;
                 let sub_allo = config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
+                let sub_exclude = config::SHEETSCRAPER_PADDLING_SUB_EXCLUDE;
                 let sub_prog = config::SHEETSCRAPER_PADDLING_SUB_PROG;
                 let sub_fetch = config::SHEETSCRAPER_PADDLING_SUB_FETCH;
 
@@ -191,11 +210,13 @@ impl Display for NameList {
                     };
 
                 let allo = main_list.join("\n");
+                let excl = excluded_list.join("\n");
 
                 let res = template
                     .replace(sub_session, format!("{:?}", self.session).as_str())
                     .replace(sub_date, &date)
                     .replace(sub_allo, &allo)
+                    .replace(sub_exclude, &excl)
                     .replace(sub_prog, &prog)
                     .replace(sub_fetch, &fetch);
 
@@ -326,6 +347,104 @@ fn num_digits(mut number: i64) -> usize {
     res
 }
 
+impl Default for BitIndices {
+    fn default() -> Self {
+        Self(u64::MAX)
+    }
+}
+
+impl BitIndices {
+    pub fn from_u64(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub fn to_u64(&self) -> u64 {
+        self.0
+    }
+
+    /// Create an instance of `Self` from a single index.
+    ///
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let indices = BitIndices::from_index(10);
+    ///
+    /// assert_eq!(indices.to_u64(), 0b100_0000_0000);
+    /// ```
+    pub fn from_index(mut index: usize) -> Self {
+        index &= 0b11_1111; // bounds check
+        Self(0b1 << index)
+    }
+
+    /// Create an instance of `Self` from a slice.
+    ///
+    /// This will only look at indices up to the bitsize (63)
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let v = vec![1,2,4,6,8,11];
+    ///
+    /// let indices = BitIndices::from_vec(v);
+    ///
+    /// assert_eq!(indices.to_u64(), 0b1001_0101_0110);
+    /// ```
+    pub fn from_vec(mut v: Vec<usize>) -> Self {
+        v.sort();
+
+        let bit_iter = v.iter().filter(|idx| **idx < 64);
+
+        let mut inner = 0_u64;
+        for bit_idx in bit_iter {
+            inner |= 0b1 << bit_idx;
+        }
+
+        Self(inner)
+    }
+
+    /// Converts the bitwise internal representation to a vector of indices.
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let indices = BitIndices::from_u64(0b1111_0000);
+    /// let converted = indices.to_vec();
+    ///
+    /// assert_eq!(converted, vec![4,5,6,7])
+    /// ```
+    pub fn to_vec(&self) -> Vec<usize> {
+        let mut copied = self.0;
+        let mut indices = Vec::new();
+        let mut idx = 0;
+
+        // short circuit if spawned from default
+        if self.0 == u64::MAX {
+            return (0..64).into_iter().collect();
+        }
+
+        loop {
+            if copied == 0 {
+                break;
+            }
+
+            let zeros = copied.trailing_zeros();
+            idx += zeros;
+            copied >>= zeros;
+
+            match (copied & 0b1) != 0 {
+                true => indices.push(idx as usize),
+                false => (),
+            }
+
+            copied >>= 1;
+            idx += 1;
+        }
+
+        indices
+    }
+}
+
 impl NameList {
     pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
         Self {
@@ -333,6 +452,7 @@ impl NameList {
             session: Default::default(),
             time: time_slot,
             names: Default::default(),
+            excluded_names: Default::default(),
             boats: Default::default(),
             prog: Default::default(),
             fetch_time: chrono::Local::now().naive_local(),
@@ -350,6 +470,40 @@ impl NameList {
         );
 
         Ok(())
+    }
+
+    /// Retain names that have an index. Move all the rest to
+    /// the exclude list.
+    pub fn exclude(&mut self, exclude_idx: BitIndices) {
+        // filter out indices within range
+        let indices: Vec<usize> = exclude_idx
+            .to_vec()
+            .into_iter()
+            .filter(|idx| *idx < self.names.len())
+            .collect();
+
+        let filtered: Vec<_> = self
+            .names
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, name)| match indices.binary_search(&idx).is_ok() {
+                true => Some(name.to_owned()),
+                false => None,
+            })
+            .collect();
+
+        let excluded: Vec<_> = self
+            .names
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, name)| match !indices.binary_search(&idx).is_ok() {
+                true => Some(name.to_owned()),
+                false => None,
+            })
+            .collect();
+
+        self.names = filtered;
+        self.excluded_names = excluded;
     }
 }
 
@@ -513,6 +667,7 @@ impl AttdSheet {
             session: Session::Paddling,
             time: time_slot,
             names: filtered,
+            excluded_names: Default::default(),
             boats: None,
             prog: None,
             fetch_time: self.fetch_time,
@@ -978,6 +1133,7 @@ pub async fn land(date: NaiveDate) -> NameList {
         session: Session::Land,
         time: true,
         names: filtered,
+        excluded_names: Default::default(),
         boats: None,
         prog: None,
         fetch_time: chrono::Local::now().naive_local(),

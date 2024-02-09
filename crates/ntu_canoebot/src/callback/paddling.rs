@@ -1,8 +1,10 @@
 use std::error::Error;
+use std::ops;
 
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
-use ntu_canoebot_attd::NameList;
+use ntu_canoebot_attd::{BitIndices, NameList};
+use ntu_canoebot_traits::{DeriveEnumParent, EnumParent};
 use serde::{Deserialize, Serialize};
 use teloxide::{prelude::*, types::ParseMode};
 
@@ -14,7 +16,20 @@ use crate::frame::{
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Method to filter names by
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
+pub enum FilterType {
+    /// Each callback adds to the main list
+    /// and removes a name from the exclude list.
+    Add,
+    /// Each callback removes from the main list
+    /// and adds a name to the exclude list.
+    #[default]
+    Remove,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, DeriveEnumParent)]
+#[enum_parent(Callback::Paddling(_))]
 pub enum Paddling {
     /// Perform a lookup, cached.
     Get {
@@ -24,14 +39,34 @@ pub enum Paddling {
         /// perform deconflict
         deconflict: bool,
         refresh: bool,
+        excluded_fields: u64,
     },
 
     MonthSelect {
         date: Date,
+        excluded_fields: u64,
     },
 
     YearSelect {
         date: Date,
+        excluded_fields: u64,
+    },
+
+    /// Exclude names from the boat allocation.
+    ///
+    /// Used when there are lots of people doing team boats.
+    ExcludeSelection {
+        // these fields will have their state frozen
+        // until the user decides to complete the exclude
+        date: Date,
+        time_slot: bool,
+        deconflict: bool,
+        refresh: bool,
+
+        /// To be converted to [ntu_canoebot_attd::BitIndices]
+        excluded_fields: u64,
+
+        exclude_type: FilterType,
     },
 }
 
@@ -50,6 +85,7 @@ impl HandleCallback for Paddling {
                 time_slot,
                 deconflict,
                 refresh,
+                excluded_fields,
             } => {
                 replace_with_whitespace(bot.clone(), msg, 3).await?;
                 paddling_get(
@@ -57,35 +93,45 @@ impl HandleCallback for Paddling {
                     *time_slot,
                     *deconflict,
                     *refresh,
+                    *excluded_fields,
                     bot,
                     msg,
                     true,
                 )
                 .await?;
             }
-            Paddling::MonthSelect { date } => {
+            Paddling::MonthSelect {
+                date,
+                excluded_fields,
+            } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
 
                 let days: Vec<Callback> = (0..31)
                     .into_iter()
                     .map(|d| {
                         let day: Date = (start + Duration::days(d)).into();
-                        Callback::Padddling(Paddling::Get {
+                        Self::enum_parent(Self::Get {
                             date: day,
                             time_slot: false,
                             deconflict: true,
                             refresh: false,
+                            excluded_fields: *excluded_fields,
                         })
                     })
                     .collect();
 
-                let next = Callback::Padddling(Paddling::MonthSelect {
+                let next = Self::enum_parent(Self::MonthSelect {
                     date: (start + Duration::days(33)).into(),
+                    excluded_fields: *excluded_fields,
                 });
-                let prev = Callback::Padddling(Paddling::MonthSelect {
+                let prev = Self::enum_parent(Self::MonthSelect {
                     date: (start - Duration::days(1)).into(),
+                    excluded_fields: *excluded_fields,
                 });
-                let year = Callback::Padddling(Paddling::YearSelect { date: date.clone() });
+                let year = Self::enum_parent(Self::YearSelect {
+                    date: date.clone(),
+                    excluded_fields: *excluded_fields,
+                });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -93,7 +139,10 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Paddling::YearSelect { date } => {
+            Paddling::YearSelect {
+                date,
+                excluded_fields,
+            } => {
                 let months: Vec<Callback> = (0..12)
                     .into_iter()
                     .map(|m| {
@@ -103,23 +152,30 @@ impl HandleCallback for Paddling {
                             day: 1,
                         };
 
-                        Callback::Padddling(Paddling::MonthSelect { date: month })
+                        Self::enum_parent(Self::MonthSelect {
+                            date: month,
+                            excluded_fields: *excluded_fields,
+                        })
                     })
                     .collect();
 
-                let next = Callback::Padddling(Paddling::YearSelect {
+                let next = Self::enum_parent(Self::YearSelect {
                     date: Date {
                         year: date.year + 1,
                         month: 1,
                         day: 1,
                     },
+
+                    excluded_fields: *excluded_fields,
                 });
-                let prev = Callback::Padddling(Paddling::YearSelect {
+                let prev = Self::enum_parent(Self::YearSelect {
                     date: Date {
                         year: date.year - 1,
                         month: 1,
                         day: 1,
                     },
+
+                    excluded_fields: *excluded_fields,
                 });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
@@ -128,10 +184,143 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
+
+            Paddling::ExcludeSelection {
+                date,
+                time_slot,
+                deconflict,
+                refresh,
+                excluded_fields,
+                exclude_type,
+            } => {
+                let date_n = (*date).into();
+                let mut name_list = ntu_canoebot_attd::namelist(date_n, *time_slot)
+                    .await
+                    .unwrap_or(NameList::from_date_time(date_n, *time_slot));
+
+                // this is the original list of ppl
+                let original_names_order = name_list.names.clone();
+                let num_names = original_names_order.len();
+
+                let excluded = BitIndices::from_u64(*excluded_fields);
+
+                name_list.exclude(excluded);
+                name_list.assign_boats(*deconflict).await;
+                name_list.fill_prog(false).await.unwrap();
+
+                let mut header_buttons = vec![
+                    vec![
+                        (
+                            "exclude all",
+                            Self::enum_parent(Self::ExcludeSelection {
+                                date: *date,
+                                time_slot: *time_slot,
+                                deconflict: *deconflict,
+                                refresh: *refresh,
+                                excluded_fields: u64::MIN,
+                                exclude_type: FilterType::Add,
+                            }),
+                        ),
+                        (
+                            "include all",
+                            Self::enum_parent(Self::ExcludeSelection {
+                                date: *date,
+                                time_slot: *time_slot,
+                                deconflict: *deconflict,
+                                refresh: *refresh,
+                                excluded_fields: u64::MAX,
+                                exclude_type: FilterType::Remove,
+                            }),
+                        ),
+                    ],
+                    vec![(
+                        "done",
+                        Self::enum_parent(Self::Get {
+                            date: *date,
+                            time_slot: *time_slot,
+                            deconflict: *deconflict,
+                            refresh: *refresh,
+                            excluded_fields: *excluded_fields,
+                        }),
+                    )],
+                ];
+
+                // when adding names we are setting one bit (bitor what was calculated)
+                // when removing names we are clearing one bit (bitand the inverse of what was calculated)
+                // LHS is the original exclude indices
+                // RHS is the new computed index
+                let (indices_of_names, merge_op): (BitIndices, fn((u64, u64)) -> u64) =
+                    match exclude_type {
+                        FilterType::Add => (
+                            BitIndices::from_u64(!excluded_fields),
+                            |(left, right): (u64, u64)| -> u64 { ops::BitOr::bitor(left, right) },
+                        ),
+                        FilterType::Remove => (
+                            BitIndices::from_u64(*excluded_fields),
+                            |(left, right): (u64, u64)| -> u64 {
+                                ops::BitAnd::bitand(left, !right)
+                            },
+                        ),
+                    };
+
+                let indices_of_names = indices_of_names
+                    .to_vec()
+                    .into_iter()
+                    .filter(|idx| *idx < num_names)
+                    .collect::<Vec<_>>();
+
+                dbg!(&indices_of_names);
+
+                // include/exclude names button construction
+                let name_buttons = original_names_order
+                    .iter()
+                    .enumerate()
+                    .filter_map(
+                        |(idx, name)| match indices_of_names.binary_search(&idx).is_ok() {
+                            true => Some((
+                                name,
+                                merge_op((*excluded_fields, BitIndices::from_index(idx).to_u64())),
+                            )),
+                            false => None,
+                        },
+                    )
+                    .map(|(name, excl)| {
+                        let callback = Self::enum_parent(Self::ExcludeSelection {
+                            date: *date,
+                            time_slot: *time_slot,
+                            deconflict: *deconflict,
+                            refresh: *refresh,
+                            excluded_fields: excl,
+                            exclude_type: *exclude_type,
+                        });
+
+                        (name.as_str(), callback)
+                    })
+                    .collect::<Vec<_>>();
+
+                let names_2d = convert_to_2d(&name_buttons, 2);
+
+                header_buttons.extend(names_2d);
+                let keyboard = construct_keyboard_tuple(header_buttons);
+                let text = format!("```\n{}```", name_list);
+
+                bot.edit_message_text(msg.chat.id, msg.id, text)
+                    .reply_markup(keyboard)
+                    .parse_mode(ParseMode::MarkdownV2)
+                    .await?;
+            }
         }
 
         Ok(())
     }
+}
+
+/// Turns a slice of somethinig into a vector of vectors.
+/// The number of elements in each vector is controlled by the arg provided.
+/// The last element may contain less than the specified number of elements, if the
+/// source vector does not have an integer multiple of cols.
+fn convert_to_2d<T: Clone>(input: &[T], cols: usize) -> Vec<Vec<T>> {
+    input.chunks(cols).map(|c| c.to_vec()).collect::<Vec<_>>()
 }
 
 /// Main paddling function
@@ -140,6 +329,7 @@ pub async fn paddling_get(
     time_slot: bool,
     deconflict: bool,
     refresh: bool,
+    exclude_idx: u64,
     bot: Bot,
     msg: &Message,
     is_callback: bool,
@@ -161,43 +351,56 @@ pub async fn paddling_get(
         .await
         .unwrap_or(NameList::from_date_time(date, time_slot));
 
+    let excluded = BitIndices::from_u64(exclude_idx);
+
+    name_list.exclude(excluded);
     name_list.assign_boats(deconflict).await;
     name_list.fill_prog(false).await.unwrap();
 
+    let _ = excluded;
+
     let d: Date = date.into();
-    let prev = Callback::Padddling(Paddling::Get {
+    let prev = Paddling::enum_parent(Paddling::Get {
         date: (date_n - Duration::days(1)).into(),
         time_slot,
         deconflict,
         refresh: false,
+        excluded_fields: exclude_idx,
     });
-    let next = Callback::Padddling(Paddling::Get {
+    let next = Paddling::enum_parent(Paddling::Get {
         date: (date_n + Duration::days(1)).into(),
         time_slot,
         deconflict,
         refresh: false,
+        excluded_fields: exclude_idx,
     });
 
     // switch between deconf modes
-    let refresh = Callback::Padddling(Paddling::Get {
+    let refresh = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot,
         deconflict,
         refresh: true,
+        excluded_fields: exclude_idx,
     });
-    let switch = Callback::Padddling(Paddling::Get {
+    let switch = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot,
         deconflict: !deconflict,
         refresh: false,
+        excluded_fields: exclude_idx,
     });
-    let time = Callback::Padddling(Paddling::Get {
+    let time = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot: !time_slot,
         deconflict,
         refresh: false,
+        excluded_fields: exclude_idx,
     });
-    let month = Callback::Padddling(Paddling::MonthSelect { date: d });
+    let month = Paddling::enum_parent(Paddling::MonthSelect {
+        date: d,
+        excluded_fields: exclude_idx,
+    });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
     let time_label = if time_slot { TIME_AM } else { TIME_PM };
@@ -210,6 +413,17 @@ pub async fn paddling_get(
         ],
         vec![(switch_label, switch), (time_label, time)],
         vec![(DATE, month)],
+        vec![(
+            "filter",
+            Paddling::enum_parent(Paddling::ExcludeSelection {
+                date: d,
+                time_slot,
+                deconflict,
+                refresh: false,
+                excluded_fields: exclude_idx,
+                exclude_type: Default::default(),
+            }),
+        )],
     ]);
 
     let text = format!("```\n{}```", name_list);

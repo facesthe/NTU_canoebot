@@ -223,6 +223,7 @@ impl HandleCommand for Commands {
                     false,
                     true,
                     false,
+                    u64::MAX, // & 0b1111,
                     bot,
                     &msg,
                     false,
