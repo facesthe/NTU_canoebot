@@ -249,7 +249,7 @@ impl HandleCallback for Paddling {
                     .filter(|idx| *idx < num_names)
                     .collect::<Vec<_>>();
 
-                dbg!(&indices_of_names);
+                // dbg!(&indices_of_names);
 
                 // include/exclude names button construction
                 let name_buttons = original_names_order
@@ -345,14 +345,14 @@ pub async fn paddling_get(
         time_slot,
         deconflict,
         refresh: false,
-        excluded_fields: exclude_idx,
+        excluded_fields: u64::MAX,
     });
     let next = Paddling::enum_parent(Paddling::Get {
         date: (date_n + Duration::days(1)).into(),
         time_slot,
         deconflict,
         refresh: false,
-        excluded_fields: exclude_idx,
+        excluded_fields: u64::MAX,
     });
 
     // switch between deconf modes
@@ -375,7 +375,7 @@ pub async fn paddling_get(
         time_slot: !time_slot,
         deconflict,
         refresh: false,
-        excluded_fields: exclude_idx,
+        excluded_fields: u64::MAX,
     });
     let month = Paddling::enum_parent(Paddling::MonthSelect { date: d });
 
