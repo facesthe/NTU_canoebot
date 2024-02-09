@@ -389,18 +389,20 @@ pub async fn paddling_get(
             (FORWARD_ARROW, next),
         ],
         vec![(switch_label, switch), (time_label, time)],
-        vec![(DATE, month)],
-        vec![(
-            "filter",
-            Paddling::enum_parent(Paddling::ExcludeSelection {
-                date: d,
-                time_slot,
-                deconflict,
-                refresh: false,
-                excluded_fields: exclude_idx,
-                exclude_type: Default::default(),
-            }),
-        )],
+        vec![
+            (DATE, month),
+            (
+                "filter",
+                Paddling::enum_parent(Paddling::ExcludeSelection {
+                    date: d,
+                    time_slot,
+                    deconflict,
+                    refresh: false,
+                    excluded_fields: exclude_idx,
+                    exclude_type: Default::default(),
+                }),
+            ),
+        ],
     ]);
 
     let text = format!("```\n{}```", name_list);
