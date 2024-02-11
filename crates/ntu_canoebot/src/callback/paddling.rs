@@ -11,7 +11,7 @@ use teloxide::{prelude::*, types::ParseMode};
 use crate::frame::{
     calendar_month_gen, calendar_year_gen,
     common_buttons::{BACK_ARROW, BLANK, DATE, FORWARD_ARROW, REFRESH, TIME_AM, TIME_PM},
-    construct_keyboard_tuple,
+    construct_keyboard_tuple, convert_to_2d,
 };
 
 use super::{message_from_callback_query, replace_with_whitespace, Callback, Date, HandleCallback};
@@ -293,14 +293,6 @@ impl HandleCallback for Paddling {
 
         Ok(())
     }
-}
-
-/// Turns a slice of somethinig into a vector of vectors.
-/// The number of elements in each vector is controlled by the arg provided.
-/// The last element may contain less than the specified number of elements, if the
-/// source vector does not have an integer multiple of cols.
-fn convert_to_2d<T: Clone>(input: &[T], cols: usize) -> Vec<Vec<T>> {
-    input.chunks(cols).map(|c| c.to_vec()).collect::<Vec<_>>()
 }
 
 /// Main paddling function
