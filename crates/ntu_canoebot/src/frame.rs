@@ -72,22 +72,12 @@ where
     InlineKeyboardMarkup::new(buttons_vec)
 }
 
-/// Fold the 1D array of buttons + data to a 2D array, given a row size.
-pub fn fold_buttons<N: ToString>(
-    buttons: &[(N, Callback)],
-    rowsize: usize,
-) -> Vec<Vec<(String, Callback)>> {
-    let res: Vec<Vec<(String, Callback)>> = buttons
-        .chunks(rowsize)
-        // .zip(data.chunks(rowsize))
-        .map(|(row)| {
-            (row.iter()
-                .map(|(name, data)| (name.to_string(), data.to_owned()))
-                .collect::<Vec<(String, Callback)>>())
-        })
-        .collect();
-
-    res
+/// Turns a slice of somethinig into a vector of vectors.
+/// The number of elements in each vector is controlled by the arg provided.
+/// The last element may contain less than the specified number of elements, if the
+/// source vector does not have an integer multiple of cols.
+pub fn convert_to_2d<T: Clone>(input: &[T], cols: usize) -> Vec<Vec<T>> {
+    input.chunks(cols).map(|c| c.to_vec()).collect::<Vec<_>>()
 }
 
 /// Generate a month calendar with navigation buttons.
@@ -139,7 +129,7 @@ pub fn calendar_month_gen(
     let buttons = [days, pre, buttons, post].concat();
     // let (names, cdata): (Vec<String>, Vec<Callback>) = buttons.into_iter().unzip();
 
-    let mut folded_buttons = fold_buttons(&buttons, 7);
+    let mut folded_buttons = convert_to_2d(&buttons, 7);
 
     // add header (navi buttons + month name) and footer (back button if is Some())
     let header = vec![
@@ -182,7 +172,7 @@ pub fn calendar_year_gen(
         (FORWARD_ARROW.to_string(), next),
     ];
 
-    let mut buttons = fold_buttons(&buttons, 3);
+    let mut buttons = convert_to_2d(&buttons, 3);
     buttons.insert(0, header);
 
     if let Some(data) = back {
