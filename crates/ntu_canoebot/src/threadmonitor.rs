@@ -2,11 +2,15 @@
 
 use std::{error::Error, sync::Arc, time::Duration};
 
+use futures::Future;
 use lazy_static::lazy_static;
 use tokio::{
     sync::{mpsc, Mutex},
     task::JoinHandle,
 };
+
+/// The default amount of time to wait for a future to execute to completion
+const DEFAULT_DURATION: Duration = Duration::from_secs(15);
 
 lazy_static! {
     /// Holds on to `JoinHandle` and logs any errors
@@ -49,6 +53,18 @@ impl ThreadWatch {
         tokio::spawn(Self::run_pruner(inner, t_recv));
 
         s
+    }
+
+    /// This is a direct replacement for [tokio::spawn].
+    ///
+    /// Only futures that returnn a [DynResult] are supported.
+    pub async fn spawn<T>(&self, future: T)
+    where
+        T: Future + Send + 'static,
+        T: Future<Output = DynResult>,
+    {
+        let handle = tokio::spawn(future);
+        self.push(handle, DEFAULT_DURATION).await;
     }
 
     /// Pushes a joinhandle to the thread queue.

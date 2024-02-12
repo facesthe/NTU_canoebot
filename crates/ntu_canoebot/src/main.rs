@@ -7,7 +7,6 @@ mod log_writer;
 mod threadmonitor;
 
 use std::fs::OpenOptions;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use fmt::Target;
@@ -108,13 +107,11 @@ async fn start_events() {
     let attd_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minutes()
         .perform(|| async {
-            let future = tokio::spawn(
-                ntu_canoebot_attd::refresh_attd_sheet_cache(false)
-                    .map_err(|_| anyhow!("attd cache refresh failed").into()),
-            );
-
             threadmonitor::THREAD_WATCH
-                .push(future, Duration::from_secs(5))
+                .spawn(
+                    ntu_canoebot_attd::refresh_attd_sheet_cache(false)
+                        .map_err(|_| anyhow!("attd cache refresh failed").into()),
+                )
                 .await;
         });
 
@@ -123,13 +120,11 @@ async fn start_events() {
     let prog_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minute()
         .perform(|| async {
-            let future = tokio::spawn(
-                ntu_canoebot_attd::refresh_prog_sheet_cache(false)
-                    .map_err(|_| anyhow!("prog cache refresh failed").into()),
-            );
-
             threadmonitor::THREAD_WATCH
-                .push(future, Duration::from_secs(5))
+                .spawn(
+                    ntu_canoebot_attd::refresh_prog_sheet_cache(false)
+                        .map_err(|_| anyhow!("prog cache refresh failed").into()),
+                )
                 .await;
         });
 
@@ -146,10 +141,8 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                let future = tokio::spawn(events::logsheet_prompt(BOT.clone()));
-
                 threadmonitor::THREAD_WATCH
-                    .push(future, Duration::from_secs(5))
+                    .spawn(events::logsheet_prompt(BOT.clone()))
                     .await;
             });
 
@@ -166,10 +159,8 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                let future = tokio::spawn(events::attendance_prompt(BOT.clone()));
-
                 threadmonitor::THREAD_WATCH
-                    .push(future, Duration::from_secs(5))
+                    .spawn(events::attendance_prompt(BOT.clone()))
                     .await;
             });
 
@@ -187,10 +178,8 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                let future = tokio::spawn(events::breakdown_prompt(BOT.clone()));
-
                 threadmonitor::THREAD_WATCH
-                    .push(future, Duration::from_secs(5))
+                    .spawn(events::breakdown_prompt(BOT.clone()))
                     .await;
             });
 
