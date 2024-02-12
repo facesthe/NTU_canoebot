@@ -7,8 +7,11 @@ mod log_writer;
 mod threadmonitor;
 
 use std::fs::OpenOptions;
+use std::time::Duration;
 
+use anyhow::anyhow;
 use fmt::Target;
+use futures::TryFutureExt;
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
 use ntu_src::SRC_CACHE;
@@ -99,24 +102,37 @@ async fn start_events() {
     let cache_refresh = tokio_schedule::every(config::SRC_CACHE_REFRESH as u32)
         .minutes()
         .perform(|| async { SRC_CACHE.refresh_all().await });
+
     tokio::task::spawn(cache_refresh);
 
     let attd_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minutes()
         .perform(|| async {
-            ntu_canoebot_attd::refresh_attd_sheet_cache(false)
-                .await
-                .expect("attd cache refresh failed");
+            let future = tokio::spawn(
+                ntu_canoebot_attd::refresh_attd_sheet_cache(false)
+                    .map_err(|_| anyhow!("attd cache refresh failed").into()),
+            );
+
+            threadmonitor::THREAD_WATCH
+                .push(future, Duration::from_secs(5))
+                .await;
         });
+
     tokio::task::spawn(attd_cache_refresh);
 
     let prog_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minute()
         .perform(|| async {
-            ntu_canoebot_attd::refresh_prog_sheet_cache(false)
-                .await
-                .expect("prog cache refresh failed")
+            let future = tokio::spawn(
+                ntu_canoebot_attd::refresh_prog_sheet_cache(false)
+                    .map_err(|_| anyhow!("prog cache refresh failed").into()),
+            );
+
+            threadmonitor::THREAD_WATCH
+                .push(future, Duration::from_secs(5))
+                .await;
         });
+
     tokio::task::spawn(prog_cache_refresh);
 
     debug_println!("chat_id: {:?}", *EXCO_CHAT_ID);
@@ -130,9 +146,11 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                events::logsheet_prompt(BOT.clone())
-                    .await
-                    .expect("logsheet prompt failed")
+                let future = tokio::spawn(events::logsheet_prompt(BOT.clone()));
+
+                threadmonitor::THREAD_WATCH
+                    .push(future, Duration::from_secs(5))
+                    .await;
             });
 
         tokio::task::spawn(logsheet_task);
@@ -148,9 +166,11 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                events::attendance_prompt(BOT.clone())
-                    .await
-                    .expect("attendance prompt failed")
+                let future = tokio::spawn(events::attendance_prompt(BOT.clone()));
+
+                threadmonitor::THREAD_WATCH
+                    .push(future, Duration::from_secs(5))
+                    .await;
             });
 
         tokio::task::spawn(attendance_event);
@@ -167,9 +187,11 @@ async fn start_events() {
                 prompt_time.second as u32,
             )
             .perform(|| async {
-                events::breakdown_prompt(BOT.clone())
-                    .await
-                    .expect("breakdown prompt failed")
+                let future = tokio::spawn(events::breakdown_prompt(BOT.clone()));
+
+                threadmonitor::THREAD_WATCH
+                    .push(future, Duration::from_secs(5))
+                    .await;
             });
 
         tokio::task::spawn(breakdown_event);

@@ -91,7 +91,7 @@ impl ThreadWatch {
                 match h.await {
                     Ok(res) => match res {
                         Ok(_) => (),
-                        Err(e) => log::error!("Thread error: {} \ncaused by:? {:?}", e, e.source()),
+                        Err(e) => log::error!("Thread error: {} \nCaused by:? {:?}", e, e.source()),
                     },
                     Err(e) => log::error!("Join error: {}", e),
                 }
