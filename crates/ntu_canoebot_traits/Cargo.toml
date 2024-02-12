@@ -1,0 +1,10 @@
+[package]
+name = "ntu_canoebot_traits"
+description = "Trait definitions that can be derived using proc-macros"
+version = "0.1.0"
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ntu_canoebot_macros = { path = "../ntu_canoebot_macros" }

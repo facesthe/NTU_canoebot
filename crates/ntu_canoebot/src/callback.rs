@@ -9,14 +9,15 @@ pub mod src;
 mod training;
 mod whatactually;
 
-use std::error::Error;
 use std::str::FromStr;
+use std::{error::Error, time::Duration};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
+use ntu_canoebot_traits::{DeriveEnumParent, EnumParent};
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
 use teloxide::prelude::*;
@@ -31,7 +32,10 @@ pub use ping::ping_start;
 pub use training::training_get;
 pub use whatactually::whatactually_get;
 
-use crate::frame::construct_keyboard_tuple;
+use crate::{
+    frame::construct_keyboard_tuple,
+    threadmonitor::{DynResult, THREAD_WATCH},
+};
 
 const BLANK_BLOCK: char = '\u{2588}';
 
@@ -46,13 +50,14 @@ const BLANK_BLOCK: char = '\u{2588}';
 ///
 /// This type contains callback data that can be attached to any
 /// inline markup button.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, DeriveEnumParent)]
+#[enum_parent((_))]
 pub enum Callback {
     Empty,
     Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
-    Padddling(paddling::Paddling),
+    Paddling(paddling::Paddling),
     Land(land::Land),
     Breakdown(breakdown::Breakdown),
     LogSheet(logsheet::LogSheet),
@@ -119,7 +124,7 @@ impl HandleCallback for Callback {
             Callback::Src(call) => call.handle_callback(bot, query).await,
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
-            Callback::Padddling(call) => call.handle_callback(bot, query).await,
+            Callback::Paddling(call) => call.handle_callback(bot, query).await,
             Callback::Land(call) => call.handle_callback(bot, query).await,
             Callback::Breakdown(call) => call.handle_callback(bot, query).await,
             Callback::LogSheet(call) => call.handle_callback(bot, query).await,
@@ -311,9 +316,10 @@ pub async fn callback_handler(
     bot: Bot,
     query: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    tokio::spawn(async {
+    /// Inner async fn
+    async fn inner_handler(bot: Bot, query: CallbackQuery) -> DynResult {
         // answer the callback query once at the top
-        bot.answer_callback_query(&query.id).await.unwrap();
+        bot.answer_callback_query(&query.id).await?;
 
         let callback_data: Callback = {
             if let Some(data) = &query.data {
@@ -328,8 +334,12 @@ pub async fn callback_handler(
         };
 
         log::info!("{:?}", callback_data);
-        callback_data.handle_callback(bot, query).await.unwrap();
-    });
+        callback_data.handle_callback(bot, query).await
+    }
+
+    let handle = tokio::spawn(inner_handler(bot, query));
+
+    tokio::spawn(THREAD_WATCH.push(handle, Duration::from_secs(5)));
 
     Ok(())
 }

@@ -124,6 +124,14 @@ pub enum Session {
     Land,
 }
 
+/// This struct stores the indices of names to retain/exclude.
+/// The LSB corresponds to vec idx 0, with support of up to 64 names.
+///
+/// By default, if all boats are allocated, this would be the same as setting
+/// the inner u64 to [u64::MAX].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BitIndices(u64);
+
 /// Namelist object
 #[derive(Clone, Debug)]
 pub struct NameList {
@@ -139,12 +147,28 @@ pub struct NameList {
     /// List of names for a session
     pub names: Vec<String>,
 
+    /// Names that are excluded from boat allocations
+    pub excluded_names: Vec<String>,
+
     /// List of boats (if any) for a session
     pub boats: Option<Vec<Option<String>>>,
 
     pub prog: Option<String>,
 
     pub fetch_time: NaiveDateTime,
+}
+
+fn format_toml_time(time: toml::value::Time, offset: Option<Duration>) -> String {
+    let mut repr =
+        chrono::NaiveTime::from_hms_opt(time.hour as u32, time.minute as u32, time.second as u32)
+            .unwrap();
+
+    match offset {
+        Some(val) => repr += val,
+        None => (),
+    }
+
+    repr.format("%H%M").to_string()
 }
 
 /// Format the namelist for display
@@ -173,6 +197,13 @@ impl Display for NameList {
             None => self.names.iter().map(|name| name.to_owned()).collect(),
         };
 
+        // these are tabbed out
+        let excluded_list: Vec<String> = self
+            .excluded_names
+            .iter()
+            .map(|n| format!("\t{}", n))
+            .collect();
+
         let fetch = format!("fetched at {}", self.fetch_time.format("%H:%M:%S"));
 
         let res = match &self.prog {
@@ -181,8 +212,13 @@ impl Display for NameList {
                 let sub_session = config::SHEETSCRAPER_PADDLING_SUB_SESSION;
                 let sub_date = config::SHEETSCRAPER_PADDLING_SUB_DATE;
                 let sub_allo = config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
+                let sub_exclude = config::SHEETSCRAPER_PADDLING_SUB_EXCLUDE;
                 let sub_prog = config::SHEETSCRAPER_PADDLING_SUB_PROG;
                 let sub_fetch = config::SHEETSCRAPER_PADDLING_SUB_FETCH;
+                // time substitutions
+                let sub_arrive = config::SHEETSCRAPER_PADDLING_SUB_ARRIVE;
+                let sub_finish = config::SHEETSCRAPER_PADDLING_SUB_FINISH;
+                let sub_start = config::SHEETSCRAPER_PADDLING_SUB_START;
 
                 let date = self.date.format("%A %d %b ").to_string()
                     + match self.time {
@@ -191,13 +227,53 @@ impl Display for NameList {
                     };
 
                 let allo = main_list.join("\n");
+                let excl = excluded_list.join("\n");
+
+                let offset = Duration::minutes(
+                    config::SHEETSCRAPER_PADDLING_TIMES_ARRIVE_TO_START_DELTA_MINS,
+                );
+
+                let (arrive, start, finish) = match self.time {
+                    false => (
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_ARRIVE.time.unwrap(),
+                            None,
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_ARRIVE.time.unwrap(),
+                            Some(offset),
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_AM_FINISH.time.unwrap(),
+                            None,
+                        ),
+                    ),
+                    true => (
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_ARRIVE.time.unwrap(),
+                            None,
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_ARRIVE.time.unwrap(),
+                            Some(offset),
+                        ),
+                        format_toml_time(
+                            config::SHEETSCRAPER_PADDLING_TIMES_PM_FINISH.time.unwrap(),
+                            None,
+                        ),
+                    ),
+                };
 
                 let res = template
                     .replace(sub_session, format!("{:?}", self.session).as_str())
                     .replace(sub_date, &date)
                     .replace(sub_allo, &allo)
+                    .replace(sub_exclude, &excl)
                     .replace(sub_prog, &prog)
-                    .replace(sub_fetch, &fetch);
+                    .replace(sub_fetch, &fetch)
+                    .replace(sub_arrive, &arrive)
+                    .replace(sub_start, &start)
+                    .replace(sub_finish, &finish);
 
                 res
             }
@@ -326,6 +402,104 @@ fn num_digits(mut number: i64) -> usize {
     res
 }
 
+impl Default for BitIndices {
+    fn default() -> Self {
+        Self(u64::MAX)
+    }
+}
+
+impl BitIndices {
+    pub fn from_u64(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub fn to_u64(&self) -> u64 {
+        self.0
+    }
+
+    /// Create an instance of `Self` from a single index.
+    ///
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let indices = BitIndices::from_index(10);
+    ///
+    /// assert_eq!(indices.to_u64(), 0b100_0000_0000);
+    /// ```
+    pub fn from_index(mut index: usize) -> Self {
+        index &= 0b11_1111; // bounds check
+        Self(0b1 << index)
+    }
+
+    /// Create an instance of `Self` from a slice.
+    ///
+    /// This will only look at indices up to the bitsize (63)
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let v = vec![1,2,4,6,8,11];
+    ///
+    /// let indices = BitIndices::from_vec(v);
+    ///
+    /// assert_eq!(indices.to_u64(), 0b1001_0101_0110);
+    /// ```
+    pub fn from_vec(mut v: Vec<usize>) -> Self {
+        v.sort();
+
+        let bit_iter = v.iter().filter(|idx| **idx < 64);
+
+        let mut inner = 0_u64;
+        for bit_idx in bit_iter {
+            inner |= 0b1 << bit_idx;
+        }
+
+        Self(inner)
+    }
+
+    /// Converts the internal bitwise representation to a vector of indices.
+    ///
+    /// ```
+    /// use ntu_canoebot_attd::BitIndices;
+    ///
+    /// let indices = BitIndices::from_u64(0b1111_0000);
+    /// let converted = indices.to_vec();
+    ///
+    /// assert_eq!(converted, vec![4,5,6,7])
+    /// ```
+    pub fn to_vec(&self) -> Vec<usize> {
+        let mut copied = self.0;
+        let mut indices = Vec::new();
+        let mut idx = 0;
+
+        // short circuit if spawned from default
+        if self.0 == u64::MAX {
+            return (0..64).into_iter().collect();
+        }
+
+        loop {
+            if copied == 0 {
+                break;
+            }
+
+            let zeros = copied.trailing_zeros();
+            idx += zeros;
+            copied >>= zeros;
+
+            match (copied & 0b1) != 0 {
+                true => indices.push(idx as usize),
+                false => (),
+            }
+
+            copied >>= 1;
+            idx += 1;
+        }
+
+        indices
+    }
+}
+
 impl NameList {
     pub fn from_date_time(date: NaiveDate, time_slot: bool) -> Self {
         Self {
@@ -333,6 +507,7 @@ impl NameList {
             session: Default::default(),
             time: time_slot,
             names: Default::default(),
+            excluded_names: Default::default(),
             boats: Default::default(),
             prog: Default::default(),
             fetch_time: chrono::Local::now().naive_local(),
@@ -350,6 +525,40 @@ impl NameList {
         );
 
         Ok(())
+    }
+
+    /// Retain names that have an index. Move all the rest to
+    /// the exclude list.
+    pub fn exclude(&mut self, exclude_idx: BitIndices) {
+        // filter out indices within range
+        let indices: Vec<usize> = exclude_idx
+            .to_vec()
+            .into_iter()
+            .filter(|idx| *idx < self.names.len())
+            .collect();
+
+        let filtered: Vec<_> = self
+            .names
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, name)| match indices.binary_search(&idx).is_ok() {
+                true => Some(name.to_owned()),
+                false => None,
+            })
+            .collect();
+
+        let excluded: Vec<_> = self
+            .names
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, name)| match !indices.binary_search(&idx).is_ok() {
+                true => Some(name.to_owned()),
+                false => None,
+            })
+            .collect();
+
+        self.names = filtered;
+        self.excluded_names = excluded;
     }
 }
 
@@ -471,7 +680,21 @@ impl AttdSheet {
             SHORTENED_NAMES[config as usize].read().await
         };
 
-        debug_println!("selected col with offset {}: {}", offset, selected);
+        debug_println!(
+            "selected col with offset {} (col {}): {}",
+            offset,
+            // reconstruct the original column idx, inside the shared online sheet.
+            AttdSheet::col_idx_to_excel_alphabetic(
+                offset
+                    + {
+                        ((offset - 1) / 14 + 1)
+                            * config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING as usize
+                    }
+                    + config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_LEFT as usize
+                    + 1
+            ),
+            selected
+        );
         let filtered: Vec<String> = selected
             .iter()
             .enumerate()
@@ -499,6 +722,7 @@ impl AttdSheet {
             session: Session::Paddling,
             time: time_slot,
             names: filtered,
+            excluded_names: Default::default(),
             boats: None,
             prog: None,
             fetch_time: self.fetch_time,
@@ -512,6 +736,32 @@ impl AttdSheet {
         } else {
             false
         }
+    }
+
+    /// Convert a column number to the human-readable excel column indices.
+    ///
+    /// 1-indexed instead of 0-indexed, so 1 maps to A, 26 maps to Z, etc.
+    #[cfg(debug_assertions)]
+    fn col_idx_to_excel_alphabetic(mut idx: usize) -> String {
+        let mut col_idx: Vec<char> = Vec::new();
+
+        loop {
+            let pos = idx % 26;
+            let lowest = (pos as u8 + 96) as char; // offset to ascii 'a'
+
+            col_idx.push(lowest);
+
+            idx /= 26;
+            if idx == 0 {
+                break;
+            }
+        }
+
+        col_idx
+            .iter()
+            .rev()
+            .map(|c| c.to_ascii_uppercase())
+            .collect()
     }
 }
 
@@ -938,6 +1188,7 @@ pub async fn land(date: NaiveDate) -> NameList {
         session: Session::Land,
         time: true,
         names: filtered,
+        excluded_names: Default::default(),
         boats: None,
         prog: None,
         fetch_time: chrono::Local::now().naive_local(),
@@ -1068,6 +1319,8 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     write_lock.start = sheet.start;
     write_lock.end = sheet.end;
 
+    drop(write_lock);
+
     Ok(())
 }
 
@@ -1144,11 +1397,9 @@ mod tests {
 
         println!("sheet name: {}", &sheet_name);
 
-        let mut df = g_sheets::get_as_dataframe(
-            config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET,
-            Some(sheet_name),
-        )
-        .await;
+        let mut df =
+            g_sheets::get_as_dataframe(config::SHEETSCRAPER_NEW_ATTENDANCE_SHEET, Some(sheet_name))
+                .await;
 
         let mut sheet: AttdSheet = df.try_into().unwrap();
 
@@ -1168,7 +1419,10 @@ mod tests {
 
         let out_file = File::create("raw.csv").unwrap();
         let csv_writer = CsvWriter::new(out_file);
-        csv_writer.include_header(true).finish(&mut sheet.data).unwrap();
+        csv_writer
+            .include_header(true)
+            .finish(&mut sheet.data)
+            .unwrap();
     }
 
     #[tokio::test]
@@ -1334,5 +1588,32 @@ mod tests {
         let mut res = land(chrono::Local::now().date_naive() + Duration::days(1)).await;
         res.fill_prog(true).await.unwrap();
         println!("{}", res);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    fn test_calculate_excel_col_idx() {
+        let x: Vec<_> = (1..26).into_iter().collect();
+        let res: Vec<String> = ('A'..'Z').into_iter().map(|c| c.to_string()).collect();
+
+        let x2: Vec<_> = (27..52).into_iter().collect();
+        let res2: Vec<String> = ('A'..'Z').into_iter().map(|c| format!("A{}", c)).collect();
+
+        println!("{:?}", x);
+
+        let y: Vec<_> = x
+            .into_iter()
+            .map(|item| AttdSheet::col_idx_to_excel_alphabetic(item as usize))
+            .collect();
+
+        let y2: Vec<_> = x2
+            .into_iter()
+            .map(|item| AttdSheet::col_idx_to_excel_alphabetic(item as usize))
+            .collect();
+
+        println!("{:?}", y);
+
+        assert_eq!(y, res);
+        assert_eq!(y2, res2);
     }
 }

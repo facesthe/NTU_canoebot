@@ -19,7 +19,7 @@ use crate::{
         calendar_month_gen, calendar_year_gen,
         common_buttons::{BACK, BACK_ARROW, BLANK, FORWARD_ARROW},
         common_descriptions::MENU,
-        construct_keyboard_tuple, fold_buttons,
+        construct_keyboard_tuple, convert_to_2d,
     },
 };
 
@@ -350,7 +350,7 @@ pub fn src_menu_create() -> (String, InlineKeyboardMarkup) {
         .map(|(name, data)| (name.to_string(), data))
         .collect::<Vec<(String, Callback)>>();
 
-    let folded_buttons = fold_buttons(&buttons, 3);
+    let folded_buttons = convert_to_2d(&buttons, 3);
 
     let keyboard = construct_keyboard_tuple(folded_buttons);
 

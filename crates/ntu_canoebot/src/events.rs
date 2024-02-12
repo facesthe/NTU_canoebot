@@ -1,5 +1,7 @@
 //! Special events go here
 
+use std::error::Error;
+
 use chrono::Duration;
 use lazy_static::lazy_static;
 use teloxide::prelude::*;
@@ -57,9 +59,15 @@ fn message_from_chat_id(chat_id: i64) -> Message {
 }
 
 /// Send the logsheet to exco chat
-pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
+pub async fn logsheet_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
         log::info!("");
+
+        let read_lock = ntu_canoebot_attd::logsheet::SUBMIT_LOCK.read().await;
+        if read_lock.0 >= chrono::Local::now().date_naive() {
+            log::info!("logsheet sent before event");
+            return Ok(());
+        }
 
         let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
@@ -67,48 +75,39 @@ pub async fn logsheet_prompt(bot: Bot) -> Result<(), ()> {
             Callback::LogSheet(crate::callback::LogSheet::Start { date: now.into() }),
         )]]);
 
-        let res = bot
-            .send_message(ChatId(chat_id), "logsheet")
+        bot.send_message(ChatId(chat_id), "logsheet")
             .reply_markup(keyboard)
-            .await;
-
-        if let Err(e) = res {
-            log::info!("chat id invalid: {}", e)
-        }
+            .await?;
     }
 
     Ok(())
 }
 
-pub async fn attendance_prompt(bot: Bot) -> Result<(), ()> {
+pub async fn attendance_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
         log::info!("");
 
         let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
             "paddling",
-            Callback::Padddling(crate::callback::Paddling::Get {
+            Callback::Paddling(crate::callback::Paddling::Get {
                 date: (now + Duration::days(1)).into(),
                 time_slot: false,
                 deconflict: true,
                 refresh: false,
+                excluded_fields: u64::MAX,
             }),
         )]]);
 
-        let res = bot
-            .send_message(ChatId(chat_id), "paddling")
+        bot.send_message(ChatId(chat_id), "paddling")
             .reply_markup(keyboard)
-            .await;
-
-        if let Err(e) = res {
-            log::info!("chat id invalid: {}", e)
-        }
+            .await?;
     }
 
     Ok(())
 }
 
-pub async fn breakdown_prompt(bot: Bot) -> Result<(), ()> {
+pub async fn breakdown_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
         log::info!("");
 
@@ -122,14 +121,9 @@ pub async fn breakdown_prompt(bot: Bot) -> Result<(), ()> {
             }),
         )]]);
 
-        let res = bot
-            .send_message(ChatId(chat_id), "breakdown")
+        bot.send_message(ChatId(chat_id), "breakdown")
             .reply_markup(keyboard)
-            .await;
-
-        if let Err(e) = res {
-            log::info!("chat id invalid: {}", e)
-        }
+            .await?;
     }
 
     Ok(())

@@ -92,25 +92,59 @@ attendance_sheet = ""
 program_sheet = ""
 
 [sheetscraper.paddling]
-format = "{session} {date}\n\n{boatallo}\n\n{training_prog}\n\n{fetch}"
+format = '''
+{session} {date}
+
+{boatallo}
+
+{exclude}
+
+Shed at *{arrive_time}*
+Start line at *{start_time}*
+
+{training_prog}
+
+Pack up at *{finish_time}*
+
+not coming (name, reason, makeup):
+
+{fetch}
+'''
+
 # used for variable substitutions.
 # they should match with the format string above
 sub_session = "{session}"
 sub_date = "{date}"
 sub_boatallo = "{boatallo}"
+sub_exclude = "{exclude}"
 sub_prog = "{training_prog}"
 sub_fetch = "{fetch}"
-smm_measure = "" # no longer used
+
+# locations to substitute in times
+sub_arrive = "{arrive_time}"
+sub_start = "{start_time}"
+sub_finish = "{finish_time}"
+
+
+[sheetscraper.paddling.times]
+# time between arrival time and start time in minutes
+arrive_to_start_delta_mins = 35
+
+am.arrive = 07:20:00
+am.finish = 09:15:00
+
+pm.arrive = 15:30:00
+pm.finish = 17:30:00
 
 
 [formfiller]
 form_id = "SCF logsheet form id"
 
 [formfiller.times.am]
-start   = 07:30:00
-end     = 10:00:00
+start   = 07:15:00
+end     = 09:15:00
 [formfiller.times.pm]
-start   = 14:30:00
+start   = 15:30:00
 end     = 17:30:00
 
 # key-value pairs of "name": "mobile number, string"
@@ -123,7 +157,7 @@ form_id = ""
 
 
 [src]
-# cache refresh interval
+# cache refresh interval, minutes
 cache_refresh = 30
 
 
@@ -140,8 +174,43 @@ enable = true
 time = 22:30:00
 
 
+[misc.silence]
+# the laser crab template, png
+crab_url = "https://i.imgflip.com/33x89u.png?a473040"
+# relative starting position of text, fraction, from top left of template
+text.x_frac = 0.15
+text.y_frac = 0.2
+
+# Central location of the profile picture, relative to the top left of the crab image.
+pic.row_frac = 0.75
+pic.col_frac = 0.17
+
+# Size of the profile pic (a square), relative to the width of the crab image.
+pic.width_frac = 0.2
+
+# lifetime of downloaded images, minutes
+fs_cache_lifetime = 1000
+
+offensive_names = [
+    "imbecile",
+    "infidel",
+    "moron",
+    "oaf",
+    "nonce",
+    "pig",
+    "idiot",
+    "twit",
+]
+
+
 ########
 [logger]
+# log to file + stderr
+# if logging only to stderr, switch to `false`
+log_to_file = true
+
+# location for log files (persistent, append)
+file = "/var/log/ntu_canoebot/ntu_canoebot.log"
 log_level = "DEBUG"
 
 
