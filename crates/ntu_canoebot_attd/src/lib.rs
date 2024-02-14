@@ -206,9 +206,25 @@ impl Display for NameList {
 
         let fetch = format!("fetched at {}", self.fetch_time.format("%H:%M:%S"));
 
+        // modify the paddling format if land
+        let template = match &self.session {
+            Session::Paddling => config::SHEETSCRAPER_PADDLING_FORMAT
+                .replace(
+                    config::SHEETSCRAPER_PADDLING_SUB_HEADER,
+                    config::SHEETSCRAPER_PADDLING_HEADER_FORMAT,
+                )
+                .replace(
+                    config::SHEETSCRAPER_PADDLING_SUB_FOOTER,
+                    config::SHEETSCRAPER_PADDLING_FOOTER_FORMAT,
+                ),
+            Session::Land => config::SHEETSCRAPER_PADDLING_FORMAT
+                .replace(config::SHEETSCRAPER_PADDLING_SUB_HEADER, "\r")
+                .replace(config::SHEETSCRAPER_PADDLING_SUB_FOOTER, "\r"),
+        };
+
         let res = match &self.prog {
             Some(prog) => {
-                let template = config::SHEETSCRAPER_PADDLING_FORMAT;
+                // let template = config::SHEETSCRAPER_PADDLING_FORMAT;
                 let sub_session = config::SHEETSCRAPER_PADDLING_SUB_SESSION;
                 let sub_date = config::SHEETSCRAPER_PADDLING_SUB_DATE;
                 let sub_allo = config::SHEETSCRAPER_PADDLING_SUB_BOATALLO;
@@ -295,8 +311,55 @@ impl Display for NameList {
             }
         };
 
+        let res = prune_empty_lines(&res);
+
         write!(f, "{}", res)
     }
+}
+
+/// Removes excess empty lines in a block of text
+fn prune_empty_lines(text_block: &str) -> String {
+    let mut empty_lines =
+        text_block
+            .lines()
+            .enumerate()
+            .filter_map(|(idx, line)| match line.len() {
+                0 => Some(idx),
+                _ => None,
+            });
+
+    let line_vec = empty_lines.to_owned().collect::<Vec<_>>();
+
+    dbg!(line_vec);
+
+    let first_item = empty_lines.next().unwrap_or(0);
+
+    let lines_to_remove = empty_lines
+        .scan(first_item, |prev, curr| {
+            let res = if curr - *prev == 1 {
+                Some(Some(curr))
+            } else {
+                Some(None)
+            };
+
+            *prev = curr;
+
+            res
+        })
+        .filter_map(|item| item)
+        .collect::<Vec<_>>();
+
+    dbg!(&lines_to_remove);
+
+    text_block
+        .lines()
+        .enumerate()
+        .filter_map(|(idx, line)| match lines_to_remove.contains(&idx) {
+            true => None,
+            false => Some(line),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// The attendance breakdown for a particular week,
@@ -1615,5 +1678,12 @@ mod tests {
 
         assert_eq!(y, res);
         assert_eq!(y2, res2);
+    }
+
+    #[test]
+    fn test_prune_empty_lines() {
+        let sample = "Hello world\n\n\n\n\n\n\n\n\n\nHello world";
+        let expected = "Hello world\n\nHello world";
+        assert_eq!(expected, prune_empty_lines(sample));
     }
 }

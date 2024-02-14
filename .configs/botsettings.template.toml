@@ -99,17 +99,23 @@ format = '''
 
 {exclude}
 
-Shed at *{arrive_time}*
-Start line at *{start_time}*
+{paddling_specific_header}
 
 {training_prog}
 
-Pack up at *{finish_time}*
+{paddling_specific_footer}
 
 not coming (name, reason, makeup):
 
 {fetch}
 '''
+
+header_format = '''
+Shed at *{arrive_time}*
+Start line at *{start_time}*
+'''
+
+footer_format = "Pack up at *{finish_time}*"
 
 # used for variable substitutions.
 # they should match with the format string above
@@ -119,6 +125,10 @@ sub_boatallo = "{boatallo}"
 sub_exclude = "{exclude}"
 sub_prog = "{training_prog}"
 sub_fetch = "{fetch}"
+
+sub_header = "{paddling_specific_header}"
+
+sub_footer = "{paddling_specific_footer}"
 
 # locations to substitute in times
 sub_arrive = "{arrive_time}"
