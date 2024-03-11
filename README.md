@@ -67,7 +67,6 @@ These are the current list of public commands available. Copy and paste these wh
     help - help
     reload - refresh sheet data
     version - bot version
-    src - view SRC facilities
     namelist - see who's going training
     training - view training program
     paddling - full paddling attendance
@@ -79,6 +78,9 @@ These are the current list of public commands available. Copy and paste these wh
     emojivomit - emoji vomit
     uwuify - uwu
     silence - silence someone/something
+
+
+<!-- src - view SRC facilities -->
 
 <!-- whoami - who u -->
 

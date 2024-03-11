@@ -327,10 +327,7 @@ fn prune_empty_lines(text_block: &str) -> String {
                 0 => Some(idx),
                 _ => None,
             });
-
-    let line_vec = empty_lines.to_owned().collect::<Vec<_>>();
-
-    dbg!(line_vec);
+    // dbg!(empty_lines.to_owned().collect::<Vec<_>>());
 
     let first_item = empty_lines.next().unwrap_or(0);
 
@@ -349,7 +346,7 @@ fn prune_empty_lines(text_block: &str) -> String {
         .filter_map(|item| item)
         .collect::<Vec<_>>();
 
-    dbg!(&lines_to_remove);
+    // dbg!(&lines_to_remove);
 
     text_block
         .lines()

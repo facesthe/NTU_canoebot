@@ -61,7 +61,7 @@ fn message_from_chat_id(chat_id: i64) -> Message {
 /// Send the logsheet to exco chat
 pub async fn logsheet_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
-        log::info!("");
+        log::info!("logsheet prompt");
 
         let read_lock = ntu_canoebot_attd::logsheet::SUBMIT_LOCK.read().await;
         if read_lock.0 >= chrono::Local::now().date_naive() {
@@ -85,7 +85,7 @@ pub async fn logsheet_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync
 
 pub async fn attendance_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
-        log::info!("");
+        log::info!("attendance prompt");
 
         let now = chrono::Local::now().date_naive();
         let keyboard = construct_keyboard_tuple([[(
@@ -109,7 +109,7 @@ pub async fn attendance_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sy
 
 pub async fn breakdown_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(chat_id) = *EXCO_CHAT_ID {
-        log::info!("");
+        log::info!("breakdown prompt");
 
         let now = chrono::Local::now().date_naive() + Duration::days(7);
         let keyboard = construct_keyboard_tuple([[(

@@ -121,7 +121,7 @@ impl HandleCallback for Callback {
                 bot.answer_callback_query(&query.id).await?;
                 Ok(())
             }
-            Callback::Src(call) => call.handle_callback(bot, query).await,
+            // Callback::Src(call) => call.handle_callback(bot, query).await,
             Callback::NameList(call) => call.handle_callback(bot, query).await,
             Callback::Training(call) => call.handle_callback(bot, query).await,
             Callback::Paddling(call) => call.handle_callback(bot, query).await,

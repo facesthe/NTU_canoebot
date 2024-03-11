@@ -54,7 +54,7 @@ pub enum Commands {
     #[command(description = "reload boat configs")]
     Reload,
 
-    #[command(description = "view SRC facilities")]
+    #[command(description = "off")]
     Src,
 
     #[command(description = "see who's going training")]
