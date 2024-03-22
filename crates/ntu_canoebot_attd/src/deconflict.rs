@@ -424,6 +424,8 @@ impl NameList {
                         // check conflicts
                         match (curr_allo.contains(pri), curr_allo.contains(alt)) {
                             // need to kick people out
+                            // new case needed when 2 people share the same primary boat
+                            // and they have 2 boats available
                             (true, true) => {
                                 let pri_conflict = res
                                     .iter()
@@ -493,15 +495,36 @@ impl NameList {
                                     }
                                     (false, false) => {
                                         debug_println!(
-                                            "assigning {} to {} without locking",
+                                            "attempting to assign {} to {} without locking",
                                             unallo_name,
                                             pri
                                         );
-                                        // this branch is causing problems
+                                        // this branch is causing problems again
+
                                         res.insert(
                                             unallo_name,
                                             Some(AllocResult::from_boat(pri.to_owned())),
                                         );
+
+                                        // get the options for the conflicting person
+                                        let conflict_opts = read_lock.get(&pri_conflict.0).unwrap();
+
+                                        debug_println!(
+                                            "conflicting person's options: {:?}",
+                                            conflict_opts
+                                        );
+
+                                        // if both people have the same primary boat
+                                        // someone has to lock the boats
+                                        if let Some(check_boat) = &conflict_opts.0 {
+                                            if check_boat == pri {
+                                                debug_println!("same primary boat for both people");
+                                                res.insert(
+                                                    unallo_name,
+                                                    Some(AllocResult::from_lock(pri.to_owned())),
+                                                );
+                                            }
+                                        }
 
                                         kicked = Some(pri_conflict.0);
                                     }
