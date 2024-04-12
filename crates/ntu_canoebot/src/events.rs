@@ -96,6 +96,7 @@ pub async fn attendance_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sy
                 deconflict: true,
                 refresh: false,
                 excluded_fields: u64::MAX,
+                show_blanks: true,
             }),
         )]]);
 

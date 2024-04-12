@@ -40,6 +40,8 @@ pub enum Paddling {
         deconflict: bool,
         refresh: bool,
         excluded_fields: u64,
+        /// Show blank blocks when updating the message
+        show_blanks: bool,
     },
 
     MonthSelect {
@@ -84,8 +86,12 @@ impl HandleCallback for Paddling {
                 deconflict,
                 refresh,
                 excluded_fields,
+                show_blanks,
             } => {
-                replace_with_whitespace(bot.clone(), msg, 3).await?;
+                if show_blanks {
+                    replace_with_whitespace(bot.clone(), msg, 3).await?;
+                }
+
                 paddling_get(
                     (*date).into(),
                     *time_slot,
@@ -111,6 +117,7 @@ impl HandleCallback for Paddling {
                             deconflict: true,
                             refresh: false,
                             excluded_fields: u64::MAX,
+                            show_blanks: true,
                         })
                     })
                     .collect();
@@ -221,6 +228,7 @@ impl HandleCallback for Paddling {
                             deconflict: *deconflict,
                             refresh: *refresh,
                             excluded_fields: *excluded_fields,
+                            show_blanks: false,
                         }),
                     )],
                 ];
@@ -329,8 +337,6 @@ pub async fn paddling_get(
     name_list.assign_boats(deconflict).await;
     name_list.fill_prog(false).await.unwrap();
 
-    let _ = excluded;
-
     let d: Date = date.into();
     let prev = Paddling::enum_parent(Paddling::Get {
         date: (date_n - Duration::days(1)).into(),
@@ -338,6 +344,7 @@ pub async fn paddling_get(
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
+        show_blanks: true,
     });
     let next = Paddling::enum_parent(Paddling::Get {
         date: (date_n + Duration::days(1)).into(),
@@ -345,6 +352,7 @@ pub async fn paddling_get(
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
+        show_blanks: true,
     });
 
     // switch between deconf modes
@@ -354,6 +362,7 @@ pub async fn paddling_get(
         deconflict,
         refresh: true,
         excluded_fields: exclude_idx,
+        show_blanks: true,
     });
     let switch = Paddling::enum_parent(Paddling::Get {
         date: d,
@@ -361,6 +370,7 @@ pub async fn paddling_get(
         deconflict: !deconflict,
         refresh: false,
         excluded_fields: exclude_idx,
+        show_blanks: true,
     });
     let time = Paddling::enum_parent(Paddling::Get {
         date: d,
@@ -368,6 +378,7 @@ pub async fn paddling_get(
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
+        show_blanks: true,
     });
     let month = Paddling::enum_parent(Paddling::MonthSelect { date: d });
 
