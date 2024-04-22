@@ -88,7 +88,7 @@ impl HandleCallback for Paddling {
                 excluded_fields,
                 show_blanks,
             } => {
-                if show_blanks {
+                if *show_blanks {
                     replace_with_whitespace(bot.clone(), msg, 3).await?;
                 }
 
