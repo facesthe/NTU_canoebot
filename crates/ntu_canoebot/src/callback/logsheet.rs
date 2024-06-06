@@ -141,11 +141,12 @@ impl HandleCallback for LogSheet {
                 // common message header used for responses below
                 let header = format!("Logsheet: {} {}", curr, time);
 
+                // refac in prog
                 if &curr > prev {
-                    *prev = curr;
-
                     match ntu_canoebot_attd::logsheet::send((*date).into(), *time_slot).await {
                         Ok(response) => {
+                            *prev = curr;
+
                             if StatusCode::is_success(&response.status()) {
                                 bot.edit_message_text(
                                     msg.chat.id,

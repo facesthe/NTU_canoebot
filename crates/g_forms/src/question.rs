@@ -1,11 +1,17 @@
 //! Implementations for the [Question] data type.
 #![allow(unused)]
 
-use std::{fmt::Debug, marker::PhantomData, str::FromStr};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use chrono::{NaiveDateTime, NaiveTime};
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::de::IntoDeserializer;
 use serde_json::Number;
 
 use crate::{
@@ -269,7 +275,62 @@ impl<T: Clone + Debug + Default + IsQuestion> FormResponse for Question<T> {
 }
 
 /// Alias for a unit result type
-pub type FillResult = Result<(), ()>;
+pub type FillResult = Result<(), FillError>;
+
+/// Some possible errors when filling a question
+#[derive(Debug, Clone)]
+pub enum FillError {
+    /// Operation not valid for question type
+    IncorrectQuestionType {
+        expected: &'static [QuestionErrorType],
+        have: QuestionErrorType,
+    },
+
+    /// Input validation failed for numeric questions
+    NumericValidation {
+        validation: InputValidation,
+        number: Number,
+    },
+
+    /// Input validation failed for string questions
+    StringValidation {
+        validation: InputValidation,
+        string: String,
+    },
+
+    /// Other errors I'm to lazy to document right now
+    Other(Cow<'static, str>),
+}
+
+/// Same as [QuestionType], but without any associated data.
+#[derive(Clone, Debug, PartialEq)]
+pub enum QuestionErrorType {
+    ShortAnswer,
+    LongAnswer,
+    MultipleChoice,
+    DropDown,
+    CheckBox,
+    LinearScale,
+    Grid,
+    Date,
+    Time,
+}
+
+impl<Q: Borrow<QuestionType>> From<Q> for QuestionErrorType {
+    fn from(value: Q) -> Self {
+        match value.borrow() {
+            QuestionType::ShortAnswer(_) => Self::ShortAnswer,
+            QuestionType::LongAnswer(_) => Self::LongAnswer,
+            QuestionType::MultipleChoice(_) => Self::MultipleChoice,
+            QuestionType::DropDown(_) => Self::DropDown,
+            QuestionType::CheckBox(_) => Self::CheckBox,
+            QuestionType::LinearScale(_) => Self::LinearScale,
+            QuestionType::Grid => Self::Grid,
+            QuestionType::Date(_) => Self::Date,
+            QuestionType::Time(_) => Self::Time,
+        }
+    }
+}
 
 // private implementations here
 impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
@@ -285,33 +346,51 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
         if let Some(validation) = &self.input_validation {
             match validation {
                 InputValidation::NumberGT(num) => {
-                    if !(resp.as_f64().ok_or(())? > num.as_f64().ok_or(())?) {
-                        return Err(());
+                    if !(resp.as_f64().ok_or(()).is_ok() > num.as_f64().ok_or(()).is_ok()) {
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberGTE(num) => {
-                    if !(resp.as_f64().ok_or(())? >= num.as_f64().ok_or(())?) {
-                        return Err(());
+                    if !(resp.as_f64().ok_or(()).is_ok() >= num.as_f64().ok_or(()).is_ok()) {
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberLT(num) => {
-                    if !(resp.as_f64().ok_or(())? < num.as_f64().ok_or(())?) {
-                        return Err(());
+                    if !(resp.as_f64().ok_or(()).is_ok() < num.as_f64().ok_or(()).is_ok()) {
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberLTE(num) => {
-                    if !(resp.as_f64().ok_or(())? <= num.as_f64().ok_or(())?) {
-                        return Err(());
+                    if !(resp.as_f64().ok_or(()).is_ok() <= num.as_f64().ok_or(()).is_ok()) {
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberEQ(num) => {
                     if !(&resp == num) {
-                        return Err(());
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberNEQ(num) => {
                     if !(&resp != num) {
-                        return Err(());
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberBT(num_a, num_b) => {
@@ -320,7 +399,10 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                     let comp = resp.as_f64();
 
                     if !(a <= comp && comp <= b) {
-                        return Err(());
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberNBT(num_a, num_b) => {
@@ -329,17 +411,39 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                     let comp = resp.as_f64();
 
                     if !(comp < a && b < comp) {
-                        return Err(());
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
                 InputValidation::NumberIsNumber => (),
                 InputValidation::NumberIsWhole => {
                     if !resp.is_i64() {
-                        return Err(());
+                        return Err(FillError::NumericValidation {
+                            validation: validation.to_owned(),
+                            number: resp,
+                        });
                     }
                 }
 
-                _ => return Err(()),
+                InputValidation::TextContains(_)
+                | InputValidation::TextNotContains(_)
+                | InputValidation::TextIsUrl
+                | InputValidation::TextIsEmail
+                | InputValidation::CheckBoxGTE(_)
+                | InputValidation::CheckBoxLTE(_)
+                | InputValidation::CheckBoxEQ(_)
+                | InputValidation::LengthMaximumChars(_)
+                | InputValidation::LengthMinimumChars(_)
+                | InputValidation::RegexContains(_)
+                | InputValidation::RegexNotContains(_)
+                | InputValidation::RegexMatches(_)
+                | InputValidation::RegexNotMatches(_) => {
+                    return Err(FillError::Other("unmatched validation case".into()))
+                }
+
+                _ => unimplemented!("unmatched validation case"),
             }
         }
 
@@ -367,39 +471,66 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                 | InputValidation::NumberNBT(_, _)
                 | InputValidation::NumberIsNumber
                 | InputValidation::NumberIsWhole => {
-                    let num = Number::from_str(resp).ok().ok_or(())?;
+                    let num =
+                        Number::from_str(resp)
+                            .ok()
+                            .ok_or(FillError::Other(Cow::Borrowed(
+                                "cannot parse number from string",
+                            )))?;
                     return self._fill_number(num);
                 }
 
                 InputValidation::TextContains(text) => {
                     if !resp.contains(text) {
-                        return Err(());
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        });
                     }
                 }
                 InputValidation::TextNotContains(text) => {
                     if resp.contains(text) {
-                        return Err(());
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        });
                     }
                 }
                 InputValidation::TextIsUrl => match reqwest::Url::try_from(resp) {
                     Ok(_) => (),
-                    Err(_) => return Err(()),
+                    Err(_) => {
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        })
+                    }
                 },
                 InputValidation::TextIsEmail => match REGEX_EMAIL.is_match(resp) {
                     true => (),
-                    false => return Err(()),
+                    false => {
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        })
+                    }
                 },
                 // InputValidation::CheckBoxGTE(_) => todo!(),
                 // InputValidation::CheckBoxLTE(_) => todo!(),
                 // InputValidation::CheckBoxEQ(_) => todo!(),
                 InputValidation::LengthMaximumChars(len) => {
                     if !(resp.len() <= *len as usize) {
-                        return Err(());
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        });
                     }
                 }
                 InputValidation::LengthMinimumChars(len) => {
                     if !(resp.len() >= *len as usize) {
-                        return Err(());
+                        return Err(FillError::StringValidation {
+                            validation: validation.to_owned(),
+                            string: resp.into(),
+                        });
                     }
                 }
                 InputValidation::RegexContains(re) => todo!(),
@@ -407,7 +538,7 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
                 InputValidation::RegexMatches(re) => todo!(),
                 InputValidation::RegexNotMatches(re) => todo!(),
 
-                _ => return Err(()),
+                _ => unimplemented!("unmatched validation case"),
             }
         }
 
@@ -419,7 +550,17 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
     /// For selection questions.
     /// Fill the response from the numbered option.
     fn _fill_option(&mut self, resp: usize) -> FillResult {
-        let opt = self.inner.as_mut().ok_or(())?.get_mut(resp).ok_or(())?;
+        let opt = self
+            .inner
+            .as_mut()
+            .ok_or(FillError::Other(
+                "unable to get a mutable reference to selections".into(),
+            ))?
+            .get_mut(resp)
+            .ok_or(FillError::Other(
+                "unable to get a mutable reference to selected option".into(),
+            ))?;
+
         opt.selected = true;
         self.response = Some(opt.answer.to_owned());
 
@@ -430,7 +571,9 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
         self.date_time = Some(resp);
 
         // this took so long to get right AHHHHHHH
-        match self.date_type.ok_or(())? {
+        match self.date_type.ok_or(FillError::Other(
+            "question does not have a fillable date field".into(),
+        ))? {
             DateType::Date => {
                 let resp_str = resp.format("%Y-%m-%d").to_string();
                 self.response = Some(resp_str);
@@ -457,7 +600,9 @@ impl<T: Clone + Debug + Default + IsQuestion> Question<T> {
         let combined = NaiveDateTime::new(date_part, resp);
         self.date_time = Some(combined);
 
-        match self.time_type.ok_or(())? {
+        match self.time_type.ok_or(FillError::Other(
+            "question does not have a fillable time field".into(),
+        ))? {
             TimeType::Time => {
                 let resp_str = resp.format("%H:%M:00").to_string();
                 self.response = Some(resp_str);
@@ -534,13 +679,55 @@ impl QuestionType {
         match self {
             QuestionType::ShortAnswer(qn) => qn._fill_str(resp),
             QuestionType::LongAnswer(qn) => qn._fill_str(resp),
-            QuestionType::MultipleChoice(_) => Err(()),
-            QuestionType::DropDown(_) => Err(()),
-            QuestionType::CheckBox(_) => Err(()),
-            QuestionType::LinearScale(_) => Err(()),
-            QuestionType::Grid => Err(()),
-            QuestionType::Date(_) => Err(()),
-            QuestionType::Time(_) => Err(()),
+            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
         }
     }
 
@@ -548,53 +735,183 @@ impl QuestionType {
         match self {
             QuestionType::ShortAnswer(qn) => qn._fill_number(resp),
             QuestionType::LongAnswer(qn) => qn._fill_number(resp),
-            QuestionType::MultipleChoice(_) => Err(()),
-            QuestionType::DropDown(_) => Err(()),
-            QuestionType::CheckBox(_) => Err(()),
-            QuestionType::LinearScale(_) => Err(()),
-            QuestionType::Grid => Err(()),
-            QuestionType::Date(_) => Err(()),
-            QuestionType::Time(_) => Err(()),
+            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::ShortAnswer,
+                    QuestionErrorType::LongAnswer,
+                ],
+                have: self.into(),
+            }),
         }
     }
 
     pub fn fill_option(&mut self, resp: usize) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(()),
-            QuestionType::LongAnswer(_) => Err(()),
+            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::MultipleChoice,
+                    QuestionErrorType::DropDown,
+                    QuestionErrorType::CheckBox,
+                    QuestionErrorType::LinearScale,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::MultipleChoice,
+                    QuestionErrorType::DropDown,
+                    QuestionErrorType::CheckBox,
+                    QuestionErrorType::LinearScale,
+                ],
+                have: self.into(),
+            }),
             QuestionType::MultipleChoice(qn) => qn._fill_option(resp),
             QuestionType::DropDown(qn) => qn._fill_option(resp),
             QuestionType::CheckBox(qn) => qn._fill_option(resp),
             QuestionType::LinearScale(qn) => qn._fill_option(resp),
-            QuestionType::Grid => Err(()),
-            QuestionType::Date(_) => Err(()),
-            QuestionType::Time(_) => Err(()),
+            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::MultipleChoice,
+                    QuestionErrorType::DropDown,
+                    QuestionErrorType::CheckBox,
+                    QuestionErrorType::LinearScale,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::MultipleChoice,
+                    QuestionErrorType::DropDown,
+                    QuestionErrorType::CheckBox,
+                    QuestionErrorType::LinearScale,
+                ],
+                have: self.into(),
+            }),
+            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[
+                    QuestionErrorType::MultipleChoice,
+                    QuestionErrorType::DropDown,
+                    QuestionErrorType::CheckBox,
+                    QuestionErrorType::LinearScale,
+                ],
+                have: self.into(),
+            }),
         }
     }
     pub fn fill_date(&mut self, resp: NaiveDateTime) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(()),
-            QuestionType::LongAnswer(_) => Err(()),
-            QuestionType::MultipleChoice(_) => Err(()),
-            QuestionType::DropDown(_) => Err(()),
-            QuestionType::CheckBox(_) => Err(()),
-            QuestionType::LinearScale(_) => Err(()),
-            QuestionType::Grid => Err(()),
+            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
+            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
             QuestionType::Date(qn) => qn._fill_date(resp),
-            QuestionType::Time(_) => Err(()),
+            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Date],
+                have: self.into(),
+            }),
         }
     }
 
     pub fn fill_time(&mut self, resp: NaiveTime) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(()),
-            QuestionType::LongAnswer(_) => Err(()),
-            QuestionType::MultipleChoice(_) => Err(()),
-            QuestionType::DropDown(_) => Err(()),
-            QuestionType::CheckBox(_) => Err(()),
-            QuestionType::LinearScale(_) => Err(()),
-            QuestionType::Grid => Err(()),
-            QuestionType::Date(_) => Err(()),
+            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
+            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: self.into(),
+            }),
             QuestionType::Time(qn) => qn._fill_time(resp),
         }
     }
@@ -611,6 +928,39 @@ mod tests {
 
     use super::question_types::*;
     use super::Question;
+
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_question_err_from_question_type() {
+        let qn = QuestionErrorType::from(QuestionType::ShortAnswer(Question::<ShortAnswer>::default()));
+        assert_eq!(qn, QuestionErrorType::ShortAnswer);
+
+        let qn = QuestionErrorType::from(QuestionType::LongAnswer(Question::<LongAnswer>::default()));
+        assert_eq!(qn, QuestionErrorType::LongAnswer);
+
+        let qn = QuestionErrorType::from(QuestionType::MultipleChoice(Question::<MultipleChoice>::default()));
+        assert_eq!(qn, QuestionErrorType::MultipleChoice);
+
+        let qn = QuestionErrorType::from(QuestionType::DropDown(Question::<DropDown>::default()));
+        assert_eq!(qn, QuestionErrorType::DropDown);
+
+        let qn = QuestionErrorType::from(QuestionType::CheckBox(Question::<CheckBox>::default()));
+        assert_eq!(qn, QuestionErrorType::CheckBox);
+
+        let qn = QuestionErrorType::from(QuestionType::LinearScale(Question::<LinearScale>::default()));
+        assert_eq!(qn, QuestionErrorType::LinearScale);
+
+        let qn = QuestionErrorType::from(QuestionType::Grid);
+        assert_eq!(qn, QuestionErrorType::Grid);
+
+        let qn = QuestionErrorType::from(QuestionType::Date(Question::<Date>::default()));
+        assert_eq!(qn, QuestionErrorType::Date);
+
+        let qn = QuestionErrorType::from(QuestionType::Time(Question::<Time>::default()));
+        assert_eq!(qn, QuestionErrorType::Time);
+    }
 
     /// Check that stringified answers conforms to google's spec
     #[test]
