@@ -187,24 +187,24 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
         get_qn_with_error(&mut form, 6)?
         .fill_option(0), 6
     )?;
-    // date of training
-    transform_fill_result(
-        get_qn_with_error(&mut form, 7)?
-        .fill_date(date.and_time(chrono::Local::now().time())), 7
-    )?;
+    // // date of training
+    // transform_fill_result(
+    //     get_qn_with_error(&mut form, 7)?
+    //     .fill_date(date.and_time(chrono::Local::now().time())), 7
+    // )?;
     // start time
     transform_fill_result(
-        get_qn_with_error(&mut form, 8)?
+        get_qn_with_error(&mut form, 7)?
         .fill_time(start_time), 8
     )?;
     // end time
     transform_fill_result(
-        get_qn_with_error(&mut form, 9)?
+        get_qn_with_error(&mut form, 8)?
         .fill_time(end_time), 9
     )?;
     // disclaimer agree
     transform_fill_result(
-        get_qn_with_error(&mut form, 10)?
+        get_qn_with_error(&mut form, 9)?
         .fill_option(0), 10
     )?;
 
