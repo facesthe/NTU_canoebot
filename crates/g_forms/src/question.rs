@@ -679,54 +679,13 @@ impl QuestionType {
         match self {
             QuestionType::ShortAnswer(qn) => qn._fill_str(resp),
             QuestionType::LongAnswer(qn) => qn._fill_str(resp),
-            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+
+            other => Err(FillError::IncorrectQuestionType {
                 expected: &[
                     QuestionErrorType::ShortAnswer,
                     QuestionErrorType::LongAnswer,
                 ],
-                have: self.into(),
-            }),
-            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
+                have: other.into(),
             }),
         }
     }
@@ -735,184 +694,54 @@ impl QuestionType {
         match self {
             QuestionType::ShortAnswer(qn) => qn._fill_number(resp),
             QuestionType::LongAnswer(qn) => qn._fill_number(resp),
-            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
+
+            other => Err(FillError::IncorrectQuestionType {
                 expected: &[
                     QuestionErrorType::ShortAnswer,
                     QuestionErrorType::LongAnswer,
                 ],
-                have: self.into(),
-            }),
-            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::ShortAnswer,
-                    QuestionErrorType::LongAnswer,
-                ],
-                have: self.into(),
+                have: other.into(),
             }),
         }
     }
 
     pub fn fill_option(&mut self, resp: usize) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::MultipleChoice,
-                    QuestionErrorType::DropDown,
-                    QuestionErrorType::CheckBox,
-                    QuestionErrorType::LinearScale,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::MultipleChoice,
-                    QuestionErrorType::DropDown,
-                    QuestionErrorType::CheckBox,
-                    QuestionErrorType::LinearScale,
-                ],
-                have: self.into(),
-            }),
             QuestionType::MultipleChoice(qn) => qn._fill_option(resp),
             QuestionType::DropDown(qn) => qn._fill_option(resp),
             QuestionType::CheckBox(qn) => qn._fill_option(resp),
             QuestionType::LinearScale(qn) => qn._fill_option(resp),
-            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
+
+            other => Err(FillError::IncorrectQuestionType {
                 expected: &[
                     QuestionErrorType::MultipleChoice,
                     QuestionErrorType::DropDown,
                     QuestionErrorType::CheckBox,
                     QuestionErrorType::LinearScale,
                 ],
-                have: self.into(),
-            }),
-            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::MultipleChoice,
-                    QuestionErrorType::DropDown,
-                    QuestionErrorType::CheckBox,
-                    QuestionErrorType::LinearScale,
-                ],
-                have: self.into(),
-            }),
-            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[
-                    QuestionErrorType::MultipleChoice,
-                    QuestionErrorType::DropDown,
-                    QuestionErrorType::CheckBox,
-                    QuestionErrorType::LinearScale,
-                ],
-                have: self.into(),
+                have: other.into(),
             }),
         }
     }
     pub fn fill_date(&mut self, resp: NaiveDateTime) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
-            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Date],
-                have: self.into(),
-            }),
             QuestionType::Date(qn) => qn._fill_date(resp),
-            QuestionType::Time(_) => Err(FillError::IncorrectQuestionType {
+
+            other => Err(FillError::IncorrectQuestionType {
                 expected: &[QuestionErrorType::Date],
-                have: self.into(),
+                have: other.into(),
             }),
         }
     }
 
     pub fn fill_time(&mut self, resp: NaiveTime) -> FillResult {
         match self {
-            QuestionType::ShortAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::LongAnswer(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::MultipleChoice(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::DropDown(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::CheckBox(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::LinearScale(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::Grid => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
-            QuestionType::Date(_) => Err(FillError::IncorrectQuestionType {
-                expected: &[QuestionErrorType::Time],
-                have: self.into(),
-            }),
             QuestionType::Time(qn) => qn._fill_time(resp),
+
+            other => Err(FillError::IncorrectQuestionType {
+                expected: &[QuestionErrorType::Time],
+                have: other.into(),
+            }),
         }
     }
 }
