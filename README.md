@@ -61,6 +61,13 @@ use = true
 
 ---
 
+## Configuring Google Sheets
+<picture>
+    <source media="(prefers-color-scheme: light)" srcset=".media/sheet_layout_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset=".media/sheet_layout_dark.png">
+    <img alt="asd" src=".media/sheet_layout_light.png">
+</picture>
+
 ## Setup: Telegram
 These are the current list of public commands available. Copy and paste these when [setting commands with BotFather:](https://core.telegram.org/bots#botfather-commands)
 
