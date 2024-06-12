@@ -56,7 +56,7 @@ prog = 30
 [sheetscraper.layout.attd]
 # fencing = rows/cols of the sheet that are cut out prior to processing
 fencing.left = 1
-fencing.top = 2
+fencing.top = 3
 
 # non-data columns before each 7-day block
 block_pre_padding = 3

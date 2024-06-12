@@ -652,7 +652,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let filtered: Vec<Series> = inter_2
             .iter()
             .enumerate()
-            .skip(1)
+            .skip(1) // skip names column
             .filter_map(|(idx, col)| {
                 let window_index =
                     (idx - 1) % (14 + config::SHEETSCRAPER_LAYOUT_ATTD_BLOCK_PRE_PADDING) as usize;
