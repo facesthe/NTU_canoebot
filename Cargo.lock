@@ -1853,7 +1853,7 @@ dependencies = [
 
 [[package]]
 name = "ntu_canoebot"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "async-std",

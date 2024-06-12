@@ -5,7 +5,7 @@ mod logsheet;
 mod namelist;
 mod paddling;
 mod ping;
-pub mod src;
+// pub mod src;
 mod training;
 mod whatactually;
 
@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
+use chrono::{Datelike, NaiveDate};
 use ntu_canoebot_traits::{DeriveEnumParent, EnumParent};
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
@@ -54,7 +55,7 @@ const BLANK_BLOCK: char = '\u{2588}';
 #[enum_parent((_))]
 pub enum Callback {
     Empty,
-    Src(src::Src),
+    // Src(src::Src),
     NameList(namelist::NameList),
     Training(training::Training),
     Paddling(paddling::Paddling),
@@ -154,6 +155,22 @@ pub struct Date {
     pub year: i32,
     pub month: u32,
     pub day: u32,
+}
+
+impl From<NaiveDate> for Date {
+    fn from(value: NaiveDate) -> Self {
+        Self {
+            year: value.year(),
+            month: value.month(),
+            day: value.day(),
+        }
+    }
+}
+
+impl From<Date> for NaiveDate {
+    fn from(value: Date) -> Self {
+        NaiveDate::from_ymd_opt(value.year, value.month, value.day).unwrap()
+    }
 }
 
 /// Default inner struct for some enums

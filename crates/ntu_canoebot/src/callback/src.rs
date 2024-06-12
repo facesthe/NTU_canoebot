@@ -53,22 +53,6 @@ pub enum Src {
     Close,
 }
 
-impl From<NaiveDate> for Date {
-    fn from(value: NaiveDate) -> Self {
-        Self {
-            year: value.year(),
-            month: value.month(),
-            day: value.day(),
-        }
-    }
-}
-
-impl From<Date> for NaiveDate {
-    fn from(value: Date) -> Self {
-        NaiveDate::from_ymd_opt(value.year, value.month, value.day).unwrap()
-    }
-}
-
 #[async_trait]
 impl HandleCallback for Src {
     async fn handle_callback(

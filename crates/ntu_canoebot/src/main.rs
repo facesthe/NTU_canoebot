@@ -13,7 +13,6 @@ use fmt::Target;
 use futures::TryFutureExt;
 use lazy_static::lazy_static;
 use ntu_canoebot_util::debug_println;
-use ntu_src::SRC_CACHE;
 use pretty_env_logger::env_logger::fmt;
 use teloxide::prelude::*;
 use tokio_schedule::Job;
@@ -94,15 +93,15 @@ async fn start_events() {
 
     ntu_canoebot_attd::init().await;
 
-    tokio::task::spawn(SRC_CACHE.fill_all());
+    // tokio::task::spawn(SRC_CACHE.fill_all());
     tokio::task::spawn(ntu_canoebot_attd::refresh_attd_sheet_cache(true));
     tokio::task::spawn(ntu_canoebot_attd::refresh_prog_sheet_cache(true));
 
-    let cache_refresh = tokio_schedule::every(config::SRC_CACHE_REFRESH as u32)
-        .minutes()
-        .perform(|| async { SRC_CACHE.refresh_all().await });
+    // let cache_refresh = tokio_schedule::every(config::SRC_CACHE_REFRESH as u32)
+    //     .minutes()
+    //     .perform(|| async { SRC_CACHE.refresh_all().await });
 
-    tokio::task::spawn(cache_refresh);
+    // tokio::task::spawn(cache_refresh);
 
     let attd_cache_refresh = tokio_schedule::every(REFRESH_INTERVAL)
         .minutes()

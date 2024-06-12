@@ -20,7 +20,6 @@ use teloxide::prelude::*;
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 
-use crate::callback::src::src_menu_create;
 use crate::callback::{self, whatactually_get, Callback};
 use crate::dictionaries;
 use crate::frame::common_buttons::BLANK;
@@ -54,9 +53,8 @@ pub enum Commands {
     #[command(description = "reload boat configs")]
     Reload,
 
-    #[command(description = "off")]
-    Src,
-
+    // #[command(description = "off")]
+    // Src,
     #[command(description = "see who's going training")]
     Namelist,
 
@@ -181,15 +179,15 @@ impl HandleCommand for Commands {
                 Ok(())
             }
 
-            Commands::Src => {
-                let (text, keyboard) = src_menu_create();
+            // Commands::Src => {
+            //     let (text, keyboard) = src_menu_create();
 
-                bot.send_message(msg.chat.id, text)
-                    .reply_markup(keyboard)
-                    .await?;
+            //     bot.send_message(msg.chat.id, text)
+            //         .reply_markup(keyboard)
+            //         .await?;
 
-                Ok(())
-            }
+            //     Ok(())
+            // }
             Commands::Reload => {
                 ntu_canoebot_attd::init().await;
                 bot.send_message(msg.chat.id, "configs updated").await?;
