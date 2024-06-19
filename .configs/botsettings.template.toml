@@ -40,8 +40,12 @@ use_deconflict = true
 deconflict_ver = 2
 deconflict_recursion_limit = 5
 configuration_sheet = "configs"
+
+# sheet name format
+sheet_label = "%b-%Y"
 # format string for date cell in top left of sheet
 date_format = "%d-%b-%y"
+# date column format
 date_format_prog = "%Y-%m-%d"
 
 # switch from old -> new ON this date

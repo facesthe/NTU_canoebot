@@ -989,11 +989,11 @@ pub fn calculate_last_day(date: NaiveDate) -> NaiveDate {
 /// They are:
 /// - A sheet always starts on Monday and ends on Sunday
 /// - The sheet must end on the last Sunday of a month
-/// - A sheet is named MMM-YYYY
+/// - A sheet is named MMM-YYYY or whatever is specified in the config
 pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
     let (start, end) = calculate_month_start_end(date);
     let num_days = (end - start).num_days() + 1;
-    let sheet_name = end.format("%b-%Y").to_string();
+    let sheet_name = end.format(config::SHEETSCRAPER_SHEET_LABEL).to_string();
 
     (sheet_name, num_days)
 }

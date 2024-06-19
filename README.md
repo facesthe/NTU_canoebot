@@ -62,11 +62,49 @@ use = true
 ---
 
 ## Configuring Google Sheets
+The main attendance sheet should be composed of the following sheets:
+- a configuration sheet named "configs"
+- monthly attendance spreadsheets, labelled `%b-%Y` (e.g. Jan-2020)
+
+### Configuration sheet
+The configuration sheet contains boat allocation and other data associated with each individual.
+Naturally, names in the config sheet should match with names in the monthly attendance sheet in order to perform allocations.
+
+The config sheet has a looser layout to adhere to compared to the attendance sheets.
+Each column header must be located at the first row (row 1), and contains it's associated data down the column.
+As this sheet is indexed by column name, locations and arrangement of columns do not matter.
+
+Currently, there are 6 columns required to run the bot. These fields can be found in table `sheetscraper.columns` in the [template configuration file](./.configs/botsettings.template.toml). Headers in the config sheet must match with each entry in this config file.
+
+<picture>
+    <source media="(prefers-color-scheme: light)" srcset=".media/sheet_config_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset=".media/sheet_config_dark.png">
+    <img alt="config sheet format" src=".media/sheet_config_light.png">
+</picture>
+
+### Monthly attendance sheet
+Each monthly sheet follows the layout shown below.
+Blocks highlighted in red contain data used by the bot.
+
+Attendance data in each week block must contain exactly 14 columns, 2 for each day.
+
+Start date refers to a single cell that must be formatted according to `sheetscraper.date_format` in the [template configuration file](./.configs/botsettings.template.toml). In this instance, the default format is `%d-%b-%y`.
+
+The sizes of each _preamble_ block (in brown) are controlled by config parameters in table `sheetscraper.layout.attd` in the [template configuration file](./.configs/botsettings.template.toml).
 <picture>
     <source media="(prefers-color-scheme: light)" srcset=".media/sheet_layout_light.png">
     <source media="(prefers-color-scheme: dark)" srcset=".media/sheet_layout_dark.png">
-    <img alt="asd" src=".media/sheet_layout_light.png">
+    <img alt="monthly attendance sheet format" src=".media/sheet_layout_light.png">
 </picture>
+
+### Programme spreadsheet
+Daily training programme is located in a separate spreadsheet.
+This spreadsheet must only contain one sheet, and it can be arbitrarily named.
+
+This sheet layout is similar to the configs sheet, with 3 required columns. These fields can also be found in table `sheetscraper.columns` in the [template configuration file](./.configs/botsettings.template.toml).
+
+Under the date column, each cell must follow the date format defined in `sheetscraper.date_format_prog`.
+The default format is `%Y-%m-%d`.
 
 ## Setup: Telegram
 These are the current list of public commands available. Copy and paste these when [setting commands with BotFather:](https://core.telegram.org/bots#botfather-commands)
