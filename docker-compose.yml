@@ -1,8 +1,6 @@
 # `docker compose build` to build the image
 # `docker compose up -d` to start and detach
 
-version: "3"
-
 services:
   bot:
     image: ntu_canoebot
