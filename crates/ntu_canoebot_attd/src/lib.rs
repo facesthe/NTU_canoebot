@@ -22,6 +22,7 @@ pub use logsheet::SUBMIT_LOCK;
 pub use update::init;
 
 const NO_ALLOCATION: &str = "NO BOAT";
+const IS_ATTENDING: &str = "Y";
 
 // most of these globals are initialized in init().
 lazy_static! {
@@ -761,7 +762,7 @@ impl AttdSheet {
             .filter_map(|(idx, name)| {
                 let converted = dataframe_cell_to_string(name);
                 // debug_println!("cell contains: {}", converted);
-                if converted == "Y" {
+                if converted == IS_ATTENDING {
                     let cell = names.get(idx).unwrap();
 
                     // substitute with short names (if any)
@@ -1228,7 +1229,7 @@ pub async fn land(date: NaiveDate) -> NameList {
         .enumerate()
         .filter_map(|(idx, cell)| {
             let contents = dataframe_cell_to_string(cell);
-            if contents == "Y" {
+            if contents == IS_ATTENDING {
                 let name = name_column.get(idx).unwrap();
                 let key = dataframe_cell_to_string(name);
                 debug_println!("name: {}", key);
