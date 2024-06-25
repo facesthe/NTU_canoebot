@@ -161,8 +161,12 @@ end     = 09:15:00
 start   = 15:30:00
 end     = 17:30:00
 
-# key-value pairs of "name": "mobile number, string"
-[formfiller.particulars]
+# array of name and numbers
+# [[formfiller.particulars]]
+# name = "person"
+# number = "12345678"
+[[formfiller.particulars]]
+
 
 
 # don't think this is used anymore

@@ -29,7 +29,7 @@ lazy_static! {
     };
 
     static ref LOOPING_COUNTER: RwLock<LoopingCounter> = {
-        let particulars: &HashMap<&'static str, String> = &config::FORMFILLER_PARTICULARS;
+        let particulars: &[HashMap<&'static str, String>] = &*config::FORMFILLER_PARTICULARS;
 
         RwLock::new(LoopingCounter::from_size(particulars.len()))
     };
@@ -112,12 +112,18 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
     );
     debug_println!("namelist struct: {:?}", name_list);
 
-    let particulars: &HashMap<&'static str, String> = &config::FORMFILLER_PARTICULARS;
+    let particulars: &[HashMap<&'static str, String>] = &*config::FORMFILLER_PARTICULARS;
     let part_idx = LOOPING_COUNTER.write().await.next().unwrap();
     let (exco_name, exco_number) = particulars
         .iter()
         .skip(part_idx)
         .next()
+        .map(|particular| {
+            (
+                particular.get("name").expect("expected name field").to_string(),
+                particular.get("number").expect("expected number field").to_string(),
+            )
+        })
         .ok_or("failed to insert exco particulars")?;
 
     let start_time = {
