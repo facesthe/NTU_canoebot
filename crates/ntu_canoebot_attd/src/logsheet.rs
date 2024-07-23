@@ -29,7 +29,7 @@ lazy_static! {
     };
 
     static ref LOOPING_COUNTER: RwLock<LoopingCounter> = {
-        let particulars: &[HashMap<&'static str, String>] = &*config::FORMFILLER_PARTICULARS;
+        let particulars = &*config::FORMFILLER_PARTICULARS;
 
         RwLock::new(LoopingCounter::from_size(particulars.len()))
     };

@@ -44,10 +44,10 @@ program_sheet = "google sheets sheetid"
 [formfiller]
 form_id = "SCF google forms id"
 
-# At least one required
-[formfiller.particulars]
-# full_name = 987654321
-# "full name in quotes" = 987654321
+# At least one required, array of tables
+[[formfiller.particulars]]
+# name = "some persons name"
+# number = 987654321
 
 
 # don't think this is used anymore

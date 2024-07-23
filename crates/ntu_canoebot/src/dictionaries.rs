@@ -9,6 +9,7 @@ pub mod urbandictonary {
     const UB_API_URL: &str = "https://api.urbandictionary.com/v0/define";
 
     #[derive(Clone, Debug, Deserialize)]
+    #[allow(dead_code)]
     pub struct UrbanDictionaryEntry {
         pub definition: String,
         pub permalink: String,
