@@ -6,7 +6,7 @@ mod update;
 
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use lazy_static::lazy_static;
 
 use ntu_canoebot_config as config;
@@ -646,7 +646,7 @@ impl TryFrom<DataFrame> for AttdSheet {
         let inter_1 = value.drop_many(&cols_to_drop);
 
         let length = inter_1.iter().map(|series| series.len()).max().ok_or(())?;
-        let inter_2 = inter_1.slice(config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP, length);
+        let inter_2 = inter_1.slice(config::SHEETSCRAPER_LAYOUT_ATTD_FENCING_TOP - 1, length);
         let name_column = &inter_2[0];
 
         // remove non-data columns
@@ -1003,8 +1003,13 @@ pub fn calculate_sheet_name(date: NaiveDate) -> (String, i64) {
 ///
 /// This is a very simple function as makes some assumptions about
 /// the semester structure that NTU has.
+///
+/// The academic year starts in August, on Monday right after the last Sunday in july.
+/// The second semester starts in January, on Monday right after the last Sunday in December.
 pub fn calculate_land_sheet_name(date: NaiveDate) -> String {
     const FIRST_SEM_MONTH: u32 = 8; // AY starts in August
+
+    let (_start, _end) = calculate_month_start_end(date);
 
     let acad_year: String = {
         let year = if date.month() >= FIRST_SEM_MONTH {
@@ -1188,6 +1193,7 @@ pub async fn land(date: NaiveDate) -> NameList {
     let config = get_config_type(date);
     let sheet_name = calculate_land_sheet_name(date);
 
+    debug_println!("land sheet name: {}", sheet_name);
     let df = match ATTENDANCE_SHEETS[config as usize] {
         Some(sheet_id) => g_sheets::get_as_dataframe(sheet_id, Some(sheet_name)).await,
         None => return NameList::from_date_time(date, true),
@@ -1215,6 +1221,10 @@ pub async fn land(date: NaiveDate) -> NameList {
 
     let day = date.weekday().num_days_from_monday();
     let offset = day * 2 + 1;
+
+    debug_println!("df_fenced: {}", df_fenced);
+
+    debug_println!("offset: {}", offset);
 
     let attd_column = df_fenced
         .column(df_fenced.get_column_names().get(offset as usize).unwrap())
@@ -1385,6 +1395,28 @@ pub async fn refresh_prog_sheet_cache(force: bool) -> Result<(), ()> {
     Ok(())
 }
 
+/// Get the (water) start and end times for a given time slot.
+pub fn start_end_times(time_slot: bool) -> (NaiveTime, NaiveTime) {
+    let start = if time_slot {
+        config::SHEETSCRAPER_PADDLING_TIMES_PM_ARRIVE
+    } else {
+        config::SHEETSCRAPER_PADDLING_TIMES_AM_ARRIVE
+    };
+
+    let end = if time_slot {
+        config::SHEETSCRAPER_PADDLING_TIMES_PM_FINISH
+    } else {
+        config::SHEETSCRAPER_PADDLING_TIMES_AM_FINISH
+    };
+
+    let to_naive_time = |input: toml::value::Datetime| -> NaiveTime {
+        let time = input.time.expect("time must be present");
+        NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
+    };
+
+    (to_naive_time(start), to_naive_time(end))
+}
+
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
@@ -1403,6 +1435,16 @@ mod tests {
         assert_eq!(num_digits(10), 2);
         assert_eq!(num_digits(99), 2);
         assert_eq!(num_digits(100), 3);
+    }
+
+    /// Check that times specified in configs are valid and don't panic
+    #[test]
+    fn test_valid_times() {
+        let pm_times = start_end_times(true);
+        let am_times = start_end_times(false);
+
+        println!("am: {:?}", am_times);
+        println!("pm: {:?}", pm_times);
     }
 
     #[tokio::test]
@@ -1683,5 +1725,13 @@ mod tests {
         let sample = "Hello world\n\n\n\n\n\n\n\n\n\nHello world";
         let expected = "Hello world\n\nHello world";
         assert_eq!(expected, prune_empty_lines(sample));
+    }
+
+    #[tokio::test]
+    async fn test_land() {
+        init().await;
+
+        let res = land(NaiveDate::from_ymd_opt(2024, 7, 31).unwrap()).await;
+        println!("{}", res);
     }
 }

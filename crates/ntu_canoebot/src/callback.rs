@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use base64::engine::GeneralPurpose;
 use base64::Engine;
 use bincode::ErrorKind;
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
 use ntu_canoebot_traits::{DeriveEnumParent, EnumParent};
 use ntu_canoebot_util::debug_println;
 use serde::{Deserialize, Serialize};
@@ -157,6 +157,15 @@ pub struct Date {
     pub day: u32,
 }
 
+/// Time struct passed inside callbacks
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct Time {
+    // 24-hour time
+    pub hour_mil: u32,
+    // Minutes
+    pub minutes: u32,
+}
+
 impl From<NaiveDate> for Date {
     fn from(value: NaiveDate) -> Self {
         Self {
@@ -170,6 +179,34 @@ impl From<NaiveDate> for Date {
 impl From<Date> for NaiveDate {
     fn from(value: Date) -> Self {
         NaiveDate::from_ymd_opt(value.year, value.month, value.day).unwrap()
+    }
+}
+
+impl From<NaiveTime> for Time {
+    fn from(value: NaiveTime) -> Self {
+        Self {
+            hour_mil: value.hour(),
+            minutes: value.minute(),
+        }
+    }
+}
+
+impl From<Time> for NaiveTime {
+    fn from(value: Time) -> Self {
+        NaiveTime::from_hms_opt(value.hour_mil, value.minutes, 0).unwrap()
+    }
+}
+
+impl Time {
+    pub fn new(hours: u32, minutes: u32) -> Result<Self, ()> {
+        if hours > 23 || minutes > 59 {
+            Err(())
+        } else {
+            Ok(Self {
+                hour_mil: hours,
+                minutes,
+            })
+        }
     }
 }
 
@@ -373,6 +410,8 @@ mod test {
             date: chrono::Local::now().date_naive().into(),
             time_slot: false,
             refresh: true,
+            start_time: None,
+            end_time: None,
         });
 
         let serialized: Vec<u8> = (&callback).try_into().unwrap();

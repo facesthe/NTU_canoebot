@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 
 use ntu_canoebot_config as config;
 
-use crate::{get_config_type, NAMES_CERTS};
+use crate::{get_config_type, start_end_times, NAMES_CERTS};
 
 lazy_static! {
     /// Logsheet lock. Prevents multiple submissions. Keeps track of
@@ -72,7 +72,12 @@ impl LoopingCounter {
 
 /// Sends a logsheet for a date and time.
 #[rustfmt::skip]
-pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
+pub async fn send(
+    date: NaiveDate,
+    session: bool,
+    start_override: Option<NaiveTime>,
+    end_override: Option<NaiveTime>
+) -> Result<Response, String> {
     let logsheet_id = config::FORMFILLER_FORM_ID;
 
     let mut form = g_forms::GoogleForm::from_id(logsheet_id)
@@ -126,21 +131,23 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
         })
         .ok_or("failed to insert exco particulars")?;
 
+
+    let (t_s, t_e) = start_end_times(session);
+
     let start_time = {
-        let time = match session {
-            true => config::FORMFILLER_TIMES_PM_START,
-            false => config::FORMFILLER_TIMES_AM_START,
-        };
-        let time = time.time.unwrap();
-        NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
+        if let Some(override_time) = start_override {
+            override_time
+        } else {
+            t_s
+        }
     };
+
     let end_time = {
-        let time = match session {
-            true => config::FORMFILLER_TIMES_PM_END,
-            false => config::FORMFILLER_TIMES_AM_END,
-        };
-        let time = time.time.unwrap();
-        NaiveTime::from_hms_opt(time.hour.into(), time.minute.into(), time.second.into()).unwrap()
+        if let Some(override_time) = end_override {
+            override_time
+        } else {
+            t_e
+        }
     };
 
     /// Fills a question with whatever and returns a more verbose error
@@ -213,7 +220,6 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
         get_qn_with_error(&mut form, 9)?
         .fill_option(0), 10
     )?;
-
     debug_println!("form response: {:#?}", form);
 
     form.submit().await
@@ -222,6 +228,7 @@ pub async fn send(date: NaiveDate, session: bool) -> Result<Response, String> {
 }
 
 #[cfg(test)]
+#[allow(unexpected_cfgs)]
 mod tests {
     use super::*;
     use chrono::NaiveTime;

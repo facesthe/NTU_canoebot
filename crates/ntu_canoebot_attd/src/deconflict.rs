@@ -656,6 +656,7 @@ impl NameList {
 }
 
 #[cfg(test)]
+#[allow(unexpected_cfgs)]
 mod tests {
 
     use crate::{get_config_type, Config, NameList, BOAT_ALLOCATIONS};

@@ -187,7 +187,7 @@ async fn start_events() {
 }
 
 /// This is an unused webhook version of the bot
-#[cfg(webhook)]
+#[cfg(feature = "notset")]
 #[tokio::main]
 async fn main() {
     // requires the webhook feature on teloxide
