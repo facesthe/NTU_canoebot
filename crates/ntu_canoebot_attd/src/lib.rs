@@ -4,7 +4,7 @@ mod deconflict;
 pub mod logsheet;
 mod update;
 
-use std::{collections::HashMap, fmt::Display, sync::Arc};
+use std::{collections::{HashMap, HashSet}, fmt::Display, sync::Arc};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use lazy_static::lazy_static;
@@ -12,7 +12,6 @@ use lazy_static::lazy_static;
 use ntu_canoebot_config as config;
 use ntu_canoebot_util::debug_println;
 use polars::{
-    export::ahash::HashSet,
     prelude::{AnyValue, DataFrame},
     series::Series,
 };
