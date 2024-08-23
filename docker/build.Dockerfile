@@ -1,6 +1,6 @@
 # if you encounter an error, the cache image might not be built yet.
 # alpine build
-FROM ntu_canoebot_cache:latest as BUILDER
+FROM ntu_canoebot_cache:latest AS builder
 
 # same workdir as cache image
 WORKDIR /build/ntu_canoebot
@@ -14,9 +14,9 @@ RUN cp target/x86_64-unknown-linux-musl/release/ntu_canoebot bin/ntu_canoebot
 
 
 # compress
-FROM gruebel/upx:latest as COMPRESSOR
+FROM gruebel/upx:latest AS compressor
 
-COPY --from=BUILDER /build/ntu_canoebot/bin/ntu_canoebot /bin/ntu_canoebot
+COPY --from=builder /build/ntu_canoebot/bin/ntu_canoebot /bin/ntu_canoebot
 RUN upx --lzma /bin/ntu_canoebot
 
 
@@ -25,6 +25,6 @@ FROM alpine:latest
 
 ENV TZ=Asia/Singapore
 RUN apk add --no-cache tzdata
-COPY --from=COMPRESSOR /bin/ntu_canoebot /usr/local/bin/ntu_canoebot
+COPY --from=compressor /bin/ntu_canoebot /usr/local/bin/ntu_canoebot
 
 CMD [ "ntu_canoebot" ]
