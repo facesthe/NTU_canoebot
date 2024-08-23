@@ -8,7 +8,10 @@ use chrono::{NaiveDate, NaiveTime};
 use ntu_canoebot_attd::{start_end_times, SUBMIT_LOCK};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use teloxide::{prelude::*, types::ParseMode};
+use teloxide::{
+    prelude::*,
+    types::{InlineKeyboardButton, ParseMode},
+};
 
 use crate::frame::{
     common_buttons::{REFRESH, TIME_AM, TIME_PM},
@@ -31,6 +34,7 @@ pub enum LogSheet {
         refresh: bool,
         start_time: Option<Time>,
         end_time: Option<Time>,
+        participants_offset: i32,
     },
 
     /// Send
@@ -39,14 +43,16 @@ pub enum LogSheet {
         time_slot: bool,
         start_time: Option<Time>,
         end_time: Option<Time>,
+        participants_offset: i32,
     },
 
     /// Increment/decrement start/end time, for hours and minutes
-    Modify {
+    Options {
         date: Date,
         time_slot: bool,
         start_time: Time,
         end_time: Time,
+        participants_offset: i32,
     },
 
     /// Cancel send
@@ -71,6 +77,7 @@ impl HandleCallback for LogSheet {
                 refresh,
                 start_time,
                 end_time,
+                participants_offset,
             } => {
                 replace_with_whitespace(bot.clone(), &msg, 2).await?;
 
@@ -105,7 +112,7 @@ impl HandleCallback for LogSheet {
                     NaiveDate::from(*date),
                     start,
                     end,
-                    num_paddlers,
+                    num_paddlers as i32 + participants_offset,
                     name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
 
@@ -114,29 +121,32 @@ impl HandleCallback for LogSheet {
                     time_slot: *time_slot,
                     start_time: *start_time,
                     end_time: *end_time,
+                    participants_offset: *participants_offset,
                 });
                 let refresh = Callback::LogSheet(LogSheet::StartTime {
                     date: *date,
                     time_slot: *time_slot,
                     refresh: true,
-                    start_time: *start_time,
-                    end_time: *end_time,
+                    start_time: None,
+                    end_time: None,
+                    participants_offset: 0,
                 });
                 let cancel = Callback::LogSheet(LogSheet::Cancel {
                     date: *date,
                     time_slot: *time_slot,
                 });
                 let back = Callback::LogSheet(LogSheet::Start { date: *date });
-                let edit = Callback::LogSheet(LogSheet::Modify {
+                let edit = Callback::LogSheet(LogSheet::Options {
                     date: *date,
                     time_slot: *time_slot,
                     start_time: start_time.unwrap_or(start.into()),
                     end_time: end_time.unwrap_or(end.into()),
+                    participants_offset: *participants_offset,
                 });
 
                 let keyboard = construct_keyboard_tuple([
                     vec![("send", send), (REFRESH, refresh), ("cancel", cancel)],
-                    vec![("back", back), ("edit", edit)],
+                    vec![("back", back), ("options", edit)],
                 ]);
 
                 bot.edit_message_text(msg.chat.id, msg.id, text)
@@ -149,6 +159,7 @@ impl HandleCallback for LogSheet {
                 time_slot,
                 start_time,
                 end_time,
+                participants_offset,
             } => {
                 bot.edit_message_text(msg.chat.id, msg.id, "sending logsheet")
                     .await?;
@@ -177,6 +188,7 @@ impl HandleCallback for LogSheet {
                         *time_slot,
                         start_time.and_then(|s| Some(NaiveTime::from(s))),
                         end_time.and_then(|s| Some(NaiveTime::from(s))),
+                        *participants_offset,
                     )
                     .await
                     {
@@ -222,11 +234,12 @@ impl HandleCallback for LogSheet {
                         .await?;
                 }
             }
-            LogSheet::Modify {
+            LogSheet::Options {
                 date,
                 time_slot,
                 start_time,
                 end_time,
+                participants_offset,
             } => {
                 const HOUR: chrono::Duration = chrono::Duration::hours(1);
                 const QUARTER: chrono::Duration = chrono::Duration::minutes(15);
@@ -236,22 +249,36 @@ impl HandleCallback for LogSheet {
 
                 let start_labels = vec!["-1h", "-15min", "start", "+15min", "+1h"];
                 let end_labels = vec!["-1h", "-15min", "end", "+15min", "+1h"];
+                let mod_participants = vec!["-5", "-1", "count", "+1", "+5"];
 
                 let callback_from_start_time = |t_start: NaiveTime| -> Callback {
-                    Callback::LogSheet(LogSheet::Modify {
+                    Callback::LogSheet(LogSheet::Options {
                         date: *date,
                         time_slot: *time_slot,
                         start_time: t_start.into(),
                         end_time: end_time.into(),
+                        participants_offset: *participants_offset,
                     })
                 };
 
                 let callback_from_end_time = |t_end: NaiveTime| -> Callback {
-                    Callback::LogSheet(LogSheet::Modify {
+                    Callback::LogSheet(LogSheet::Options {
                         date: *date,
                         time_slot: *time_slot,
                         start_time: start_time.into(),
                         end_time: t_end.into(),
+                        participants_offset: *participants_offset,
+                    })
+                };
+
+                // true for increment, false for decrement
+                let callback_from_participants = |offset: i32| -> Callback {
+                    Callback::LogSheet(LogSheet::Options {
+                        date: *date,
+                        time_slot: *time_slot,
+                        start_time: start_time.into(),
+                        end_time: end_time.into(),
+                        participants_offset: *participants_offset + offset,
                     })
                 };
 
@@ -271,20 +298,7 @@ impl HandleCallback for LogSheet {
                     callback_from_end_time(end_time + HOUR),
                 ];
 
-                let button_labels = vec![start_labels, end_labels, vec!["✔️"]];
-                let button_data = vec![
-                    start_data_rows,
-                    end_data_rows,
-                    vec![Callback::LogSheet(LogSheet::StartTime {
-                        date: *date,
-                        time_slot: *time_slot,
-                        refresh: false,
-                        start_time: Some(start_time.into()),
-                        end_time: Some(end_time.into()),
-                    })],
-                ];
-
-                let keyboard = construct_keyboard(button_labels, button_data);
+                let button_labels = vec![start_labels, end_labels, mod_participants, vec!["✔️"]];
 
                 let date_naive = (*date).into();
                 let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot)
@@ -293,7 +307,22 @@ impl HandleCallback for LogSheet {
                         date_naive, *time_slot,
                     ));
 
-                let num_paddlers = name_list.names.len();
+                let num_paddlers = name_list.names.len() as i32 + participants_offset;
+                let mod_count_data = vec![
+                    if num_paddlers >= 5 {
+                        callback_from_participants(-5)
+                    } else {
+                        Callback::Empty
+                    },
+                    if num_paddlers >= 1 {
+                        callback_from_participants(-1)
+                    } else {
+                        Callback::Empty
+                    },
+                    Callback::Empty,
+                    callback_from_participants(1),
+                    callback_from_participants(5),
+                ];
 
                 let text = format!(
                     "```\nDate: {}\nTime: {} to {}\nPaddlers: {}\nFetched:  {}```",
@@ -303,6 +332,33 @@ impl HandleCallback for LogSheet {
                     num_paddlers,
                     name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
+
+                let button_data = vec![
+                    start_data_rows,
+                    end_data_rows,
+                    mod_count_data,
+                    vec![Callback::LogSheet(LogSheet::StartTime {
+                        date: *date,
+                        time_slot: *time_slot,
+                        refresh: false,
+                        start_time: Some(start_time.into()),
+                        end_time: Some(end_time.into()),
+                        participants_offset: *participants_offset,
+                    })],
+                ];
+
+                let keyboard = construct_keyboard(button_labels, button_data).append_row(vec![
+                    InlineKeyboardButton::url(
+                        "form link",
+                        format!(
+                            "https://docs.google.com/forms/d/e/{}/viewform",
+                            ntu_canoebot_config::FORMFILLER_FORM_ID
+                        )
+                        .as_str()
+                        .try_into()
+                        .expect("link should be valid"),
+                    ),
+                ]);
 
                 bot.edit_message_text(msg.chat.id, msg.id, text)
                     .reply_markup(keyboard)
@@ -318,7 +374,7 @@ impl HandleCallback for LogSheet {
 
                 let text = format!("Logsheet: {} {} cancelled", NaiveDate::from(*date), time);
                 bot.edit_message_text(msg.chat.id, msg.id, text).await?;
-            } // _ => todo!(),
+            }
         }
 
         Ok(())
@@ -340,6 +396,7 @@ pub async fn logsheet_start(
         refresh: false,
         start_time: None,
         end_time: None,
+        participants_offset: 0,
     });
     let pm = Callback::LogSheet(LogSheet::StartTime {
         date: d,
@@ -347,6 +404,7 @@ pub async fn logsheet_start(
         refresh: false,
         start_time: None,
         end_time: None,
+        participants_offset: 0,
     });
 
     let keyboard = construct_keyboard_tuple([[(TIME_AM, am), (TIME_PM, pm)]]);

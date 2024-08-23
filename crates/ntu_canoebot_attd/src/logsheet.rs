@@ -76,7 +76,8 @@ pub async fn send(
     date: NaiveDate,
     session: bool,
     start_override: Option<NaiveTime>,
-    end_override: Option<NaiveTime>
+    end_override: Option<NaiveTime>,
+    participants_override: i32,
 ) -> Result<Response, String> {
     let logsheet_id = config::FORMFILLER_FORM_ID;
 
@@ -92,7 +93,7 @@ pub async fn send(
     let config = get_config_type(date);
     let cert_lock = NAMES_CERTS[config as usize].read().await;
 
-    let certified: usize = name_list
+    let mut certified: usize = name_list
         .names
         .iter()
         .map(|name| {
@@ -107,7 +108,23 @@ pub async fn send(
         })
         .sum();
 
-    let not_certified = total_paddlers - certified;
+    let mut not_certified = total_paddlers - certified;
+
+    match participants_override.is_positive() {
+        true => not_certified += participants_override as usize,
+        false => {
+            let neg_override = participants_override.abs() as usize;
+
+            if neg_override <= not_certified {
+                not_certified -= neg_override
+            // override cannot subtract more than total paddlers
+            } else {
+                    let remaining = neg_override - not_certified;
+                    not_certified = 0;
+                    certified -= remaining;
+            }
+        },
+    }
 
     debug_println!(
         "total: {}\ncertified: {}\nnon-certified: {}",

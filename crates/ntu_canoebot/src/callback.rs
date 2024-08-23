@@ -412,6 +412,7 @@ mod test {
             refresh: true,
             start_time: None,
             end_time: None,
+            participants_offset: 0,
         });
 
         let serialized: Vec<u8> = (&callback).try_into().unwrap();
