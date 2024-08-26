@@ -95,7 +95,13 @@ impl HandleCallback for LogSheet {
                         date_naive, *time_slot,
                     ));
 
-                let num_paddlers = name_list.names.len();
+                let freshie_name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot, true)
+                    .await
+                    .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
+                        date_naive, *time_slot,
+                    ));
+
+                let num_paddlers = name_list.names.len() + freshie_name_list.names.len();
 
                 let (mut start, mut end) = start_end_times(*time_slot);
 
@@ -108,11 +114,12 @@ impl HandleCallback for LogSheet {
                 };
 
                 let text = format!(
-                    "```\nDate: {}\nTime: {} to {}\nPaddlers: {}\nFetched:  {}```",
+                    "```\nDate: {}\nTime: {} to {}\nPaddlers: {} ({} freshie)\nFetched:  {}```",
                     NaiveDate::from(*date),
                     start,
                     end,
                     num_paddlers as i32 + participants_offset,
+                    freshie_name_list.names.len(),
                     name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
 
@@ -307,7 +314,16 @@ impl HandleCallback for LogSheet {
                         date_naive, *time_slot,
                     ));
 
-                let num_paddlers = name_list.names.len() as i32 + participants_offset;
+                let freshie_name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot, true)
+                    .await
+                    .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
+                        date_naive, *time_slot,
+                    ));
+
+                let num_paddlers = name_list.names.len() as i32
+                    + freshie_name_list.names.len() as i32
+                    + participants_offset;
+
                 let mod_count_data = vec![
                     if num_paddlers >= 5 {
                         callback_from_participants(-5)
@@ -325,11 +341,12 @@ impl HandleCallback for LogSheet {
                 ];
 
                 let text = format!(
-                    "```\nDate: {}\nTime: {} to {}\nPaddlers: {}\nFetched:  {}```",
+                    "```\nDate: {}\nTime: {} to {}\nPaddlers: {} ({} freshie)\nFetched:  {}```",
                     NaiveDate::from(*date),
                     start_time,
                     end_time,
                     num_paddlers,
+                    freshie_name_list.names.len(),
                     name_list.fetch_time.format("%H:%M:%S").to_string()
                 );
 

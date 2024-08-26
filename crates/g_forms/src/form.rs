@@ -146,10 +146,15 @@ impl GoogleForm {
     }
 
     /// Submit the form
-    pub async fn submit(&mut self) -> Result<reqwest::Response, String> {
+    /// If `mock` is true, the form will not be submitted and an error will be returned.
+    pub async fn submit(&mut self, mock: bool) -> Result<reqwest::Response, String> {
         self.generate_map();
 
         debug_println!("data: {:#?}", &self.response);
+
+        if mock {
+            return Err("mock".to_string());
+        }
 
         let resp = {
             let request = reqwest::Client::new()
@@ -815,7 +820,7 @@ mod test {
             .unwrap();
 
         // form.generate_map();
-        let resp = form.submit().await;
+        let resp = form.submit(true).await;
 
         println!("response: {:#?}", resp);
     }

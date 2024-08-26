@@ -155,6 +155,9 @@ pm.finish = 17:30:00
 
 
 [formfiller]
+# mock google forms submisssion
+mock = true
+
 form_id = "SCF logsheet form id"
 
 [formfiller.times.am]

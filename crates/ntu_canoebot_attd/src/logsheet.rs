@@ -88,7 +88,13 @@ pub async fn send(
     let name_list = crate::namelist(date, session, false)
         .await
         .ok_or("Unable to get namelist")?;
-    let total_paddlers = name_list.names.len();
+
+    // may not exist
+    let freshie_name_list = crate::namelist(date, session, true)
+        .await
+        .unwrap_or(crate::NameList::from_date_time(date, session));
+
+    let total_paddlers = name_list.names.len() + freshie_name_list.names.len();
 
     let config = get_config_type(date);
     let cert_lock = NAMES_CERTS[config as usize].read().await;
@@ -239,7 +245,7 @@ pub async fn send(
     )?;
     debug_println!("form response: {:#?}", form);
 
-    form.submit().await
+    form.submit(config::FORMFILLER_MOCK).await
     // Ok(Default::default())
     // Err(())
 }
