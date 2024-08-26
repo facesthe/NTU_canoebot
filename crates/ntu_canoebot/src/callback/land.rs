@@ -20,9 +20,9 @@ use super::{message_from_callback_query, replace_with_whitespace, Date, HandleCa
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Land {
-    Get { date: Date },
-    MonthSelect { date: Date },
-    YearSelect { date: Date },
+    Get { date: Date, freshies: bool },
+    MonthSelect { date: Date, freshies: bool },
+    YearSelect { date: Date, freshies: bool },
 }
 
 #[async_trait]
@@ -35,28 +35,34 @@ impl HandleCallback for Land {
         let msg = message_from_callback_query(&query)?;
 
         match self {
-            Land::Get { date } => {
+            Land::Get { date, freshies } => {
                 replace_with_whitespace(bot.clone(), msg, 2).await?;
-                land_get(bot, msg, (*date).into(), true).await?;
+                land_get(bot, msg, (*date).into(), *freshies, true).await?;
             }
-            Land::MonthSelect { date } => {
+            Land::MonthSelect { date, freshies } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
                 let days: Vec<Callback> = (0..31)
                     .into_iter()
                     .map(|d| {
                         Callback::Land(Land::Get {
                             date: (start + Duration::days(d)).into(),
+                            freshies: *freshies,
                         })
                     })
                     .collect();
 
                 let next = Callback::Land(Land::MonthSelect {
                     date: (start + Duration::days(33)).into(),
+                    freshies: *freshies,
                 });
                 let prev = Callback::Land(Land::MonthSelect {
                     date: (start - Duration::days(1)).into(),
+                    freshies: *freshies,
                 });
-                let year = Callback::Land(Land::YearSelect { date: *date });
+                let year = Callback::Land(Land::YearSelect {
+                    date: *date,
+                    freshies: *freshies,
+                });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -65,7 +71,7 @@ impl HandleCallback for Land {
                     .await?;
             }
 
-            Land::YearSelect { date } => {
+            Land::YearSelect { date, freshies } => {
                 let months: Vec<Callback> = (1..=12)
                     .into_iter()
                     .map(|m| {
@@ -75,6 +81,7 @@ impl HandleCallback for Land {
                                 month: m,
                                 day: 1,
                             },
+                            freshies: *freshies,
                         })
                     })
                     .collect();
@@ -85,6 +92,7 @@ impl HandleCallback for Land {
                         month: 1,
                         day: 1,
                     },
+                    freshies: *freshies,
                 });
                 let prev = Callback::Land(Land::YearSelect {
                     date: Date {
@@ -92,6 +100,7 @@ impl HandleCallback for Land {
                         month: 1,
                         day: 1,
                     },
+                    freshies: *freshies,
                 });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
@@ -110,16 +119,25 @@ pub async fn land_get(
     bot: Bot,
     msg: &Message,
     date: NaiveDate,
+    freshies: bool,
     is_callback: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let prev = Callback::Land(Land::Get {
         date: (date - Duration::days(1)).into(),
+        freshies,
     });
     let next = Callback::Land(Land::Get {
         date: (date + Duration::days(1)).into(),
+        freshies,
     });
-    let refresh = Callback::Land(Land::Get { date: date.into() });
-    let cal = Callback::Land(Land::MonthSelect { date: date.into() });
+    let refresh = Callback::Land(Land::Get {
+        date: date.into(),
+        freshies,
+    });
+    let cal = Callback::Land(Land::MonthSelect {
+        date: date.into(),
+        freshies,
+    });
 
     // let keyboard = date_am_pm_navigation(date, refresh, next, prev, time_slot, calendar: cal, time_slot_bool);
 
@@ -132,7 +150,7 @@ pub async fn land_get(
         vec![(DATE, cal)],
     ]);
 
-    let mut prog = ntu_canoebot_attd::land(date).await;
+    let mut prog = ntu_canoebot_attd::land(date, freshies).await;
     prog.fill_prog(true).await.unwrap();
 
     let text = format!("```\n{}```", prog);

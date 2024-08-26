@@ -70,6 +70,9 @@ pub enum Commands {
     #[command(description = "land training")]
     Land,
 
+    #[command(description = "freshie land training")]
+    FreshieLand,
+
     #[command(description = "show weekly paddling statistics")]
     WeeklyBreakdown,
 
@@ -251,6 +254,17 @@ impl HandleCommand for Commands {
                     bot,
                     &msg,
                     chrono::Local::now().date_naive() + chrono::Duration::days(1),
+                    false,
+                    false,
+                )
+                .await
+            }
+            Commands::FreshieLand => {
+                callback::land_get(
+                    bot,
+                    &msg,
+                    chrono::Local::now().date_naive() + chrono::Duration::days(1),
+                    true,
                     false,
                 )
                 .await

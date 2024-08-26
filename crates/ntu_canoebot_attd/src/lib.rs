@@ -1235,9 +1235,16 @@ pub async fn breakdown(date: NaiveDate, time_slot: bool) -> Breakdown {
 /// No cache for this one, it's barely used.
 ///
 /// All data processing is performed inside here.
-pub async fn land(date: NaiveDate) -> NameList {
+pub async fn land(date: NaiveDate, freshies: bool) -> NameList {
     let config = get_config_type(date);
-    let sheet_name = calculate_land_sheet_name(date);
+    let sheet_name = match freshies {
+        true => format!(
+            "{}{}",
+            calculate_land_sheet_name(date),
+            config::SHEETSCRAPER_PADDLING_FRESHIE_SHEET_SUFFIX
+        ),
+        false => calculate_land_sheet_name(date),
+    };
 
     debug_println!("land sheet name: {}", sheet_name);
     let df = match ATTENDANCE_SHEETS[config as usize] {
@@ -1757,7 +1764,7 @@ mod tests {
     #[tokio::test]
     async fn test_asd() {
         init().await;
-        let mut res = land(chrono::Local::now().date_naive() + Duration::days(1)).await;
+        let mut res = land(chrono::Local::now().date_naive() + Duration::days(1), false).await;
         res.fill_prog(true).await.unwrap();
         println!("{}", res);
     }
@@ -1800,7 +1807,7 @@ mod tests {
     async fn test_land() {
         init().await;
 
-        let res = land(NaiveDate::from_ymd_opt(2024, 7, 31).unwrap()).await;
+        let res = land(NaiveDate::from_ymd_opt(2024, 7, 31).unwrap(), false).await;
         println!("{}", res);
     }
 }
