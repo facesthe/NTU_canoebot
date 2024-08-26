@@ -136,6 +136,8 @@ These are the current list of public commands available. Copy and paste these wh
     training - view training program
     paddling - full paddling attendance
     land - full land attendance
+    freshiepaddling - attendance for freshies
+    freshieland - land for freshies
     weeklybreakdown - attendance breakdown
     logsheet - SCF logsheet
     what - what is it?
