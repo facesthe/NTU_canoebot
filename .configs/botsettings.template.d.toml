@@ -42,6 +42,8 @@ program_sheet = "google sheets sheetid"
 
 
 [formfiller]
+# switch to `false` when deploying
+mock = true
 form_id = "SCF google forms id"
 
 # At least one required, array of tables
