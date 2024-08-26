@@ -471,9 +471,9 @@ fn mod_capitalized_sequence(words: &mut Vec<Word>) {
 /// result.
 fn assign_emojis(words: &mut Vec<Word>) {
     let all_hash = rc_hash(&words);
-    let window_size = all_hash as usize % words.len();
+    let _window_size = all_hash as usize % words.len();
 
-    debug_println!("window size: {}", window_size);
+    debug_println!("window size: {}", _window_size);
 
     let iter = SlidingWindowHashIterator::from(words.as_slice());
     let assigned_emojis: Vec<Option<&'static str>> = words

@@ -160,8 +160,8 @@ impl NameList {
             names_set.clear();
             allo_set.clear();
 
-            for idx in 0..2 {
-                debug_println!("repetition {} of 2", idx);
+            for _idx in 0..2 {
+                debug_println!("repetition {} of 2", _idx);
                 for (name, used) in remaining_names.iter_mut() {
                     let (pri, alt) = {
                         match read_lock.get(*name) {
@@ -325,15 +325,15 @@ impl NameList {
 
                 // first allocation
                 if curr_allo.len() == 0 {
-                    let x;
+                    let _cur_allo;
                     match (avail_opts.0.as_deref(), avail_opts.1.as_deref()) {
                         (None, None) => {
-                            x = None;
+                            _cur_allo = None;
                             res.insert(&unallo_name, Some(AllocResult::from_absent()));
                             // temp
                         }
                         (Some(pri), opt) => {
-                            x = Some(pri);
+                            _cur_allo = Some(pri);
                             curr_allo.insert(pri);
                             let mut allo = AllocResult::from_boat(pri.to_owned());
 
@@ -344,7 +344,7 @@ impl NameList {
                             res.insert(&unallo_name, Some(allo));
                         }
                         (None, Some(alt)) => {
-                            x = Some(alt);
+                            _cur_allo = Some(alt);
                             curr_allo.insert(alt);
 
                             let mut allo = AllocResult::from_boat(alt.to_owned());
@@ -352,7 +352,7 @@ impl NameList {
                             res.insert(&unallo_name, Some(allo));
                         }
                     }
-                    debug_println!("allocating {} to: {:?}", unallo_name, x);
+                    debug_println!("allocating {} to: {:?}", unallo_name, _cur_allo);
                     continue;
                 }
 

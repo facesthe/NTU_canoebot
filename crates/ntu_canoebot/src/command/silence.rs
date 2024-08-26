@@ -27,7 +27,7 @@ use self::virt_fs_cache::VIRT_FS;
 use super::HandleCommand;
 
 lazy_static! {
-    /// A PNG image representation of the laser crab.
+    // / A PNG image representation of the laser crab.
     static ref SILENCE_CRAB: AsyncOnce<RgbaImage> = AsyncOnce::new(async {
         let resp = reqwest::get(config::MISC_SILENCE_CRAB_URL)
             .await
@@ -343,8 +343,8 @@ mod virt_fs_cache {
         let mut handle = filepath.open_file().await?;
         let mut buf = Vec::new();
 
-        let res = handle.read_to_end(&mut buf).await?;
-        debug_println!("bytes read: {}", res);
+        let _res = handle.read_to_end(&mut buf).await?;
+        debug_println!("bytes read: {}", _res);
 
         let img = image::load_from_memory(&buf)?;
         debug_println!("image dims: {} by {}", img.width(), img.height());

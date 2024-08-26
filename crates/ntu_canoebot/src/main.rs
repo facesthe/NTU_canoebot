@@ -19,7 +19,6 @@ use tokio_schedule::Job;
 
 use crate::callback::callback_handler;
 use crate::command::message_handler;
-use crate::events::EXCO_CHAT_ID;
 use crate::log_writer::LogWriter;
 
 use ntu_canoebot_config as config;
@@ -129,7 +128,7 @@ async fn start_events() {
 
     tokio::task::spawn(prog_cache_refresh);
 
-    debug_println!("chat_id: {:?}", *EXCO_CHAT_ID);
+    debug_println!("chat_id: {:?}", *crate::events::EXCO_CHAT_ID);
     if config::EVENTS_DAILY_LOGSHEET_PROMPT_ENABLE {
         let prompt_time = config::EVENTS_DAILY_LOGSHEET_PROMPT_TIME.time.unwrap();
         let logsheet_task = tokio_schedule::every(1)

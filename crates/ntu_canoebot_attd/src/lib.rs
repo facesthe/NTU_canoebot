@@ -738,12 +738,12 @@ impl AttdSheet {
             .ok()?;
 
         let read_lock = {
-            let change_over = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
+            let _change_over = config::SHEETSCRAPER_CHANGEOVER_DATE.date.unwrap();
             let config = get_config_type(date);
 
             debug_println!(
                 "changeover date is: {}.\nUsing {:?} config for date: {}.",
-                change_over,
+                _change_over,
                 config,
                 date
             );
