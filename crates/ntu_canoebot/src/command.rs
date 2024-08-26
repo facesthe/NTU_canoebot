@@ -64,6 +64,9 @@ pub enum Commands {
     #[command(description = "full paddling attendance")]
     Paddling,
 
+    #[command(description = "freshie paddling attendance")]
+    FreshiePaddling,
+
     #[command(description = "land training")]
     Land,
 
@@ -219,6 +222,21 @@ impl HandleCommand for Commands {
                 callback::paddling_get(
                     (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
                     false,
+                    false,
+                    true,
+                    false,
+                    u64::MAX, // & 0b1111,
+                    bot,
+                    &msg,
+                    false,
+                )
+                .await
+            }
+            Commands::FreshiePaddling => {
+                callback::paddling_get(
+                    (chrono::Local::now().date_naive() + chrono::Duration::days(1)).into(),
+                    false,
+                    true,
                     true,
                     false,
                     u64::MAX, // & 0b1111,

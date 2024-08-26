@@ -147,7 +147,7 @@ pub async fn namelist_get(
             .unwrap();
     }
 
-    let list = ntu_canoebot_attd::namelist(date, time_slot)
+    let list = ntu_canoebot_attd::namelist(date, time_slot, false)
         .await
         .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(date, time_slot));
 

@@ -89,7 +89,7 @@ impl HandleCallback for LogSheet {
 
                 let date_naive = (*date).into();
 
-                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot)
+                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot, false)
                     .await
                     .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
                         date_naive, *time_slot,
@@ -301,7 +301,7 @@ impl HandleCallback for LogSheet {
                 let button_labels = vec![start_labels, end_labels, mod_participants, vec!["✔️"]];
 
                 let date_naive = (*date).into();
-                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot)
+                let name_list = ntu_canoebot_attd::namelist(date_naive, *time_slot, false)
                     .await
                     .unwrap_or(ntu_canoebot_attd::NameList::from_date_time(
                         date_naive, *time_slot,

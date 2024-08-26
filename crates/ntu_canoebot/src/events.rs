@@ -93,6 +93,7 @@ pub async fn attendance_prompt(bot: Bot) -> Result<(), Box<dyn Error + Send + Sy
             Callback::Paddling(crate::callback::Paddling::Get {
                 date: (now + Duration::days(1)).into(),
                 time_slot: false,
+                freshies: false,
                 deconflict: true,
                 refresh: false,
                 excluded_fields: u64::MAX,

@@ -139,6 +139,9 @@ sub_arrive = "{arrive_time}"
 sub_start = "{start_time}"
 sub_finish = "{finish_time}"
 
+# freshies use a different sheet (as of AY24/25).
+# the sheet name has an additional suffix
+freshie_sheet_suffix = "-freshies"
 
 [sheetscraper.paddling.times]
 # time between arrival time and start time in minutes

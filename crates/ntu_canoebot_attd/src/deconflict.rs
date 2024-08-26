@@ -709,7 +709,7 @@ mod tests {
         // let date = NaiveDate::from_ymd_opt(2023, 7, 13).unwrap();
         let date = chrono::Local::now().date_naive();
         let config = get_config_type(date);
-        let mut name_list = crate::namelist(date, false).await.unwrap();
+        let mut name_list = crate::namelist(date, false, false).await.unwrap();
         let deconf_res = name_list.assign_boats(true).await;
         name_list.fill_prog(false).await.unwrap();
         let groups = NameList::find_matching(&name_list.names, config).await;

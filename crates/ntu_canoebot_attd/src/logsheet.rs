@@ -85,7 +85,7 @@ pub async fn send(
         .await
         .ok_or("Failed to fetch form. Does the form exist?")?;
 
-    let name_list = crate::namelist(date, session)
+    let name_list = crate::namelist(date, session, false)
         .await
         .ok_or("Unable to get namelist")?;
     let total_paddlers = name_list.names.len();

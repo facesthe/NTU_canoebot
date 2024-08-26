@@ -36,6 +36,7 @@ pub enum Paddling {
         date: Date,
         /// true == AM, false == PM
         time_slot: bool,
+        freshies: bool,
         /// perform deconflict
         deconflict: bool,
         refresh: bool,
@@ -46,10 +47,12 @@ pub enum Paddling {
 
     MonthSelect {
         date: Date,
+        freshies: bool,
     },
 
     YearSelect {
         date: Date,
+        freshies: bool,
     },
 
     /// Exclude names from the boat allocation.
@@ -60,6 +63,7 @@ pub enum Paddling {
         // until the user decides to complete the exclude
         date: Date,
         time_slot: bool,
+        freshies: bool,
         deconflict: bool,
         refresh: bool,
 
@@ -83,6 +87,7 @@ impl HandleCallback for Paddling {
             Paddling::Get {
                 date,
                 time_slot,
+                freshies,
                 deconflict,
                 refresh,
                 excluded_fields,
@@ -95,6 +100,7 @@ impl HandleCallback for Paddling {
                 paddling_get(
                     (*date).into(),
                     *time_slot,
+                    *freshies,
                     *deconflict,
                     *refresh,
                     *excluded_fields,
@@ -104,7 +110,7 @@ impl HandleCallback for Paddling {
                 )
                 .await?;
             }
-            Paddling::MonthSelect { date } => {
+            Paddling::MonthSelect { date, freshies } => {
                 let start = NaiveDate::from_ymd_opt(date.year, date.month, 1).unwrap();
 
                 let days: Vec<Callback> = (0..31)
@@ -114,6 +120,7 @@ impl HandleCallback for Paddling {
                         Self::enum_parent(Self::Get {
                             date: day,
                             time_slot: false,
+                            freshies: *freshies,
                             deconflict: true,
                             refresh: false,
                             excluded_fields: u64::MAX,
@@ -124,11 +131,16 @@ impl HandleCallback for Paddling {
 
                 let next = Self::enum_parent(Self::MonthSelect {
                     date: (start + Duration::days(33)).into(),
+                    freshies: *freshies,
                 });
                 let prev = Self::enum_parent(Self::MonthSelect {
                     date: (start - Duration::days(1)).into(),
+                    freshies: *freshies,
                 });
-                let year = Self::enum_parent(Self::YearSelect { date: date.clone() });
+                let year = Self::enum_parent(Self::YearSelect {
+                    date: date.clone(),
+                    freshies: *freshies,
+                });
 
                 let keyboard = calendar_month_gen((*date).into(), &days, year, next, prev, None);
 
@@ -136,7 +148,7 @@ impl HandleCallback for Paddling {
                     .reply_markup(keyboard)
                     .await?;
             }
-            Paddling::YearSelect { date } => {
+            Paddling::YearSelect { date, freshies } => {
                 let months: Vec<Callback> = (0..12)
                     .into_iter()
                     .map(|m| {
@@ -146,7 +158,10 @@ impl HandleCallback for Paddling {
                             day: 1,
                         };
 
-                        Self::enum_parent(Self::MonthSelect { date: month })
+                        Self::enum_parent(Self::MonthSelect {
+                            date: month,
+                            freshies: *freshies,
+                        })
                     })
                     .collect();
 
@@ -156,6 +171,7 @@ impl HandleCallback for Paddling {
                         month: 1,
                         day: 1,
                     },
+                    freshies: *freshies,
                 });
                 let prev = Self::enum_parent(Self::YearSelect {
                     date: Date {
@@ -163,6 +179,7 @@ impl HandleCallback for Paddling {
                         month: 1,
                         day: 1,
                     },
+                    freshies: *freshies,
                 });
 
                 let keyboard = calendar_year_gen((*date).into(), &months, next, prev, None);
@@ -175,13 +192,14 @@ impl HandleCallback for Paddling {
             Paddling::ExcludeSelection {
                 date,
                 time_slot,
+                freshies,
                 deconflict,
                 refresh,
                 excluded_fields,
                 exclude_type,
             } => {
                 let date_n = (*date).into();
-                let mut name_list = ntu_canoebot_attd::namelist(date_n, *time_slot)
+                let mut name_list = ntu_canoebot_attd::namelist(date_n, *time_slot, *freshies)
                     .await
                     .unwrap_or(NameList::from_date_time(date_n, *time_slot));
 
@@ -193,7 +211,9 @@ impl HandleCallback for Paddling {
 
                 name_list.exclude(excluded);
                 name_list.assign_boats(*deconflict).await;
-                name_list.fill_prog(false).await.unwrap();
+                if !freshies {
+                    name_list.fill_prog(false).await.unwrap();
+                }
 
                 let mut header_buttons = vec![
                     vec![
@@ -202,6 +222,7 @@ impl HandleCallback for Paddling {
                             Self::enum_parent(Self::ExcludeSelection {
                                 date: *date,
                                 time_slot: *time_slot,
+                                freshies: *freshies,
                                 deconflict: *deconflict,
                                 refresh: *refresh,
                                 excluded_fields: u64::MIN,
@@ -213,6 +234,7 @@ impl HandleCallback for Paddling {
                             Self::enum_parent(Self::ExcludeSelection {
                                 date: *date,
                                 time_slot: *time_slot,
+                                freshies: *freshies,
                                 deconflict: *deconflict,
                                 refresh: *refresh,
                                 excluded_fields: u64::MAX,
@@ -225,6 +247,7 @@ impl HandleCallback for Paddling {
                         Self::enum_parent(Self::Get {
                             date: *date,
                             time_slot: *time_slot,
+                            freshies: *freshies,
                             deconflict: *deconflict,
                             refresh: *refresh,
                             excluded_fields: *excluded_fields,
@@ -276,6 +299,7 @@ impl HandleCallback for Paddling {
                         let callback = Self::enum_parent(Self::ExcludeSelection {
                             date: *date,
                             time_slot: *time_slot,
+                            freshies: *freshies,
                             deconflict: *deconflict,
                             refresh: *refresh,
                             excluded_fields: excl,
@@ -307,6 +331,7 @@ impl HandleCallback for Paddling {
 pub async fn paddling_get(
     date: NaiveDate,
     time_slot: bool,
+    freshies: bool,
     deconflict: bool,
     refresh: bool,
     exclude_idx: u64,
@@ -327,20 +352,32 @@ pub async fn paddling_get(
         }
     }
 
-    let mut name_list = ntu_canoebot_attd::namelist(date_n, time_slot)
-        .await
-        .unwrap_or(NameList::from_date_time(date, time_slot));
+    let mut name_list = match ntu_canoebot_attd::namelist(date_n, time_slot, freshies).await {
+        Some(nl) => nl,
+        None => {
+            log::error!(
+                "namelist date: {} time slot: {} not found, defaulting to blank",
+                date_n,
+                time_slot
+            );
+            NameList::from_date_time(date, time_slot)
+        }
+    };
 
     let excluded = BitIndices::from_u64(exclude_idx);
 
     name_list.exclude(excluded);
     name_list.assign_boats(deconflict).await;
-    name_list.fill_prog(false).await.unwrap();
+    // freshies do not follow prog
+    if !freshies {
+        name_list.fill_prog(false).await.unwrap();
+    }
 
     let d: Date = date.into();
     let prev = Paddling::enum_parent(Paddling::Get {
         date: (date_n - Duration::days(1)).into(),
         time_slot,
+        freshies,
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
@@ -349,6 +386,7 @@ pub async fn paddling_get(
     let next = Paddling::enum_parent(Paddling::Get {
         date: (date_n + Duration::days(1)).into(),
         time_slot,
+        freshies,
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
@@ -359,6 +397,7 @@ pub async fn paddling_get(
     let refresh = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot,
+        freshies,
         deconflict,
         refresh: true,
         excluded_fields: exclude_idx,
@@ -367,6 +406,7 @@ pub async fn paddling_get(
     let switch = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot,
+        freshies,
         deconflict: !deconflict,
         refresh: false,
         excluded_fields: exclude_idx,
@@ -375,12 +415,13 @@ pub async fn paddling_get(
     let time = Paddling::enum_parent(Paddling::Get {
         date: d,
         time_slot: !time_slot,
+        freshies,
         deconflict,
         refresh: false,
         excluded_fields: u64::MAX,
         show_blanks: true,
     });
-    let month = Paddling::enum_parent(Paddling::MonthSelect { date: d });
+    let month = Paddling::enum_parent(Paddling::MonthSelect { date: d, freshies });
 
     let switch_label = if deconflict { "plain" } else { "deconf" };
     let time_label = if time_slot { TIME_AM } else { TIME_PM };
@@ -399,6 +440,7 @@ pub async fn paddling_get(
                 Paddling::enum_parent(Paddling::ExcludeSelection {
                     date: d,
                     time_slot,
+                    freshies,
                     deconflict,
                     refresh: false,
                     excluded_fields: exclude_idx,
@@ -409,6 +451,8 @@ pub async fn paddling_get(
     ]);
 
     let text = format!("```\n{}```", name_list);
+
+    log::info!("checkpoint");
 
     match is_callback {
         true => {

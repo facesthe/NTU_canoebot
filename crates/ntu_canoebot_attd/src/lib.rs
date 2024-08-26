@@ -73,6 +73,9 @@ lazy_static! {
     /// "Wandering" cache.
     pub static ref SHEET_CACHE_WANDERING: RwLock<AttdSheet> = Default::default();
 
+    /// Wandering cache for freshies.
+    pub static ref SHEET_CACHE_FRESHIES: RwLock<AttdSheet> = Default::default();
+
     /// Local cache of trainig prog.
     /// Since each program sheet contains data for one entire year,
     /// this is pretty much all the data needed.
@@ -297,6 +300,7 @@ impl Display for NameList {
 
                 res
             }
+            // basically namelist
             None => {
                 lines.push(self.date.format("%d %b %y").to_string());
                 lines.push(format!(
@@ -306,6 +310,9 @@ impl Display for NameList {
                 ));
                 lines.push(String::new());
                 lines.extend(main_list);
+
+                lines.push(String::new());
+                lines.extend(excluded_list);
 
                 lines.push(String::new());
                 lines.push(fetch);
@@ -1043,7 +1050,8 @@ fn dataframe_cell_to_string(cell: AnyValue) -> String {
 }
 
 /// Return the namelist struct. Accesses cache if hit.
-pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
+/// Accesses the freshie sheet if `freshies` is set to `true`.
+pub async fn namelist(date: NaiveDate, time_slot: bool, freshies: bool) -> Option<NameList> {
     let config = get_config_type(date);
     let sheet_id = ATTENDANCE_SHEETS[config as usize];
 
@@ -1051,9 +1059,44 @@ pub async fn namelist(date: NaiveDate, time_slot: bool) -> Option<NameList> {
 
     let (sheet_name, _) = calculate_sheet_name(date);
 
-    debug_println!("sheet name: {}", sheet_name);
+    debug_println!("base sheet name: {}", sheet_name);
 
-    let sheet: AttdSheet = {
+    let sheet: AttdSheet = if freshies {
+        let read_lock = SHEET_CACHE_FRESHIES.read().await;
+        let in_cache = read_lock.contains_date(date.into());
+
+        match in_cache {
+            true => read_lock.clone(),
+            false => {
+                drop(read_lock);
+
+                let s = {
+                    match sheet_id {
+                        Some(id) => {
+                            let df = g_sheets::get_as_dataframe(
+                                id,
+                                Some(format!(
+                                    "{}{}",
+                                    sheet_name,
+                                    config::SHEETSCRAPER_PADDLING_FRESHIE_SHEET_SUFFIX
+                                )),
+                            )
+                            .await;
+
+                            let s: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(date));
+                            s
+                        }
+                        None => AttdSheet::from_date(date),
+                    }
+                };
+
+                let mut write_lock = SHEET_CACHE_FRESHIES.write().await;
+                update_attd_cache(s, &mut write_lock);
+
+                write_lock.clone()
+            }
+        }
+    } else {
         // check if cache matches up with this sheet
         let read_lock = SHEET_CACHE.read().await;
         let in_cache = read_lock.contains_date(date.into());
@@ -1310,8 +1353,31 @@ pub async fn refresh_attd_sheet_cache(force: bool) -> Result<(), ()> {
     let sheet_id_wandering = ATTENDANCE_SHEETS[config as usize];
     let (sheet_name_wandering, _) = calculate_sheet_name(wandering_date);
 
+    let read_freshies = SHEET_CACHE_FRESHIES.read().await;
+    let freshies_date = read_freshies.start;
+    drop(read_freshies);
+
+    let config = get_config_type(freshies_date);
+    let sheet_id_freshies = ATTENDANCE_SHEETS[config as usize];
+    let (sheet_name_freshies, _) = calculate_sheet_name(freshies_date);
+    let sheet_name_freshies = format!(
+        "{}{}",
+        sheet_name_freshies,
+        config::SHEETSCRAPER_PADDLING_FRESHIE_SHEET_SUFFIX
+    );
+
     let mut cache_lock = SHEET_CACHE.write().await;
     let mut cache_lock_wand = SHEET_CACHE_WANDERING.write().await;
+    let mut cache_lock_freshies = SHEET_CACHE_FRESHIES.write().await;
+
+    match sheet_id_freshies {
+        Some(id) => {
+            let df = g_sheets::get_as_dataframe(id, Some(sheet_name_freshies)).await;
+            let sheet: AttdSheet = df.try_into().unwrap_or(AttdSheet::from_date(freshies_date));
+            update_attd_cache(sheet, &mut cache_lock_freshies);
+        }
+        None => (),
+    }
 
     match (sheet_id, sheet_id_wandering) {
         (None, None) => (),
