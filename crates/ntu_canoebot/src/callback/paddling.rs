@@ -452,8 +452,6 @@ pub async fn paddling_get(
 
     let text = format!("```\n{}```", name_list);
 
-    log::info!("checkpoint");
-
     match is_callback {
         true => {
             bot.edit_message_text(msg.chat.id, msg.id, text)
