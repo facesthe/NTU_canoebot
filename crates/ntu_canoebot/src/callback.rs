@@ -30,6 +30,7 @@ pub use logsheet::{logsheet_start, LogSheet};
 pub use namelist::namelist_get;
 pub use paddling::{paddling_get, Paddling};
 pub use ping::ping_start;
+use teloxide::types::MaybeInaccessibleMessage;
 pub use training::training_get;
 pub use whatactually::whatactually_get;
 
@@ -330,10 +331,17 @@ impl ToString for Callback {
 fn message_from_callback_query(
     query: &CallbackQuery,
 ) -> Result<&Message, Box<dyn Error + Send + Sync>> {
-    Ok(query
+    query
         .message
         .as_ref()
-        .ok_or(anyhow!("failed to get message from callback query"))?)
+        .and_then(|msg| {
+            if let MaybeInaccessibleMessage::Regular(m) = msg {
+                Some(m)
+            } else {
+                None
+            }
+        })
+        .ok_or(anyhow!("failed to get message from callback query").into())
 }
 
 /// Substitute all text in a message with blank blocks,

@@ -5,7 +5,7 @@ use std::error::Error;
 use chrono::Duration;
 use lazy_static::lazy_static;
 use teloxide::prelude::*;
-use teloxide::types::{Chat, Message, MessageId};
+use teloxide::types::{Chat, ChatFullInfo, Message, MessageId};
 
 use ntu_canoebot_config as config;
 
@@ -32,7 +32,7 @@ fn message_from_chat_id(chat_id: i64) -> Message {
             username: None,
             first_name: None,
             last_name: None,
-            emoji_status_custom_emoji_id: None,
+            // emoji_status_custom_emoji_id: None,
             bio: None,
             has_private_forwards: None,
             has_restricted_voice_and_video_messages: None,
@@ -42,6 +42,8 @@ fn message_from_chat_id(chat_id: i64) -> Message {
         message_auto_delete_time: None,
         has_hidden_members: false,
         has_aggressive_anti_spam_enabled: false,
+        chat_full_info: ChatFullInfo::default(),
+        available_reactions: None,
     };
 
     Message {
@@ -55,6 +57,9 @@ fn message_from_chat_id(chat_id: i64) -> Message {
                 channel_chat_created: teloxide::types::True,
             },
         ),
+        from: None,
+        sender_chat: None,
+        is_topic_message: false,
     }
 }
 

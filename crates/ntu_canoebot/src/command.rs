@@ -39,21 +39,21 @@ pub enum Commands {
     #[command(description = "bot version")]
     Version,
 
-    #[command(description = "off")]
+    #[command(hide)]
     Calendar,
 
     // prefix, description, rename, parse_with, separator
-    #[command(description = "off")]
+    #[command(hide)]
     Button(commands::Button),
 
     // #[command(description = "give feedback")]
-    #[command(description = "off")]
+    #[command(hide)]
     Feedback,
 
     #[command(description = "reload boat configs")]
     Reload,
 
-    // #[command(description = "off")]
+    // #[command(hide)]
     // Src,
     #[command(description = "see who's going training")]
     Namelist,
@@ -81,7 +81,7 @@ pub enum Commands {
 
     // secondary commands
     /// Logs the users chat info
-    #[command(description = "off")]
+    #[command(hide)]
     Ping,
     // #[command(description = "Simple wikipedia search")]
     #[command(description = "what is it?")]
@@ -100,7 +100,7 @@ pub enum Commands {
     #[command(description = "silence, ...")]
     Silence(silence::Silence),
 
-    #[command(description = "off")]
+    #[command(hide)]
     Panic,
 }
 
@@ -462,7 +462,7 @@ async fn empty_command_handler(_bot: Bot, _msg: Message, _me: Me) {
     log::trace!(
         "Chat id: {}, User id: {}",
         _msg.chat.id,
-        _msg.from().unwrap().id
+        _msg.from.clone().unwrap().id
     );
 
     debug_println!("message contents: {:?}", _msg.text());

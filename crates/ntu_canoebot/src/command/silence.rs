@@ -72,7 +72,7 @@ impl HandleCommand for Silence {
         msg: Message,
         _me: Me,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut user = match msg.reply_to_message().and_then(|m| m.from()) {
+        let mut user = match msg.reply_to_message().and_then(|m| m.from.as_ref()) {
             Some(u) => u,
             None => {
                 if let Some(t) = &self.text {
@@ -109,7 +109,7 @@ impl HandleCommand for Silence {
             .await?;
 
             // change the target to the person that sent the message
-            user = msg.from().unwrap();
+            user = msg.from.as_ref().unwrap();
             silence_text = chosen_noun.to_owned();
         }
 

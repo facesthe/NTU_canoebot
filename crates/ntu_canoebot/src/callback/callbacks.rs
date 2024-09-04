@@ -18,7 +18,7 @@ impl HandleCallback for Empty {
         query: CallbackQuery,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(msg) = query.message {
-            bot.edit_message_text(msg.chat.id, msg.id, "button pressed")
+            bot.edit_message_text(msg.chat().id, msg.id(), "button pressed")
                 .await?;
         }
         Ok(())
