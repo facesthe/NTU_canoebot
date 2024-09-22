@@ -129,6 +129,7 @@ pub async fn training_get(
 
     let cache_lock = PROG_CACHE.read().await;
     if cache_lock.contains_date(date) && refresh {
+        drop(cache_lock);
         ntu_canoebot_attd::refresh_prog_sheet_cache(true)
             .await
             .unwrap();

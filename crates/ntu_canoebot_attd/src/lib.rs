@@ -887,6 +887,9 @@ impl ProgSheet {
     /// Returns the training prog for a given date
     pub fn get_program(&self, date: NaiveDate, time_slot: bool) -> Option<String> {
         let delta = (date - self.start).num_days();
+        debug_println!("prog limits | start: {}, end: {}", self.start, self.end);
+        debug_println!("input date: {}", date);
+        debug_println!("prog sheet row delta: {}", delta);
 
         let col = if time_slot {
             config::SHEETSCRAPER_COLUMNS_PROG_PM
