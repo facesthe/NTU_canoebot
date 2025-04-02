@@ -13,7 +13,8 @@ use serde_repr::Deserialize_repr;
 pub(crate) struct RawFormData {
     unknown_1: Value,
     pub question_blob: RawQuestionBlob, // RawQuestionBlob
-    unknown_2: String,
+    /// Url route
+    route: String,
     description: String,
 
     // nulls
@@ -39,8 +40,10 @@ pub(crate) struct RawFormData {
     unknown_13: u32,
     unknown_arr: String,
 
+    // unknown numbers
     unknown_14: u32,
     unknown_15: u32,
+    unknown_16: u32,
 }
 
 /// Blob of data that contains form questions along with other unknowns

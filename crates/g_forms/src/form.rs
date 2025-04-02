@@ -105,7 +105,8 @@ impl GoogleForm {
             variable_content_with_semi.iter().collect::<String>()
         };
 
-        let des: RawFormData = serde_json::from_str(&variable_contents).unwrap();
+        let des: RawFormData =
+            serde_json::from_str(&variable_contents).expect("failed to deserialize raw form data");
 
         let questions = des
             .question_blob
